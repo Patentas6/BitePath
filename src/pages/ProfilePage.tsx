@@ -93,42 +93,63 @@ const ProfilePage = () => {
 
   const updateProfileMutation = useMutation({
     mutationFn: async (values: ProfileFormValues) => {
-      if (!userId) throw new Error("User not authenticated.");
-      console.log("ProfilePage: Attempting to upsert profile for userId:", userId, "with values:", values);
+      if (!userId) {
+        // This should ideally not happen if button is disabled or user is redirected
+        console.error("[PROFILE_MUTATION_FN_ERROR] User ID is null. Aborting.");
+        throw new Error("User not authenticated. Please log in again.");
+      }
+      console.log("[PROFILE_MUTATION_FN_START] Attempting to upsert for userId:", userId, "Values:", values);
       
-      const { data: upsertedData, error } = await supabase
+      const response = await supabase
         .from("profiles")
         .upsert({
           id: userId, 
           first_name: values.first_name,
           last_name: values.last_name,
         })
-        .select(); // Add .select() to get the upserted data back
+        .select();
 
-      console.log("ProfilePage: Upsert operation completed. Returned data:", upsertedData, "Error:", error);
+      // This log is critical to see what Supabase returns
+      console.log("[PROFILE_MUTATION_FN_RESPONSE] Supabase upsert().select() response:", JSON.stringify(response, null, 2));
 
-      if (error) {
-        console.error("ProfilePage: Error during upsert operation:", error);
-        throw error;
+      if (response.error) {
+        console.error("[PROFILE_MUTATION_FN_ERROR] Error from Supabase during upsert:", response.error);
+        throw response.error; // This will trigger the onError callback of useMutation
       }
-      if (!upsertedData || upsertedData.length === 0) {
-        // This case would be strange if no error was thrown but no data returned.
-        console.warn("ProfilePage: Upsert returned no data and no error.");
+
+      if (!response.data) {
+        console.warn("[PROFILE_MUTATION_FN_WARN] Supabase upsert().select() returned null data. This is unexpected.");
+        throw new Error("Upsert operation returned null data.");
       }
-      // No explicit "Profile upsert successful" here, success is implied if no error thrown
+      
+      if (response.data.length === 0) {
+        console.warn("[PROFILE_MUTATION_FN_WARN] Supabase upsert().select() returned an empty array. This might mean the row was not inserted/updated or RLS prevents seeing it.");
+        // It's possible RLS prevents the .select() part even if upsert worked.
+        // For now, let's not throw an error here, but this is a strong indicator of issues.
+        // throw new Error("Upsert operation did not return the expected data array.");
+      }
+      
+      console.log("[PROFILE_MUTATION_FN_END] Processed Supabase response. Returning data:", response.data);
+      return response.data; // Return the data from the upsert operation
     },
-    onSuccess: (data, variables) => { // data here is what mutationFn returns (undefined if not returned)
+    onSuccess: (returnedDataFromMutationFn, variables) => {
+      console.log("[PROFILE_ON_SUCCESS] Mutation succeeded. Variables:", variables, "Data from mutationFn:", JSON.stringify(returnedDataFromMutationFn, null, 2));
       showSuccess("Profile updated successfully!");
-      console.log("ProfilePage: Mutation onSuccess triggered. Variables:", variables);
       queryClient.invalidateQueries({ queryKey: ["userProfile", userId] });
     },
-    onError: (error) => {
-      showError(`Failed to update profile: ${error.message}`);
-      console.error("ProfilePage: Mutation onError triggered:", error);
+    onError: (errorFromMutationFn) => {
+      console.error("[PROFILE_ON_ERROR] Mutation failed. Error:", errorFromMutationFn);
+      // Check if errorFromMutationFn has a message property
+      const message = (errorFromMutationFn as any)?.message || "An unknown error occurred.";
+      showError(`Failed to update profile: ${message}`);
     },
   });
 
   const onSubmit = (values: ProfileFormValues) => {
+    if (!userId) {
+      showError("Cannot update profile: User session not found. Please try logging out and back in.");
+      return;
+    }
     updateProfileMutation.mutate(values);
   };
 
@@ -194,7 +215,7 @@ const ProfilePage = () => {
                       </FormItem>
                     )}
                   />
-                  <Button type="submit" className="w-full" disabled={updateProfileMutation.isPending}>
+                  <Button type="submit" className="w-full" disabled={!userId || updateProfileMutation.isPending}>
                     {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
                   </Button>
                 </form>
