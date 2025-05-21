@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { format, endOfWeek, addDays } from "date-fns"; // Removed startOfWeek
+import { format, endOfWeek } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -9,31 +9,28 @@ import { ListChecks } from "lucide-react";
 interface PlannedMealWithIngredients {
   meals: {
     name: string;
-    ingredients: string | null;
+    ingredients: string | null; // Ingredients can be a single block of text
   } | null;
 }
 
 interface GroceryListProps {
   userId: string;
-  currentWeekStart: Date; // Prop for the start date of the week to display
+  currentWeekStart: Date;
 }
 
 const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) => {
-  // Determine the end of the week based on the currentWeekStart prop
-  const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 }); // Or addDays(currentWeekStart, 6)
+  const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
 
   const { data: plannedMeals, isLoading, error } = useQuery<PlannedMealWithIngredients[]>({
-    // Query key now depends on the currentWeekStart prop
-    queryKey: ["groceryList", userId, format(currentWeekStart, 'yyyy-MM-dd')], 
+    queryKey: ["groceryList", userId, format(currentWeekStart, 'yyyy-MM-dd')],
     queryFn: async () => {
       if (!userId) return [];
-
       const startDateStr = format(currentWeekStart, 'yyyy-MM-dd');
       const endDateStr = format(weekEnd, 'yyyy-MM-dd');
 
       const { data, error } = await supabase
         .from("meal_plans")
-        .select("meals ( name, ingredients )")
+        .select("meals ( name, ingredients )") // Select the whole meal object, including ingredients
         .eq("user_id", userId)
         .gte("plan_date", startDateStr)
         .lte("plan_date", endDateStr);
@@ -44,13 +41,20 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
     enabled: !!userId,
   });
 
-  const allIngredients = plannedMeals
-    ?.map(pm => pm.meals?.ingredients)
-    .filter(Boolean) as string[] || [];
-  
-  const uniqueIngredientLines = Array.from(new Set(
-    allIngredients.flatMap(block => block.split('\n').map(line => line.trim()).filter(Boolean))
-  ));
+  // Process ingredients to get unique lines
+  const uniqueIngredientLines = useMemo(() => {
+    if (!plannedMeals) return [];
+
+    const allIngredientBlocks = plannedMeals
+      .map(pm => pm.meals?.ingredients)
+      .filter(Boolean) as string[]; // Get all non-null ingredient blocks
+
+    const allLines = allIngredientBlocks.flatMap(block =>
+      block.split('\n').map(line => line.trim()).filter(line => line.length > 0)
+    );
+
+    return Array.from(new Set(allLines));
+  }, [plannedMeals]);
 
   if (isLoading) {
     return (
