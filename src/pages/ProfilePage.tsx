@@ -20,7 +20,7 @@ const profileFormSchema = z.object({
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
 interface ProfileData {
-  id: string; // Ensure id is part of the interface for upsert
+  id: string;
   first_name: string | null;
   last_name: string | null;
 }
@@ -53,7 +53,7 @@ const ProfilePage = () => {
       console.log("ProfilePage: Fetching profile for userId:", userId);
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, first_name, last_name") // Select id as well
+        .select("id, first_name, last_name")
         .eq("id", userId)
         .single();
       
@@ -61,7 +61,7 @@ const ProfilePage = () => {
         console.error("ProfilePage: Error fetching profile:", error);
         throw error;
       }
-      console.log("ProfilePage: Profile data fetched:", data);
+      console.log("ProfilePage: Profile data fetched (or null if not found):", data);
       return data;
     },
     enabled: !!userId,
@@ -82,42 +82,49 @@ const ProfilePage = () => {
         first_name: profile.first_name || "",
         last_name: profile.last_name || "",
       });
-    } else if (!isLoadingProfile) { // Only reset to empty if not loading and profile is null
-      console.log("ProfilePage: Profile data is null (and not loading), resetting form with empty strings.");
+    } else if (!isLoadingProfile && userId) { 
+      console.log("ProfilePage: Profile data is null (and not loading, user ID available), resetting form with empty strings.");
       form.reset({
         first_name: "",
         last_name: "",
       });
     }
-  }, [profile, isLoadingProfile, form]);
+  }, [profile, isLoadingProfile, userId, form]);
 
   const updateProfileMutation = useMutation({
     mutationFn: async (values: ProfileFormValues) => {
       if (!userId) throw new Error("User not authenticated.");
-      console.log("ProfilePage: Upserting profile for userId:", userId, "with values:", values);
+      console.log("ProfilePage: Attempting to upsert profile for userId:", userId, "with values:", values);
       
-      // Use upsert here
-      const { error } = await supabase
+      const { data: upsertedData, error } = await supabase
         .from("profiles")
         .upsert({
-          id: userId, // Include the ID for upsert
+          id: userId, 
           first_name: values.first_name,
           last_name: values.last_name,
-        });
-        // .select() // Optionally add .select() if you want the upserted data back
+        })
+        .select(); // Add .select() to get the upserted data back
+
+      console.log("ProfilePage: Upsert operation completed. Returned data:", upsertedData, "Error:", error);
 
       if (error) {
-        console.error("ProfilePage: Error upserting profile:", error);
+        console.error("ProfilePage: Error during upsert operation:", error);
         throw error;
       }
-      console.log("ProfilePage: Profile upsert successful.");
+      if (!upsertedData || upsertedData.length === 0) {
+        // This case would be strange if no error was thrown but no data returned.
+        console.warn("ProfilePage: Upsert returned no data and no error.");
+      }
+      // No explicit "Profile upsert successful" here, success is implied if no error thrown
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => { // data here is what mutationFn returns (undefined if not returned)
       showSuccess("Profile updated successfully!");
+      console.log("ProfilePage: Mutation onSuccess triggered. Variables:", variables);
       queryClient.invalidateQueries({ queryKey: ["userProfile", userId] });
     },
     onError: (error) => {
       showError(`Failed to update profile: ${error.message}`);
+      console.error("ProfilePage: Mutation onError triggered:", error);
     },
   });
 
@@ -125,7 +132,7 @@ const ProfilePage = () => {
     updateProfileMutation.mutate(values);
   };
 
-  if (!userId && isLoadingProfile) { // Show loading if userId is not yet available
+  if (!userId && isLoadingProfile) { 
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
         <p>Loading user information...</p>
@@ -147,7 +154,7 @@ const ProfilePage = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {isLoadingProfile && !profile && ( // Show skeleton/loading text only when truly loading initial data
+            {isLoadingProfile && !profile && (
               <div className="space-y-4">
                 <p>Loading profile data...</p>
                 <Skeleton className="h-10 w-full" />
@@ -158,7 +165,7 @@ const ProfilePage = () => {
             {profileError && (
               <p className="text-red-500">Error loading profile: {(profileError as Error).message}</p>
             )}
-            {(!isLoadingProfile || profile) && !profileError && ( // Render form if not loading OR if profile data exists, and no error
+            {(!isLoadingProfile || profile) && !profileError && (
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                   <FormField
