@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"; // Correctly import useState
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Link } from "react-router-dom"; // For a back button
+import { Link } from "react-router-dom";
 
 const profileFormSchema = z.object({
   first_name: z.string().min(1, "First name is required."),
@@ -56,14 +56,14 @@ const ProfilePage = () => {
         .eq("id", userId)
         .single();
       
-      if (error && error.code !== 'PGRST116') { // PGRST116: single row not found (profile might not exist yet)
+      if (error && error.code !== 'PGRST116') { 
         console.error("ProfilePage: Error fetching profile:", error);
         throw error;
       }
       console.log("ProfilePage: Profile data fetched:", data);
       return data;
     },
-    enabled: !!userId, // Query runs only if userId is available
+    enabled: !!userId,
   });
 
   const form = useForm<ProfileFormValues>({
@@ -82,8 +82,6 @@ const ProfilePage = () => {
         last_name: profile.last_name || "",
       });
     } else {
-      // If profile is null (e.g. not found or not loaded yet), reset with empty strings
-      // This can happen if a user signs up and the trigger for profile creation hasn't run or they have no profile
       console.log("ProfilePage: Profile data is null, resetting form with empty strings.");
       form.reset({
         first_name: "",
@@ -122,7 +120,6 @@ const ProfilePage = () => {
     updateProfileMutation.mutate(values);
   };
 
-  // More robust loading state
   if (!userId) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
@@ -140,7 +137,9 @@ const ProfilePage = () => {
         <Card>
           <CardHeader>
             <CardTitle>Your Profile</CardTitle>
-            <CardDescription>Update your first and last name.</CardDescription>
+            <CardDescription>
+              Update your display names. They don't have to be your <em>real</em> names – get creative with your meal planning persona! Just make sure you remember what you pick.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {isLoadingProfile && (
@@ -162,9 +161,9 @@ const ProfilePage = () => {
                     name="first_name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>First Name</FormLabel>
+                        <FormLabel>First Name / Alias</FormLabel>
                         <FormControl>
-                          <Input placeholder="Your first name" {...field} />
+                          <Input placeholder="e.g., Captain Cook" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -175,9 +174,9 @@ const ProfilePage = () => {
                     name="last_name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Last Name</FormLabel>
+                        <FormLabel>Last Name / Title</FormLabel>
                         <FormControl>
-                          <Input placeholder="Your last name" {...field} />
+                          <Input placeholder="e.g., The Magnificent" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
