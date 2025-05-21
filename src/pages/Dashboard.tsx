@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useNavigate, Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query"; // Import useQuery
 import { Button } from "@/components/ui/button";
 import WeeklyPlanner from "@/components/WeeklyPlanner";
 import GroceryList from "@/components/GroceryList";
@@ -15,76 +16,54 @@ interface UserProfile {
 
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [isProfileLoading, setIsProfileLoading] = useState(true);
   const navigate = useNavigate();
   
   const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
 
+  // Effect for handling user session
   useEffect(() => {
-    const fetchUserAndProfile = async (currentUser: User) => {
-      setIsProfileLoading(true);
-      try {
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('first_name, last_name')
-          .eq('id', currentUser.id)
-          .single();
-
-        if (profileError && profileError.code !== 'PGRST116') { // PGRST116: row not found
-          console.error("Dashboard: Error fetching profile:", profileError);
-          setProfile(null);
-        } else {
-          setProfile(profileData as UserProfile | null);
-        }
-      } catch (e) {
-        console.error("Dashboard: Exception fetching profile:", e);
-        setProfile(null);
-      } finally {
-        setIsProfileLoading(false);
-      }
-    };
-
-    const checkUserSession = async () => {
+    const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) {
-        navigate("/auth");
-        setUser(null);
-        setProfile(null);
-        setIsProfileLoading(false);
-      } else {
+      if (session?.user) {
         setUser(session.user);
-        await fetchUserAndProfile(session.user);
+      } else {
+        navigate("/auth");
       }
     };
+    getSession();
 
-    checkUserSession();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
       if (!session?.user) {
         navigate("/auth");
-        setUser(null);
-        setProfile(null);
-        setIsProfileLoading(false);
-      } else {
-        setUser(session.user);
-        // If user changes (e.g. re-login as different user), fetch their profile
-        if (user?.id !== session.user.id) {
-            await fetchUserAndProfile(session.user);
-        } else {
-            // User is the same, profile might already be loaded or loading
-            // If profile is not loaded yet, fetch it (e.g. initial load after redirect)
-            if (!profile && !isProfileLoading) {
-                 await fetchUserAndProfile(session.user);
-            }
-        }
       }
     });
 
     return () => {
       authListener?.subscription.unsubscribe();
     };
-  }, [navigate, user?.id]); // Add user.id to re-run if user identity changes
+  }, [navigate]);
+
+  // Query for fetching user profile
+  const { data: userProfile, isLoading: isUserProfileLoading } = useQuery<UserProfile | null>({
+    queryKey: ["userProfile", user?.id], // Matches queryKey in ProfilePage
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("first_name, last_name")
+        .eq("id", user.id)
+        .single();
+      
+      // PGRST116 means no row was found, which is not an error in this context (profile might not exist)
+      if (error && error.code !== 'PGRST116') {
+        console.error("Dashboard: Error fetching profile:", error);
+        throw error; // Or return null if you prefer to handle errors silently
+      }
+      return data;
+    },
+    enabled: !!user?.id, // Only run query if user.id is available
+  });
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -99,22 +78,22 @@ const Dashboard = () => {
   };
 
   const getWelcomeMessage = () => {
-    if (!user) return "Loading..."; // Should be caught by the main loading check
+    if (!user) return "Loading user session...";
 
-    if (isProfileLoading && !profile) {
+    if (isUserProfileLoading && !userProfile) {
       return `Welcome, ${user.email ? user.email.split('@')[0] : 'User'}! (Loading name...)`;
     }
-    if (profile?.first_name && profile?.last_name) {
-      return `Welcome, ${profile.first_name} ${profile.last_name}!`;
+    if (userProfile?.first_name && userProfile?.last_name) {
+      return `Welcome, ${userProfile.first_name} ${userProfile.last_name}!`;
     }
-    if (profile?.first_name) {
-      return `Welcome, ${profile.first_name}!`;
+    if (userProfile?.first_name) {
+      return `Welcome, ${userProfile.first_name}!`;
     }
-    // Fallback if profile is loaded but names are null/empty
+    // Fallback if profile is loaded but names are null/empty, or profile is null
     return `Welcome, ${user.email ? user.email.split('@')[0] : 'User'}!`;
   };
 
-  if (!user) { // Main loading check for user session
+  if (!user) { 
     return <div className="min-h-screen flex items-center justify-center">Loading user session...</div>;
   }
 
