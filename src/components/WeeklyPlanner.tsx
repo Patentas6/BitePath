@@ -37,13 +37,8 @@ const WeeklyPlanner = () => {
 
       const { data, error } = await supabase
         .from("meal_plans")
-        .select(\`
-          id,
-          meal_id,
-          plan_date,
-          meal_type,
-          meals ( name )
-        \`)
+        // Rewriting the select string as a single line to fix the syntax error
+        .select("id, meal_id, plan_date, meal_type, meals ( name )")
         .eq("user_id", user.id)
         .gte("plan_date", start)
         .lte("plan_date", end);
@@ -118,9 +113,7 @@ const WeeklyPlanner = () => {
           ))}
         </div>
         <div className="grid grid-cols-7 gap-2 mt-2">
-          {daysOfWeek.map(day => (
-            <div key={day.toISOString()} className="flex flex-col space-y-2">
-              {mealTypes.map(mealType => {
+          {mealTypes.map(mealType => {
                 const plannedMeal = mealPlans?.find(plan =>
                   isSameDay(new Date(plan.plan_date), day) && plan.meal_type === mealType
                 );
