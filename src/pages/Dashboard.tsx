@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useNavigate, Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query"; // Import useQuery
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import WeeklyPlanner from "@/components/WeeklyPlanner";
 import GroceryList from "@/components/GroceryList";
@@ -20,7 +20,6 @@ const Dashboard = () => {
   
   const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
 
-  // Effect for handling user session
   useEffect(() => {
     const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -44,25 +43,30 @@ const Dashboard = () => {
     };
   }, [navigate]);
 
-  // Query for fetching user profile
   const { data: userProfile, isLoading: isUserProfileLoading } = useQuery<UserProfile | null>({
-    queryKey: ["userProfile", user?.id], // Matches queryKey in ProfilePage
+    queryKey: ["userProfile", user?.id],
     queryFn: async () => {
-      if (!user?.id) return null;
+      if (!user?.id) {
+        console.log("Dashboard: No user ID, skipping profile fetch.");
+        return null;
+      }
+      console.log(`Dashboard: Attempting to fetch profile for user ID: ${user.id}`);
       const { data, error } = await supabase
         .from("profiles")
         .select("first_name, last_name")
         .eq("id", user.id)
         .single();
       
-      // PGRST116 means no row was found, which is not an error in this context (profile might not exist)
-      if (error && error.code !== 'PGRST116') {
-        console.error("Dashboard: Error fetching profile:", error);
-        throw error; // Or return null if you prefer to handle errors silently
+      console.log('Dashboard: Profile data fetched from Supabase:', data);
+      if (error) {
+        console.error('Dashboard: Error fetching profile data:', error);
+        if (error.code !== 'PGRST116') { // PGRST116: row not found, not a critical error here
+          throw error; 
+        }
       }
       return data;
     },
-    enabled: !!user?.id, // Only run query if user.id is available
+    enabled: !!user?.id,
   });
 
   const handleLogout = async () => {
@@ -70,7 +74,6 @@ const Dashboard = () => {
     if (error) {
       console.error("Logout error:", error);
     }
-    // Auth listener will handle navigation
   };
 
   const handleWeekNavigate = (direction: "prev" | "next") => {
@@ -79,6 +82,8 @@ const Dashboard = () => {
 
   const getWelcomeMessage = () => {
     if (!user) return "Loading user session...";
+
+    console.log('Dashboard: getWelcomeMessage called. isUserProfileLoading:', isUserProfileLoading, 'userProfile:', userProfile);
 
     if (isUserProfileLoading && !userProfile) {
       return `Welcome, ${user.email ? user.email.split('@')[0] : 'User'}! (Loading name...)`;
@@ -89,7 +94,6 @@ const Dashboard = () => {
     if (userProfile?.first_name) {
       return `Welcome, ${userProfile.first_name}!`;
     }
-    // Fallback if profile is loaded but names are null/empty, or profile is null
     return `Welcome, ${user.email ? user.email.split('@')[0] : 'User'}!`;
   };
 
