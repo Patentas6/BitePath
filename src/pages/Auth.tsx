@@ -2,6 +2,9 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { useNavigate } from "react-router-dom"; // Import useNavigate
+import { supabase } from "@/lib/supabase"; // Import the Supabase client
+import { showError, showSuccess } from "@/utils/toast"; // Import toast utilities
 
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +28,8 @@ type AuthFormValues = z.infer<typeof authFormSchema>;
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true); // State to toggle between login and sign-up
+  const [isLoading, setIsLoading] = useState(false); // State for loading indicator
+  const navigate = useNavigate(); // Hook for navigation
 
   const form = useForm<AuthFormValues>({
     resolver: zodResolver(authFormSchema),
@@ -34,15 +39,47 @@ const Auth = () => {
     },
   });
 
-  // Handle form submission (will connect to backend later)
-  const onSubmit = (values: AuthFormValues) => {
-    console.log("Auth form submitted:", values);
+  // Handle form submission
+  const onSubmit = async (values: AuthFormValues) => {
+    setIsLoading(true);
+    const { email, password } = values;
+    let error = null;
+
     if (isLogin) {
       console.log("Attempting login...");
-      // TODO: Implement login logic with Supabase
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      error = signInError;
+      if (!error) {
+        showSuccess("Logged in successfully!");
+      }
     } else {
       console.log("Attempting sign up...");
-      // TODO: Implement sign-up logic with Supabase
+      const { error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+      error = signUpError;
+      if (!error) {
+         // Supabase often requires email confirmation, so inform the user
+        showSuccess("Sign up successful! Please check your email to confirm.");
+      }
+    }
+
+    setIsLoading(false);
+
+    if (error) {
+      console.error("Auth error:", error);
+      showError(error.message);
+    } else {
+      // Redirect to dashboard or home page on success
+      // For sign-up, Supabase might require email confirmation before redirecting
+      if (isLogin) {
+         navigate("/dashboard"); // Redirect only on successful login
+      }
+      // For sign-up, the user needs to confirm email first, no immediate redirect
     }
   };
 
@@ -83,8 +120,8 @@ const Auth = () => {
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full">
-                {isLogin ? "Login" : "Sign Up"}
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? (isLogin ? "Logging In..." : "Signing Up...") : (isLogin ? "Login" : "Sign Up")}
               </Button>
             </form>
           </Form>
@@ -93,6 +130,7 @@ const Auth = () => {
             <button
               onClick={() => setIsLogin(!isLogin)}
               className="text-blue-600 hover:underline"
+              disabled={isLoading}
             >
               {isLogin ? "Sign Up" : "Login"}
             </button>
