@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react"; // Correctly import useState
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -30,9 +30,13 @@ const ProfilePage = () => {
 
   useEffect(() => {
     const getUserId = async () => {
+      console.log("ProfilePage: Attempting to get user ID");
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
+        console.log("ProfilePage: User ID found:", user.id);
         setUserId(user.id);
+      } else {
+        console.log("ProfilePage: No user found by supabase.auth.getUser() in ProfilePage.");
       }
     };
     getUserId();
@@ -41,18 +45,25 @@ const ProfilePage = () => {
   const { data: profile, isLoading: isLoadingProfile, error: profileError } = useQuery<ProfileData | null>({
     queryKey: ["userProfile", userId],
     queryFn: async () => {
-      if (!userId) return null;
+      if (!userId) {
+        console.log("ProfilePage: Query not run because userId is null.");
+        return null;
+      }
+      console.log("ProfilePage: Fetching profile for userId:", userId);
       const { data, error } = await supabase
         .from("profiles")
         .select("first_name, last_name")
         .eq("id", userId)
         .single();
-      if (error && error.code !== 'PGRST116') { // PGRST116: single row not found
+      
+      if (error && error.code !== 'PGRST116') { // PGRST116: single row not found (profile might not exist yet)
+        console.error("ProfilePage: Error fetching profile:", error);
         throw error;
       }
+      console.log("ProfilePage: Profile data fetched:", data);
       return data;
     },
-    enabled: !!userId,
+    enabled: !!userId, // Query runs only if userId is available
   });
 
   const form = useForm<ProfileFormValues>({
@@ -65,9 +76,18 @@ const ProfilePage = () => {
 
   useEffect(() => {
     if (profile) {
+      console.log("ProfilePage: Resetting form with profile data:", profile);
       form.reset({
         first_name: profile.first_name || "",
         last_name: profile.last_name || "",
+      });
+    } else {
+      // If profile is null (e.g. not found or not loaded yet), reset with empty strings
+      // This can happen if a user signs up and the trigger for profile creation hasn't run or they have no profile
+      console.log("ProfilePage: Profile data is null, resetting form with empty strings.");
+      form.reset({
+        first_name: "",
+        last_name: "",
       });
     }
   }, [profile, form]);
@@ -75,6 +95,7 @@ const ProfilePage = () => {
   const updateProfileMutation = useMutation({
     mutationFn: async (values: ProfileFormValues) => {
       if (!userId) throw new Error("User not authenticated.");
+      console.log("ProfilePage: Updating profile for userId:", userId, "with values:", values);
       const { error } = await supabase
         .from("profiles")
         .update({
@@ -82,7 +103,11 @@ const ProfilePage = () => {
           last_name: values.last_name,
         })
         .eq("id", userId);
-      if (error) throw error;
+      if (error) {
+        console.error("ProfilePage: Error updating profile:", error);
+        throw error;
+      }
+      console.log("ProfilePage: Profile update successful.");
     },
     onSuccess: () => {
       showSuccess("Profile updated successfully!");
@@ -97,14 +122,14 @@ const ProfilePage = () => {
     updateProfileMutation.mutate(values);
   };
 
-  if (!userId && !isLoadingProfile) { // Still waiting for user ID
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-            <p>Loading user information...</p>
-        </div>
+  // More robust loading state
+  if (!userId) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
+        <p>Loading user information...</p>
+      </div>
     );
   }
-
 
   return (
     <div className="min-h-screen bg-gray-100 p-4 flex flex-col items-center">
@@ -120,6 +145,7 @@ const ProfilePage = () => {
           <CardContent>
             {isLoadingProfile && (
               <div className="space-y-4">
+                <p>Loading profile data...</p>
                 <Skeleton className="h-10 w-full" />
                 <Skeleton className="h-10 w-full" />
                 <Skeleton className="h-10 w-1/4" />
