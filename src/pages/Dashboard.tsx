@@ -4,29 +4,27 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import MealForm from "@/components/MealForm";
 import MealList from "@/components/MealList";
-import WeeklyPlanner from "@/components/WeeklyPlanner"; // Import WeeklyPlanner
+import WeeklyPlanner from "@/components/WeeklyPlanner"; 
+import type { User } from "@supabase/supabase-js"; // Import User type
 
 const Dashboard = () => {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null); // Use specific User type
   const navigate = useNavigate();
 
   useEffect(() => {
     const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        // If no user is logged in, redirect to auth page
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) {
         navigate("/auth");
       } else {
-        setUser(user);
+        setUser(currentUser);
       }
     };
 
     checkUser();
 
-    // Listen for auth state changes (e.g., logout)
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session) {
-        // User logged out
         navigate("/auth");
       } else {
         setUser(session.user);
@@ -42,13 +40,10 @@ const Dashboard = () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
       console.error("Logout error:", error);
-      // Optionally show an error toast
     }
-    // The auth listener will handle the navigation after logout
   };
 
   if (!user) {
-    // Optionally show a loading state or spinner
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
@@ -60,21 +55,18 @@ const Dashboard = () => {
           <Button onClick={handleLogout}>Logout</Button>
         </div>
 
-        {/* Meal Form and List */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <MealForm />
           <MealList />
         </div>
 
-        {/* Weekly Planner */}
-        <WeeklyPlanner />
+        {/* Pass userId to WeeklyPlanner */}
+        <WeeklyPlanner userId={user.id} />
 
-        {/* Placeholder for grocery list */}
          <div className="mt-4 p-4 border rounded-lg bg-white">
            <h2 className="text-xl font-semibold mb-2">Grocery List</h2>
            <p className="text-gray-600">Coming soon: Your automated grocery list will appear here.</p>
         </div>
-
       </div>
     </div>
   );
