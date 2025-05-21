@@ -1,14 +1,12 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { useNavigate, Link } from "react-router-dom"; // Import Link
+import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import MealForm from "@/components/MealForm";
-import MealList from "@/components/MealList";
 import WeeklyPlanner from "@/components/WeeklyPlanner";
 import GroceryList from "@/components/GroceryList";
 import type { User } from "@supabase/supabase-js";
 import { startOfWeek, addDays } from "date-fns";
-import { UserCircle } from "lucide-react"; // Icon for profile link
+import { UserCircle, BookOpenText } from "lucide-react"; // Added BookOpenText for My Meals link
 
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -63,6 +61,11 @@ const Dashboard = () => {
           <h1 className="text-2xl font-bold">Welcome, {user.email ? user.email.split('@')[0] : 'User'}!</h1>
           <div className="flex items-center space-x-2">
             <Button variant="outline" size="sm" asChild>
+              <Link to="/meals">
+                <BookOpenText className="mr-2 h-4 w-4" /> My Meals
+              </Link>
+            </Button>
+            <Button variant="outline" size="sm" asChild>
               <Link to="/profile">
                 <UserCircle className="mr-2 h-4 w-4" /> Profile
               </Link>
@@ -70,11 +73,6 @@ const Dashboard = () => {
             <Button onClick={handleLogout} variant="outline" size="sm">Logout</Button>
           </div>
         </header>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <MealForm />
-          <MealList />
-        </div>
         
         <WeeklyPlanner 
           userId={user.id} 

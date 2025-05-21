@@ -8,7 +8,8 @@ import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import ProtectedRoute from "./components/ProtectedRoute";
-import ProfilePage from "./pages/Profile"; // Import ProfilePage
+import ProfilePage from "./pages/Profile";
+import MealsPage from "./pages/MealsPage"; // Import MealsPage
 
 const queryClient = new QueryClient();
 
@@ -30,10 +31,18 @@ const App = () => (
             }
           />
           <Route
-            path="/profile" // Add profile route
+            path="/profile"
             element={
               <ProtectedRoute>
                 <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/meals" // Add MealsPage route
+            element={
+              <ProtectedRoute>
+                <MealsPage />
               </ProtectedRoute>
             }
           />
