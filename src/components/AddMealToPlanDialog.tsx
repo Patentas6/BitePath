@@ -46,7 +46,6 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
   const [selectedMealId, setSelectedMealId] = useState<string | undefined>(undefined);
   const queryClient = useQueryClient();
 
-  // Fetch user's meals
   const { data: meals, isLoading: isLoadingMeals, error: mealsError } = useQuery<Meal[]>({
     queryKey: ["userMeals", userId],
     queryFn: async () => {
@@ -58,11 +57,10 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
       if (error) throw error;
       return data || [];
     },
-    enabled: !!userId && open, // Only fetch when the dialog is open and userId is available
+    enabled: !!userId && open,
   });
 
   useEffect(() => {
-    // Reset selected meal when dialog opens or props change
     if (open) {
       setSelectedMealId(undefined);
     }
@@ -72,27 +70,54 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
     mutationFn: async ({ meal_id, plan_date_str, meal_type_str }: { meal_id: string; plan_date_str: string; meal_type_str: string }) => {
       if (!userId) throw new Error("User not authenticated.");
 
-      const { data, error } = await supabase
+      // Step 1: Delete any existing meal plan for this user, date, and meal type
+      const { error: deleteError } = await supabase
+        .from("meal_plans")
+        .delete()
+        .match({ 
+          user_id: userId, 
+          plan_date: plan_date_str, 
+          meal_type: meal_type_str 
+        });
+
+      if (deleteError) {
+        // Log the error but proceed to insert, as the main goal is to set the new meal.
+        // Or, you could throw deleteError here if you want to be stricter.
+        console.error("Error deleting existing meal plan, attempting to insert new one anyway:", deleteError);
+      }
+
+      // Step 2: Insert the new meal plan
+      const { data, error: insertError } = await supabase
         .from("meal_plans")
         .insert([{
           user_id: userId,
           meal_id: meal_id,
           plan_date: plan_date_str,
           meal_type: meal_type_str,
-        }]);
+        }])
+        .select(); // Ensure .select() is here if you need the inserted data back
 
-      if (error) throw error;
+      if (insertError) throw insertError;
       return data;
     },
     onSuccess: () => {
-      showSuccess("Meal added to plan!");
-      queryClient.invalidateQueries({ queryKey: ["mealPlans", format(planDate!, 'yyyy-MM-dd').substring(0, 7)] }); // More general invalidation
-      queryClient.invalidateQueries({ queryKey: ["mealPlans"] }); // Invalidate general mealPlans query too
+      showSuccess("Meal plan updated!"); // Changed message
+      // Invalidate queries to refetch data for WeeklyPlanner and GroceryList
+      // The queryKey for mealPlans in WeeklyPlanner includes the week's start date.
+      // We need to ensure this specific week is invalidated.
+      // A more general invalidation like queryClient.invalidateQueries({ queryKey: ["mealPlans"] })
+      // will also work and might be simpler if specific week invalidation is tricky.
+      if (planDate) {
+         // This targets the specific week's data if your query keys are structured like ['mealPlans', userId, 'YYYY-MM-DD']
+        queryClient.invalidateQueries({ queryKey: ["mealPlans", userId, format(planDate, 'yyyy-MM-dd').substring(0, 7)] }); // Invalidate by month for safety
+      }
+      queryClient.invalidateQueries({ queryKey: ["mealPlans"] }); // General invalidation
+      queryClient.invalidateQueries({ queryKey: ["groceryList"] }); // Invalidate grocery list too
       onOpenChange(false);
     },
     onError: (error) => {
-      console.error("Error adding meal to plan:", error);
-      showError(`Failed to add meal to plan: ${error.message}`);
+      console.error("Error updating meal plan:", error);
+      showError(`Failed to update meal plan: ${error.message}`);
     },
   });
 
@@ -105,15 +130,15 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
     addMealToPlanMutation.mutate({ meal_id: selectedMealId, plan_date_str, meal_type_str: mealType });
   };
 
-  if (!planDate || !mealType) return null; // Should not happen if dialog is controlled properly
+  if (!planDate || !mealType) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Add Meal to Plan</DialogTitle>
+          <DialogTitle>Add / Change Meal in Plan</DialogTitle>
           <DialogDescription>
-            Select a meal to add to {mealType} on {format(planDate, "EEEE, MMM dd, yyyy")}.
+            Select a meal for {mealType} on {format(planDate, "EEEE, MMM dd, yyyy")}.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
