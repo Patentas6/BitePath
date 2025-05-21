@@ -5,12 +5,16 @@ import { Button } from "@/components/ui/button";
 import MealForm from "@/components/MealForm";
 import MealList from "@/components/MealList";
 import WeeklyPlanner from "@/components/WeeklyPlanner";
-import GroceryList from "@/components/GroceryList"; // Import GroceryList
+import GroceryList from "@/components/GroceryList";
 import type { User } from "@supabase/supabase-js";
+import { startOfWeek, addDays } from "date-fns"; // Import for date manipulation
 
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const navigate = useNavigate();
+  
+  // State for the currently viewed week, initialized to the start of the current actual week
+  const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
 
   useEffect(() => {
     const checkUser = async () => {
@@ -44,6 +48,10 @@ const Dashboard = () => {
     }
   };
 
+  const handleWeekNavigate = (direction: "prev" | "next") => {
+    setCurrentWeekStart(prevWeekStart => addDays(prevWeekStart, direction === "next" ? 7 : -7));
+  };
+
   if (!user) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
@@ -61,10 +69,16 @@ const Dashboard = () => {
           <MealList />
         </div>
         
-        <WeeklyPlanner userId={user.id} />
+        <WeeklyPlanner 
+          userId={user.id} 
+          currentWeekStart={currentWeekStart}
+          onWeekNavigate={handleWeekNavigate} 
+        />
 
-        {/* Replace placeholder with GroceryList component */}
-        <GroceryList userId={user.id} />
+        <GroceryList 
+          userId={user.id} 
+          currentWeekStart={currentWeekStart} 
+        />
         
       </div>
     </div>

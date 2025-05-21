@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { format, startOfWeek, endOfWeek, addDays } from "date-fns"; // Added endOfWeek for clarity
+import { format, endOfWeek, addDays } from "date-fns"; // Removed startOfWeek
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -8,32 +8,32 @@ import { ListChecks } from "lucide-react";
 
 interface PlannedMealWithIngredients {
   meals: {
-    name: string; // Meal name
-    ingredients: string | null; // Ingredients string
+    name: string;
+    ingredients: string | null;
   } | null;
 }
 
 interface GroceryListProps {
   userId: string;
+  currentWeekStart: Date; // Prop for the start date of the week to display
 }
 
-const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
-  // Determine the start and end of the current week (e.g., Monday to Sunday)
-  const today = new Date();
-  const currentWeekStart = startOfWeek(today, { weekStartsOn: 1 }); // Monday
-  const currentWeekEnd = endOfWeek(today, { weekStartsOn: 1 }); // Sunday, or addDays(currentWeekStart, 6)
+const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) => {
+  // Determine the end of the week based on the currentWeekStart prop
+  const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 }); // Or addDays(currentWeekStart, 6)
 
   const { data: plannedMeals, isLoading, error } = useQuery<PlannedMealWithIngredients[]>({
-    queryKey: ["groceryList", userId, format(currentWeekStart, 'yyyy-MM-dd')],
+    // Query key now depends on the currentWeekStart prop
+    queryKey: ["groceryList", userId, format(currentWeekStart, 'yyyy-MM-dd')], 
     queryFn: async () => {
       if (!userId) return [];
 
       const startDateStr = format(currentWeekStart, 'yyyy-MM-dd');
-      const endDateStr = format(currentWeekEnd, 'yyyy-MM-dd');
+      const endDateStr = format(weekEnd, 'yyyy-MM-dd');
 
       const { data, error } = await supabase
         .from("meal_plans")
-        .select("meals ( name, ingredients )") // Select meal name and ingredients
+        .select("meals ( name, ingredients )")
         .eq("user_id", userId)
         .gte("plan_date", startDateStr)
         .lte("plan_date", endDateStr);
@@ -48,11 +48,9 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
     ?.map(pm => pm.meals?.ingredients)
     .filter(Boolean) as string[] || [];
   
-  // A very simple way to get unique lines of ingredients
   const uniqueIngredientLines = Array.from(new Set(
     allIngredients.flatMap(block => block.split('\n').map(line => line.trim()).filter(Boolean))
   ));
-
 
   if (isLoading) {
     return (
@@ -96,7 +94,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
       <CardHeader>
         <CardTitle className="flex items-center">
           <ListChecks className="mr-2 h-5 w-5" />
-          Grocery List for {format(currentWeekStart, 'MMM dd')} - {format(currentWeekEnd, 'MMM dd')}
+          Grocery List for {format(currentWeekStart, 'MMM dd')} - {format(weekEnd, 'MMM dd')}
         </CardTitle>
       </CardHeader>
       <CardContent>
