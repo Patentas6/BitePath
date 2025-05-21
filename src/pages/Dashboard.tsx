@@ -1,19 +1,19 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom"; // Import Link
 import { Button } from "@/components/ui/button";
 import MealForm from "@/components/MealForm";
 import MealList from "@/components/MealList";
 import WeeklyPlanner from "@/components/WeeklyPlanner";
 import GroceryList from "@/components/GroceryList";
 import type { User } from "@supabase/supabase-js";
-import { startOfWeek, addDays } from "date-fns"; // Import for date manipulation
+import { startOfWeek, addDays } from "date-fns";
+import { UserCircle } from "lucide-react"; // Icon for profile link
 
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const navigate = useNavigate();
   
-  // State for the currently viewed week, initialized to the start of the current actual week
   const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
 
   useEffect(() => {
@@ -59,10 +59,17 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-gray-100 p-4">
       <div className="container mx-auto space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Welcome to your Dashboard, {user.email}!</h1>
-          <Button onClick={handleLogout}>Logout</Button>
-        </div>
+        <header className="flex justify-between items-center">
+          <h1 className="text-2xl font-bold">Welcome, {user.email ? user.email.split('@')[0] : 'User'}!</h1>
+          <div className="flex items-center space-x-2">
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/profile">
+                <UserCircle className="mr-2 h-4 w-4" /> Profile
+              </Link>
+            </Button>
+            <Button onClick={handleLogout} variant="outline" size="sm">Logout</Button>
+          </div>
+        </header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <MealForm />
