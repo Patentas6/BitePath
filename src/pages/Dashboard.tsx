@@ -4,11 +4,12 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import MealForm from "@/components/MealForm";
 import MealList from "@/components/MealList";
-import WeeklyPlanner from "@/components/WeeklyPlanner"; 
-import type { User } from "@supabase/supabase-js"; // Import User type
+import WeeklyPlanner from "@/components/WeeklyPlanner";
+import GroceryList from "@/components/GroceryList"; // Import GroceryList
+import type { User } from "@supabase/supabase-js";
 
 const Dashboard = () => {
-  const [user, setUser] = useState<User | null>(null); // Use specific User type
+  const [user, setUser] = useState<User | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -59,14 +60,12 @@ const Dashboard = () => {
           <MealForm />
           <MealList />
         </div>
-
-        {/* Pass userId to WeeklyPlanner */}
+        
         <WeeklyPlanner userId={user.id} />
 
-         <div className="mt-4 p-4 border rounded-lg bg-white">
-           <h2 className="text-xl font-semibold mb-2">Grocery List</h2>
-           <p className="text-gray-600">Coming soon: Your automated grocery list will appear here.</p>
-        </div>
+        {/* Replace placeholder with GroceryList component */}
+        <GroceryList userId={user.id} />
+        
       </div>
     </div>
   );
