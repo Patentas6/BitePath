@@ -37,7 +37,6 @@ const WeeklyPlanner = () => {
 
       const { data, error } = await supabase
         .from("meal_plans")
-        // Rewriting the select string as a single line to fix the syntax error
         .select("id, meal_id, plan_date, meal_type, meals ( name )")
         .eq("user_id", user.id)
         .gte("plan_date", start)
@@ -104,7 +103,8 @@ const WeeklyPlanner = () => {
             Next Week <ChevronRight className="h-4 w-4 ml-1" />
           </Button>
         </div>
-        <div className="grid grid-cols-7 gap-2 text-center">
+        {/* Header row for days of the week */}
+        <div className="grid grid-cols-7 gap-2 text-center mb-2">
           {daysOfWeek.map(day => (
             <div key={day.toISOString()} className="flex flex-col items-center">
               <div className="font-semibold">{format(day, 'EEE')}</div> {/* Day of week (Mon, Tue, etc.) */}
@@ -112,18 +112,21 @@ const WeeklyPlanner = () => {
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-7 gap-2 mt-2">
-          {mealTypes.map(mealType => {
+        {/* Grid for meal plan cells */}
+        <div className="grid grid-cols-7 gap-2">
+          {daysOfWeek.map(day => (
+            <div key={day.toISOString() + "-meals"} className="flex flex-col space-y-2">
+              {mealTypes.map(mealType => {
                 const plannedMeal = mealPlans?.find(plan =>
                   isSameDay(new Date(plan.plan_date), day) && plan.meal_type === mealType
                 );
                 return (
-                  <div key={mealType} className="border rounded-md p-2 text-sm h-16 overflow-hidden">
-                    <div className="font-medium text-gray-700">{mealType}</div>
+                  <div key={mealType} className="border rounded-md p-2 text-sm h-20 flex flex-col justify-between overflow-hidden">
+                    <div className="font-medium text-gray-700 self-start">{mealType}</div>
                     {plannedMeal ? (
-                      <div className="text-xs text-gray-500 truncate">{plannedMeal.meals?.name || 'Unknown Meal'}</div>
+                      <div className="text-xs text-gray-500 truncate self-start">{plannedMeal.meals?.name || 'Unknown Meal'}</div>
                     ) : (
-                      <div className="text-xs text-gray-400 italic">No plan</div>
+                      <div className="text-xs text-gray-400 italic self-start">No plan</div>
                     )}
                   </div>
                 );
