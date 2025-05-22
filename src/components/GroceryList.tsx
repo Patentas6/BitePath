@@ -99,26 +99,55 @@ function parseIngredientLine(line: string): ParsedIngredient {
 
   ingredientPart = ingredientPart.replace(/\s*\([^)]*\)\s*/g, ' ').trim(); 
 
-  const leadingRegex = /^\s*(\d+(?:[\.\/]\d+)?)\s*([a-zA-Z]+(?:\s+[a-zA-Z]+){0,1})?\s*(.*)/;
-  let match = ingredientPart.match(leadingRegex);
+  // Check for ranged quantities first (e.g., "1-2 units", "1/2 - 3/4 units")
+  const rangeRegex = /^\s*(\d+(?:[\.\/]\d+)?)\s*-\s*(\d+(?:[\.\/]\d+)?)\s*/;
+  const rangeMatch = ingredientPart.match(rangeRegex);
+  let match; // for single number regex
 
-  if (match) {
-    const numStr = match[1];
-    const potentialUnit = match[2]?.trim();
-    const remainingName = match[3]?.trim();
-    const tempQty = smartParseFloat(numStr);
-    if (tempQty !== null) {
-      if (potentialUnit && UNITS_AND_ADJECTIVES.includes(potentialUnit)) {
-        quantity = tempQty;
-        extractedUnit = potentialUnit;
-        ingredientPart = remainingName || "";
-      } else {
-        quantity = tempQty;
-        ingredientPart = potentialUnit ? `${potentialUnit} ${remainingName || ""}`.trim() : remainingName || "";
+  if (rangeMatch) {
+    const num1 = smartParseFloat(rangeMatch[1]);
+    const num2 = smartParseFloat(rangeMatch[2]);
+    if (num1 !== null && num2 !== null) {
+      quantity = Math.max(num1, num2); // Use max of range for internal quantity
+      ingredientPart = ingredientPart.substring(rangeMatch[0].length); // Remove the "1-2 " part
+
+      // Try to get unit immediately following the range
+      const unitAfterRangeRegex = /^\s*([a-zA-Z]+(?:\s+[a-zA-Z]+){0,1})?\s*(.*)/;
+      const unitMatch = ingredientPart.match(unitAfterRangeRegex);
+      if (unitMatch) {
+          const potentialUnit = unitMatch[1]?.trim();
+          if (potentialUnit && UNITS_AND_ADJECTIVES.includes(potentialUnit)) {
+              extractedUnit = potentialUnit;
+              ingredientPart = unitMatch[2]?.trim() || "";
+          } else {
+              // No clear unit, potentialUnit is part of the name or it's just the name
+              ingredientPart = unitMatch[0]?.trim(); 
+          }
+      }
+    }
+  } else {
+    // No range, try single number regex
+    const singleNumRegex = /^\s*(\d+(?:[\.\/]\d+)?)\s*([a-zA-Z]+(?:\s+[a-zA-Z]+){0,1})?\s*(.*)/;
+    match = ingredientPart.match(singleNumRegex);
+    if (match) {
+      const numStr = match[1];
+      const potentialUnit = match[2]?.trim();
+      const remainingName = match[3]?.trim();
+      const tempQty = smartParseFloat(numStr);
+      if (tempQty !== null) {
+        if (potentialUnit && UNITS_AND_ADJECTIVES.includes(potentialUnit)) {
+          quantity = tempQty;
+          extractedUnit = potentialUnit;
+          ingredientPart = remainingName || "";
+        } else {
+          quantity = tempQty;
+          ingredientPart = potentialUnit ? `${potentialUnit} ${remainingName || ""}`.trim() : remainingName || "";
+        }
       }
     }
   }
 
+  // If no leading quantity was found (neither range nor single), try trailing quantity
   if (quantity === null) {
     const trailingRegex = /^(.*?)\s+(\d+(?:[\.\/]\d+)?)\s*([a-zA-Z]+)?\s*$/;
     match = ingredientPart.match(trailingRegex);
@@ -129,7 +158,7 @@ function parseIngredientLine(line: string): ParsedIngredient {
       const tempQty = smartParseFloat(numStr);
       if (tempQty !== null) {
         quantity = tempQty;
-        extractedUnit = potentialUnit || null;
+        extractedUnit = potentialUnit || null; // Keep if present, else null
         ingredientPart = namePart || "";
       }
     }
@@ -187,7 +216,7 @@ function parseIngredientLine(line: string): ParsedIngredient {
       isCountable = false; 
     } else {
       if (nameLC === "black pepper" || nameLC === "white pepper" || nameLC === "cayenne pepper" || nameLC === "ground pepper" || nameLC === "chilli powder" || nameLC === "curry powder" || nameLC === "paprika" || nameLC === "salt") {
-        isCountable = false; // Specific spices are not countable for summation
+        isCountable = false; 
       } else if (COUNTABLE_UNITS_KEYWORDS.some(kw => unitLC.includes(kw) || nameLC.includes(kw))) {
         isCountable = true;
       } else if (IMPLICITLY_COUNTABLE_INGREDIENTS_ENDINGS.some(ending => nameLC.endsWith(ending))) {
@@ -248,32 +277,29 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
           const existing = ingredientMap.get(parsed.normalizedName);
           if (existing) {
             // If this new parsed entry uses a non-countable purchase unit,
-            // the aggregated item becomes non-countable for display.
-            if (parsed.unit && NON_COUNTABLE_PURCHASE_UNITS.includes(parsed.unit.toLowerCase())) {
+            // or if the existing one was already forced to non-countable, keep it non-countable.
+            if ((parsed.unit && NON_COUNTABLE_PURCHASE_UNITS.includes(parsed.unit.toLowerCase())) || !existing.isCountable ) {
               existing.isCountable = false;
-              existing.totalQuantity = 0; // Reset quantity as it won't be displayed with sum
+              existing.totalQuantity = 0; 
             } else if (parsed.isCountable && parsed.quantity !== null) {
               // Only add to quantity if the existing item is still considered countable
-              if (existing.isCountable) {
-                existing.totalQuantity += parsed.quantity;
-              } else {
-                // This case (existing is not countable, but parsed is) is tricky.
-                // For now, if existing became non-countable due to a previous entry, it stays that way.
-                // Or, if this is the first countable entry for an item previously non-countable:
-                // existing.isCountable = true; existing.totalQuantity = parsed.quantity; (This might be too complex for now)
-              }
+              // (which it is if we are in this 'else' block)
+              existing.totalQuantity += parsed.quantity;
             }
-            // If parsed is countable and existing was not, and existing hasn't been forced non-countable by unit:
-            if (parsed.isCountable && !existing.isCountable && !(existing.unit && NON_COUNTABLE_PURCHASE_UNITS.includes(existing.unit.toLowerCase()))) {
+            // If parsed is countable and existing was not (and not forced non-countable by unit), make existing countable.
+            // This case is now handled by the initial check for NON_COUNTABLE_PURCHASE_UNITS on existing.
+            // If existing.isCountable is false due to a previous NON_COUNTABLE_PURCHASE_UNIT, it stays false.
+            // If existing.isCountable is false because it had no quantity before, but parsed.isCountable is true (and not a non-countable unit), then update.
+            else if (parsed.isCountable && !existing.isCountable && !(parsed.unit && NON_COUNTABLE_PURCHASE_UNITS.includes(parsed.unit.toLowerCase()))) {
                  existing.isCountable = true;
                  existing.totalQuantity = parsed.quantity !== null ? parsed.quantity : 0;
             }
+
 
             if (!existing.unit && parsed.unit) existing.unit = parsed.unit;
             existing.originalLines.push(trimmedLine);
           } else { // New entry
             let initialIsCountable = parsed.isCountable;
-            // Ensure that if a unit makes it non-countable, this is respected from the start
             if (parsed.unit && NON_COUNTABLE_PURCHASE_UNITS.includes(parsed.unit.toLowerCase())) {
                 initialIsCountable = false;
             }
@@ -320,9 +346,9 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
             }
         }
         
-        if (!item.unit && item.name) { // e.g. "2 Apples" -> item.name="Apple", item.unit=null
+        if (!item.unit && item.name) { 
            let nameForDisplay = item.name;
-           if (item.totalQuantity > 1 && !nameForDisplay.endsWith('s') && !nameForDisplay.endsWith('es')) { // basic pluralization
+           if (item.totalQuantity > 1 && !nameForDisplay.endsWith('s') && !nameForDisplay.endsWith('es')) {
              if (nameForDisplay.endsWith('y') && !['day', 'key', 'way', 'toy', 'boy', 'guy'].includes(nameForDisplay)) {
                 nameForDisplay = nameForDisplay.slice(0,-1) + "ies";
              } else {
