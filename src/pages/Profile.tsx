@@ -232,7 +232,7 @@ const ProfilePage = () => {
               />
               <div className="flex space-x-2 justify-end">
                 <Button variant="outline" onClick={() => navigate("/dashboard")} disabled={updateProfileMutation.isPending}>
-                  Cancel
+                  Back
                 </Button>
                 <Button type="submit" disabled={!userId || updateProfileMutation.isPending || isLoadingProfile}>
                   {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
