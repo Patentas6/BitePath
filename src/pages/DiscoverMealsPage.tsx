@@ -9,29 +9,43 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { showError, showSuccess } from '@/utils/toast';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Search, Sparkles } from 'lucide-react';
+import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card'; // Import Card components for skeletons
 
 const DiscoverMealsPage = () => {
+  console.log("DiscoverMealsPage: Component rendering or re-rendering.");
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | 'all'>('all');
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    const getUserId = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUserId(user?.id || null);
+    console.log("DiscoverMealsPage: useEffect for fetching user ID running.");
+    const fetchUser = async () => {
+      const { data, error } = await supabase.auth.getUser();
+      if (error) {
+        console.error("DiscoverMealsPage: Error fetching user:", error);
+        setUserId(null);
+      } else {
+        console.log("DiscoverMealsPage: User fetched:", data.user?.id);
+        setUserId(data.user?.id || null);
+      }
     };
-    getUserId();
+    fetchUser();
   }, []);
 
-  const { data: mealTemplates, isLoading, error } = useQuery<MealTemplate[]>({
+  const { data: mealTemplates, isLoading, error: queryError } = useQuery<MealTemplate[]>({
     queryKey: ['mealTemplates'],
     queryFn: async () => {
+      console.log("DiscoverMealsPage: Fetching meal templates from Supabase.");
       const { data, error } = await supabase
         .from('meal_templates')
         .select('*');
-      if (error) throw error;
-      return data || [];
+      if (error) {
+        console.error("DiscoverMealsPage: Supabase error fetching meal_templates:", error);
+        throw error; // Re-throw to be caught by react-query
+      }
+      console.log("DiscoverMealsPage: Meal templates fetched:", data);
+      return data || []; // Ensure it's always an array
     },
   });
 
@@ -48,7 +62,7 @@ const DiscoverMealsPage = () => {
       )).sort();
       return uniqueCategories;
     },
-    enabled: !!mealTemplates,
+    enabled: !!mealTemplates && mealTemplates.length > 0, // Ensure mealTemplates is not empty
   });
 
   const addMealMutation = useMutation({
@@ -63,17 +77,16 @@ const DiscoverMealsPage = () => {
           name: template.name,
           ingredients: template.ingredients,
           instructions: template.instructions,
-          // We don't copy category or image_url to personal meals by default
         },
       ]);
       if (error) throw error;
     },
     onSuccess: (data, variables) => {
       showSuccess(`"${variables.name}" added to your meals!`);
-      queryClient.invalidateQueries({ queryKey: ['meals'] }); // Invalidate user's personal meals list
+      queryClient.invalidateQueries({ queryKey: ['meals'] });
     },
     onError: (error, variables) => {
-      showError(`Failed to add "${variables.name}": ${error.message}`);
+      showError(`Failed to add "${variables.name}": ${(error as Error).message}`);
     },
   });
 
@@ -87,6 +100,50 @@ const DiscoverMealsPage = () => {
                           (template.category && template.category.toLowerCase().split(',').map(c=>c.trim()).includes(selectedCategory.toLowerCase()));
     return nameMatch && categoryMatch;
   });
+
+  let content;
+  if (isLoading) {
+    console.log("DiscoverMealsPage: Rendering Skeletons (isLoading is true)");
+    content = (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {[...Array(6)].map((_, i) => (
+          <Card key={i} className="flex flex-col">
+            <CardHeader><Skeleton className="h-8 w-3/4" /><Skeleton className="h-4 w-1/2 mt-2" /></CardHeader>
+            <CardContent className="flex-grow"><Skeleton className="h-20 w-full" /></CardContent>
+            <CardFooter><Skeleton className="h-10 w-full" /></CardFooter>
+          </Card>
+        ))}
+      </div>
+    );
+  } else if (queryError) {
+    console.log("DiscoverMealsPage: Rendering Error Message (queryError is true)");
+    content = <p className="text-red-500">Error loading meal templates: {(queryError as Error).message}</p>;
+  } else if (filteredTemplates && filteredTemplates.length > 0) {
+    console.log("DiscoverMealsPage: Rendering MealTemplateCards");
+    content = (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredTemplates.map(template => (
+          <MealTemplateCard 
+            key={template.id} 
+            template={template} 
+            onAddToMyMeals={handleAddToMyMeals}
+            isAdding={addMealMutation.isPending && addMealMutation.variables?.id === template.id}
+          />
+        ))}
+      </div>
+    );
+  } else {
+    console.log("DiscoverMealsPage: Rendering No Meal Templates Found message");
+    content = (
+      <div className="text-center py-10">
+        <Sparkles className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+        <h3 className="text-xl font-semibold text-gray-700">No Meal Templates Found</h3>
+        <p className="text-gray-500">
+          {mealTemplates && mealTemplates.length > 0 ? "No templates match your current filters." : "It looks like there are no meal templates available at the moment (or the table is empty)."}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-100 p-4">
@@ -128,43 +185,9 @@ const DiscoverMealsPage = () => {
             </SelectContent>
           </Select>
         </div>
+        
+        {content}
 
-        {isLoading && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(6)].map((_, i) => (
-              <Card key={i} className="flex flex-col">
-                <CardHeader><Skeleton className="h-8 w-3/4" /><Skeleton className="h-4 w-1/2 mt-2" /></CardHeader>
-                <CardContent className="flex-grow"><Skeleton className="h-20 w-full" /></CardContent>
-                <CardFooter><Skeleton className="h-10 w-full" /></CardFooter>
-              </Card>
-            ))}
-          </div>
-        )}
-
-        {error && <p className="text-red-500">Error loading meal templates: {error.message}</p>}
-
-        {!isLoading && !error && filteredTemplates && filteredTemplates.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredTemplates.map(template => (
-              <MealTemplateCard 
-                key={template.id} 
-                template={template} 
-                onAddToMyMeals={handleAddToMyMeals}
-                isAdding={addMealMutation.isPending && addMealMutation.variables?.id === template.id}
-              />
-            ))}
-          </div>
-        )}
-
-        {!isLoading && !error && (!filteredTemplates || filteredTemplates.length === 0) && (
-          <div className="text-center py-10">
-            <Sparkles className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-            <h3 className="text-xl font-semibold text-gray-700">No Meal Templates Found</h3>
-            <p className="text-gray-500">
-              {mealTemplates && mealTemplates.length > 0 ? "No templates match your current filters." : "It looks like there are no meal templates available at the moment."}
-            </p>
-          </div>
-        )}
       </div>
     </div>
   );
