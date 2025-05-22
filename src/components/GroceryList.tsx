@@ -68,6 +68,8 @@ const IMPLICITLY_COUNTABLE_INGREDIENTS_ENDINGS: ReadonlyArray<string> = [
   'orange', 'oranges', 'pear', 'pears', 'peach', 'peaches', 'plum', 'plums'
 ];
 
+// Units that, if present, mean the quantity should NOT be summed up for individual purchase.
+// User buys a standard container (e.g. a jar of spice, a bag of flour).
 const NON_COUNTABLE_PURCHASE_UNITS: ReadonlyArray<string> = [
   "cup", "cups", "tsp", "teaspoon", "teaspoons", "tbsp", "tablespoon", "tablespoons",
   "gram", "grams", "g", "kg", "kgs", "kilogram", "kilograms",
@@ -97,10 +99,8 @@ function parseIngredientLine(line: string): ParsedIngredient {
   let quantity: number | null = null;
   let extractedUnit: string | null = null;
 
-  ingredientPart = ingredientPart.replace(/\s*\([^)]*\)\s*/g, ' ').trim(); // Remove parentheticals
+  ingredientPart = ingredientPart.replace(/\s*\([^)]*\)\s*/g, ' ').trim(); 
 
-  // Attempt to extract quantity and unit
-  // Pattern: (NUMBER) (UNIT - optional) (NAME)
   const leadingRegex = /^\s*(\d+(?:[\.\/]\d+)?)\s*([a-zA-Z]+(?:\s+[a-zA-Z]+){0,1})?\s*(.*)/;
   let match = ingredientPart.match(leadingRegex);
 
@@ -108,23 +108,19 @@ function parseIngredientLine(line: string): ParsedIngredient {
     const numStr = match[1];
     const potentialUnit = match[2]?.trim();
     const remainingName = match[3]?.trim();
-
     const tempQty = smartParseFloat(numStr);
     if (tempQty !== null) {
-      // Check if potentialUnit is actually a unit or part of the name
       if (potentialUnit && UNITS_AND_ADJECTIVES.includes(potentialUnit)) {
         quantity = tempQty;
         extractedUnit = potentialUnit;
         ingredientPart = remainingName || "";
       } else {
-        // potentialUnit is part of the name
         quantity = tempQty;
         ingredientPart = potentialUnit ? `${potentialUnit} ${remainingName || ""}`.trim() : remainingName || "";
       }
     }
   }
 
-  // If no leading quantity, try trailing: (NAME) (NUMBER) (UNIT - optional)
   if (quantity === null) {
     const trailingRegex = /^(.*?)\s+(\d+(?:[\.\/]\d+)?)\s*([a-zA-Z]+)?\s*$/;
     match = ingredientPart.match(trailingRegex);
@@ -132,7 +128,6 @@ function parseIngredientLine(line: string): ParsedIngredient {
       const numStr = match[2];
       const potentialUnit = match[3]?.trim();
       const namePart = match[1]?.trim();
-      
       const tempQty = smartParseFloat(numStr);
       if (tempQty !== null) {
         quantity = tempQty;
@@ -142,24 +137,24 @@ function parseIngredientLine(line: string): ParsedIngredient {
     }
   }
   
-  // Clean and normalize ingredientPart
-  ingredientPart = ingredientPart.replace(/^a\s+/, '').trim(); // Remove "a "
+  ingredientPart = ingredientPart.replace(/^a\s+/, '').trim();
   for (const pattern of TRAILING_QUALIFIERS_PATTERNS) {
     ingredientPart = ingredientPart.replace(pattern, '').trim();
   }
 
-  // Iteratively remove units/adjectives from the name part itself
   let currentName = ingredientPart;
   let changed;
   do {
     changed = false;
     for (const adj of UNITS_AND_ADJECTIVES) {
       if (currentName.startsWith(adj + " ")) {
+        if (extractedUnit && adj.toLowerCase() === extractedUnit.toLowerCase()) continue; // Avoid removing the already extracted unit
         currentName = currentName.substring(adj.length + 1).trim();
         changed = true;
         break;
       }
       if (currentName.endsWith(" " + adj)) {
+         if (extractedUnit && adj.toLowerCase() === extractedUnit.toLowerCase()) continue;
         currentName = currentName.substring(0, currentName.length - (adj.length + 1)).trim();
         changed = true;
         break;
@@ -169,38 +164,38 @@ function parseIngredientLine(line: string): ParsedIngredient {
   
   let normalizedName = currentName.trim();
 
-  // Basic singularization (very heuristic, apply with care)
   const commonIrregularPlurals: {[key: string]: string} = { 'potatoes': 'potato', 'tomatoes': 'tomato', 'leaves': 'leaf', 'loaves': 'loaf', 'knives': 'knife', 'lives': 'life', 'shelves': 'shelf', 'wolves': 'wolf', 'elves': 'elf' };
   if (commonIrregularPlurals[normalizedName]) {
       normalizedName = commonIrregularPlurals[normalizedName];
   } else if (normalizedName.endsWith('ies') && normalizedName.length > 3) {
-      normalizedName = normalizedName.slice(0, -3) + 'y'; // berries -> berry
+      normalizedName = normalizedName.slice(0, -3) + 'y';
   } else if (normalizedName.endsWith('s') && !normalizedName.endsWith('ss') && !['gas', 'bus', 'lens', 'series', 'species', 'molasses', 'hummus', 'cress'].includes(normalizedName) && normalizedName.length > 1) {
       normalizedName = normalizedName.slice(0, -1);
   }
 
   normalizedName = normalizedName.charAt(0).toUpperCase() + normalizedName.slice(1);
   if (normalizedName.length === 0 && originalLine.length > 0) {
-    normalizedName = originalLine.charAt(0).toUpperCase() + originalLine.slice(1); // Fallback
+    normalizedName = originalLine.charAt(0).toUpperCase() + originalLine.slice(1);
   } else if (normalizedName.length === 0) {
     normalizedName = "Unknown ingredient";
   }
   
-  // Determine if countable
   let isCountable = false;
   if (quantity !== null) {
     const unitForCountCheck = (extractedUnit || "").toLowerCase();
     const nameForCountCheck = normalizedName.toLowerCase();
 
-    if (COUNTABLE_UNITS_KEYWORDS.some(kw => unitForCountCheck.includes(kw) || nameForCountCheck.includes(kw))) {
-      isCountable = true;
-    }
-    if (!isCountable && IMPLICITLY_COUNTABLE_INGREDIENTS_ENDINGS.some(ending => nameForCountCheck.endsWith(ending))) {
-      isCountable = true;
-    }
-    // Override if unit indicates non-countable purchase (e.g. "cup of sugar")
     if (NON_COUNTABLE_PURCHASE_UNITS.includes(unitForCountCheck)) {
       isCountable = false;
+    } else {
+      if (COUNTABLE_UNITS_KEYWORDS.some(kw => unitForCountCheck.includes(kw) || nameForCountCheck.includes(kw))) {
+        isCountable = true;
+      } else if (IMPLICITLY_COUNTABLE_INGREDIENTS_ENDINGS.some(ending => nameForCountCheck.endsWith(ending))) {
+         // This applies if no specific unit was found, or the unit isn't a non-countable one.
+         // e.g. "2 apples" (unit is null or "apples") -> countable
+         // but "2 cups apples" (unit is "cups") -> already handled by NON_COUNTABLE_PURCHASE_UNITS
+        isCountable = true;
+      }
     }
   }
 
@@ -258,9 +253,8 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
             if (parsed.isCountable && parsed.quantity !== null) {
               existing.totalQuantity += parsed.quantity;
             }
-            // If one instance is countable, treat the aggregate as countable for quantity display
             if (parsed.isCountable && !existing.isCountable) existing.isCountable = true; 
-            if (!existing.unit && parsed.unit) existing.unit = parsed.unit; // Prefer to have a unit if one was found
+            if (!existing.unit && parsed.unit) existing.unit = parsed.unit; 
             existing.originalLines.push(trimmedLine);
           } else {
             ingredientMap.set(parsed.normalizedName, {
@@ -295,22 +289,28 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
       
       let displayText = item.name;
       if (item.isCountable && item.totalQuantity > 0) {
-        // Attempt to make unit plural if quantity > 1 and unit is singular
         let displayUnit = item.unit || "";
+        // Basic pluralization for display unit if quantity > 1
         if (item.totalQuantity > 1 && displayUnit && !displayUnit.endsWith('s') && !NON_COUNTABLE_PURCHASE_UNITS.includes(displayUnit.toLowerCase())) {
-            if (displayUnit.endsWith('y') && !['day', 'key', 'way', 'toy', 'boy', 'guy'].includes(displayUnit)) { // simple 'y' to 'ies'
+            if (displayUnit.endsWith('y') && !['day', 'key', 'way', 'toy', 'boy', 'guy'].includes(displayUnit)) { 
                 displayUnit = displayUnit.slice(0, -1) + 'ies';
-            } else {
+            } else if (displayUnit.length > 0) { // Avoid adding 's' to empty string
                 displayUnit += 's';
             }
         }
-        displayText = `${item.name}: ${item.totalQuantity % 1 === 0 ? item.totalQuantity : item.totalQuantity.toFixed(1)} ${displayUnit}`.trim();
+        // If no unit was extracted but it's countable (e.g. "2 Apples"), try to use the item name as unit or make it plural
+        if (!item.unit && item.name) {
+            displayUnit = item.name + (item.totalQuantity > 1 && !item.name.endsWith('s') ? "s" : "");
+             displayText = `${item.totalQuantity % 1 === 0 ? item.totalQuantity : item.totalQuantity.toFixed(1)} ${displayUnit}`.trim();
+        } else {
+            displayText = `${item.name}: ${item.totalQuantity % 1 === 0 ? item.totalQuantity : item.totalQuantity.toFixed(1)} ${displayUnit}`.trim();
+        }
+
       }
 
       grouped[foundCategory].push({ name: item.name, displayText, originalLines: item.originalLines });
     });
 
-    // Sort items within each category
     for (const cat of categoryOrder) {
       grouped[cat].sort((a,b) => a.name.localeCompare(b.name));
     }
@@ -319,7 +319,6 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
 
 
   useEffect(() => {
-    // Persist struck items if they still exist in the new list (by displayText)
     setStruckItems(prevStruckItems => {
       const newPersistedStruckItems = new Set<string>();
       const currentDisplayTexts = Object.values(categorizedDisplayList).flat().map(item => item.displayText);
@@ -392,12 +391,12 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
                   <ul className="space-y-1 text-sm">
                     {itemsInCategory.map((item) => (
                       <li
-                        key={item.displayText} // Use displayText as key, assuming it's unique enough
+                        key={item.displayText}
                         onClick={() => handleItemClick(item.displayText)}
                         className={`cursor-pointer p-1 rounded hover:bg-gray-100 ${
                           struckItems.has(item.displayText) ? 'line-through text-gray-400' : 'text-gray-700'
                         }`}
-                        title={item.originalLines.join('\n')} // Show original lines on hover
+                        title={item.originalLines.join('\n')}
                       >
                         {item.displayText}
                       </li>
