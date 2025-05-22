@@ -9,7 +9,8 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ProfilePage from "./pages/Profile";
-import MealsPage from "./pages/MealsPage"; // Import MealsPage
+import MealsPage from "./pages/MealsPage";
+import DiscoverMealsPage from "./pages/DiscoverMealsPage"; // Import DiscoverMealsPage
 
 const queryClient = new QueryClient();
 
@@ -39,10 +40,18 @@ const App = () => (
             }
           />
           <Route
-            path="/meals" // Add MealsPage route
+            path="/meals"
             element={
               <ProtectedRoute>
                 <MealsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/discover-meals" // Add DiscoverMealsPage route
+            element={
+              <ProtectedRoute>
+                <DiscoverMealsPage />
               </ProtectedRoute>
             }
           />

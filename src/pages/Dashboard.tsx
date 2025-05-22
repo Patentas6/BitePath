@@ -7,7 +7,7 @@ import WeeklyPlanner from "@/components/WeeklyPlanner";
 import GroceryList from "@/components/GroceryList";
 import type { User } from "@supabase/supabase-js";
 import { startOfWeek, addDays } from "date-fns";
-import { UserCircle, BookOpenText } from "lucide-react";
+import { UserCircle, BookOpenText, Sparkles } from "lucide-react"; // Added Sparkles icon
 
 interface UserProfile {
   first_name: string | null;
@@ -107,6 +107,11 @@ const Dashboard = () => {
         <header className="flex justify-between items-center">
           <h1 className="text-2xl font-bold">{getWelcomeMessage()}</h1>
           <div className="flex items-center space-x-2">
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/discover-meals">
+                <Sparkles className="mr-2 h-4 w-4" /> Discover Meals
+              </Link>
+            </Button>
             <Button variant="outline" size="sm" asChild>
               <Link to="/meals">
                 <BookOpenText className="mr-2 h-4 w-4" /> My Meals
