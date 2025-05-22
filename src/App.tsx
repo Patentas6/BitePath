@@ -10,7 +10,8 @@ import Dashboard from "./pages/Dashboard";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ProfilePage from "./pages/Profile";
 import MealsPage from "./pages/MealsPage";
-import DiscoverMealsPage from "./pages/DiscoverMealsPage"; // Import DiscoverMealsPage
+import DiscoverMealsPage from "./pages/DiscoverMealsPage";
+import BetaDisclaimerBanner from "./components/BetaDisclaimerBanner"; // Import the new banner
 
 const queryClient = new QueryClient();
 
@@ -20,6 +21,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <BetaDisclaimerBanner /> {/* Add the banner here */}
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
@@ -48,7 +50,7 @@ const App = () => (
             }
           />
           <Route
-            path="/discover-meals" // Add DiscoverMealsPage route
+            path="/discover-meals"
             element={
               <ProtectedRoute>
                 <DiscoverMealsPage />
