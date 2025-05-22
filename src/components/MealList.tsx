@@ -1,13 +1,14 @@
-import { useState } from "react"; // Import useState
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // Import useMutation and queryClient
+import { useState, useMemo } from "react"; // Import useState and useMemo
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { showError, showSuccess } from "@/utils/toast"; // Import showSuccess for delete
+import { showError, showSuccess } from "@/utils/toast";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button"; // Import Button
-import { Trash2, Edit3 } from "lucide-react"; // Import Edit3 icon
-import EditMealDialog, { MealForEditing } from "./EditMealDialog"; // Import EditMealDialog and MealForEditing type
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input"; // Import Input
+import { Trash2, Edit3, Search, Inbox } from "lucide-react"; // Import Search and Inbox icons
+import EditMealDialog, { MealForEditing } from "./EditMealDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,12 +21,13 @@ import {
 } from "@/components/ui/alert-dialog";
 
 
-interface Meal extends MealForEditing { // Ensure Meal type here includes user_id for passing to dialog
+interface Meal extends MealForEditing {
   // id, name, ingredients, instructions are already in MealForEditing
 }
 
 
 const MealList = () => {
+  const [searchTerm, setSearchTerm] = useState("");
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [mealToEdit, setMealToEdit] = useState<MealForEditing | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -41,8 +43,9 @@ const MealList = () => {
 
       const { data, error } = await supabase
         .from("meals")
-        .select("id, name, ingredients, instructions, user_id") // Ensure user_id is selected
-        .eq("user_id", user.id);
+        .select("id, name, ingredients, instructions, user_id")
+        .eq("user_id", user.id)
+        .order('created_at', { ascending: false }); // Order by creation date
 
       if (error) throw error;
       return data || [];
@@ -58,15 +61,15 @@ const MealList = () => {
         .from("meals")
         .delete()
         .eq("id", mealId)
-        .eq("user_id", user.id); // Ensure user can only delete their own meals
+        .eq("user_id", user.id);
 
       if (error) throw error;
     },
     onSuccess: () => {
       showSuccess("Meal deleted successfully!");
       queryClient.invalidateQueries({ queryKey: ["meals"] });
-      queryClient.invalidateQueries({ queryKey: ["mealPlans"] }); // Invalidate plans as deleted meal might be used
-      queryClient.invalidateQueries({ queryKey: ["groceryList"] }); // Invalidate grocery list
+      queryClient.invalidateQueries({ queryKey: ["mealPlans"] });
+      queryClient.invalidateQueries({ queryKey: ["groceryList"] });
     },
     onError: (error) => {
       console.error("Error deleting meal:", error);
@@ -92,13 +95,23 @@ const MealList = () => {
     }
   };
 
+  const filteredMeals = useMemo(() => {
+    if (!meals) return [];
+    return meals.filter(meal =>
+      meal.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [meals, searchTerm]);
+
 
   if (isLoading) {
     return (
       <Card>
         <CardHeader><CardTitle>Your Meals</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-          <Skeleton className="h-10 w-full" /> <Skeleton className="h-10 w-full" /> <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full mb-4" /> {/* Skeleton for search input */}
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
         </CardContent>
       </Card>
     );
@@ -106,11 +119,11 @@ const MealList = () => {
 
   if (error) {
     console.error("Error fetching meals:", error);
-    showError(`Failed to load meals: ${error.message}`);
+    // showError(`Failed to load meals: ${error.message}`); // This might be too noisy if shown persistently
     return (
       <Card>
         <CardHeader><CardTitle>Your Meals</CardTitle></CardHeader>
-        <CardContent><p className="text-red-500">Error loading meals.</p></CardContent>
+        <CardContent><p className="text-red-500">Error loading meals. Please try again later.</p></CardContent>
       </Card>
     );
   }
@@ -122,16 +135,43 @@ const MealList = () => {
           <CardTitle>Your Meals</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {meals && meals.length > 0 ? (
-            meals.map((meal) => (
-              <div key={meal.id} className="border p-3 rounded-md shadow-sm">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <Input
+              type="text"
+              placeholder="Search your meals..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 w-full"
+            />
+          </div>
+
+          {meals && meals.length === 0 && (
+            <div className="text-center py-6">
+              <Inbox className="mx-auto h-12 w-12 text-gray-400 mb-3" />
+              <p className="text-gray-600">No meals added yet.</p>
+              <p className="text-sm text-gray-500">Add one using the form on the left!</p>
+            </div>
+          )}
+
+          {meals && meals.length > 0 && filteredMeals.length === 0 && (
+            <div className="text-center py-6">
+              <Search className="mx-auto h-12 w-12 text-gray-400 mb-3" />
+              <p className="text-gray-600">No meals match your search "{searchTerm}".</p>
+              <p className="text-sm text-gray-500">Try a different search term or clear the search.</p>
+            </div>
+          )}
+          
+          {filteredMeals && filteredMeals.length > 0 && (
+            filteredMeals.map((meal) => (
+              <div key={meal.id} className="border p-3 rounded-md shadow-sm bg-white">
                 <div className="flex justify-between items-start">
                   <div>
                     <h3 className="text-lg font-semibold">{meal.name}</h3>
                     {meal.ingredients && <p className="text-xs text-gray-500 mt-1">Ingredients: {meal.ingredients.substring(0,50)}{meal.ingredients.length > 50 ? '...' : ''}</p>}
                     {meal.instructions && <p className="text-xs text-gray-500 mt-1">Instructions: {meal.instructions.substring(0,50)}{meal.instructions.length > 50 ? '...' : ''}</p>}
                   </div>
-                  <div className="flex space-x-2">
+                  <div className="flex space-x-2 flex-shrink-0">
                     <Button variant="outline" size="icon" onClick={() => handleEditClick(meal)} aria-label="Edit meal">
                       <Edit3 className="h-4 w-4" />
                     </Button>
@@ -142,8 +182,6 @@ const MealList = () => {
                 </div>
               </div>
             ))
-          ) : (
-            <p className="text-gray-600">No meals added yet. Add one using the form above!</p>
           )}
         </CardContent>
       </Card>
