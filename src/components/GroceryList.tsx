@@ -25,31 +25,29 @@ function stripPortions(line: string): string {
 
   // 1. Remove parenthetical phrases and common trailing qualifiers
   processedLine = processedLine.replace(/\s*\([^)]*\)\s*/g, ' ').trim();
-  const trailingQualifiers = [
-    /,?\s*to taste/, /,?\s*for garnish/, /,?\s*optional/, /,?\s*as needed/,
-    /,?\s*for serving/, /,?\s*if desired/, /,?\s*if using/, /,?\s*or more to taste/,
-    /,?\s*or as needed/
+  // Note: The explicit loop for trailingQualifiers that was in the enhanced version is removed here
+  // to match the state before the "handle numbers after ingredient" change.
+  // The original version from context handled some of this implicitly or had a TODO.
+  // For a strict revert to the initial context's stripPortions:
+  const trailingQualifiersPatterns = [
+    /,?\s*to taste/i, /,?\s*for garnish/i, /,?\s*optional/i, /,?\s*as needed/i,
+    /,?\s*for serving/i, /,?\s*if desired/i, /,?\s*if using/i, /,?\s*or more to taste/i,
+    /,?\s*or as needed/i
   ];
-  for (const regex of trailingQualifiers) {
-    processedLine = processedLine.replace(new RegExp(regex.source + '$', 'i'), '');
+  for (const pattern of trailingQualifiersPatterns) {
+    processedLine = processedLine.replace(pattern, '');
   }
   processedLine = processedLine.trim();
-
-  // 2. Attempt to remove trailing numbers and optional simple units/descriptors
-  // Regex: matches a space, then number(s) (potentially fraction/decimal), 
-  // optionally followed by a space and a simple unit/descriptor, then end of string.
-  const trailingNumberRegex = /\s+(\d+(\s*\/\s*\d+)?(\.\d+)?)\s*(?:pcs?|pieces?|large|medium|small|oz|g|kg|lb|lbs|ml|l|can|cans|pack|packs)?\s*$/i;
-  processedLine = processedLine.replace(trailingNumberRegex, '').trim();
   
-  // 3. Remove leading numbers/fractions (if any are left or were primary)
+  // 2. Remove leading numbers/fractions
   processedLine = processedLine.replace(/^\d+-\d+\s+/, ''); // e.g., "1-2 "
   processedLine = processedLine.replace(/^\d+(\s*\/\s*\d+)?(\.\d+)?\s*/, ''); // e.g., "1 ", "1/2 ", "0.5 "
   
-  // 4. Remove "a " if it's at the beginning (e.g., "a pinch")
+  // 3. Remove "a " if it's at the beginning (e.g., "a pinch")
   processedLine = processedLine.replace(/^a\s+/, '');
   processedLine = processedLine.trim();
 
-  // 5. Iteratively remove known units and adjectives from the beginning of the string
+  // 4. Iteratively remove known units and adjectives from the beginning of the string
   const unitsAndAdjectives = [
     'tablespoons', 'tablespoon', 'tbsp', 'teaspoons', 'teaspoon', 'tsp', 
     'fluid ounces', 'fluid ounce', 'fl oz', 'ounces', 'ounce', 'oz', 
@@ -84,7 +82,7 @@ function stripPortions(line: string): string {
   }
   processedLine = processedLine.trim();
 
-  // 6. Capitalize the first letter of the remaining string
+  // 5. Capitalize the first letter of the remaining string
   if (processedLine.length > 0) {
     processedLine = processedLine.charAt(0).toUpperCase() + processedLine.slice(1);
   }
