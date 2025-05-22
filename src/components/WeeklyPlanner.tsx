@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { showError, showSuccess } from "@/utils/toast";
-import { format, addDays, isSameDay } from "date-fns"; // Removed startOfWeek as it's now managed by parent
+import { format, addDays, isSameDay } from "date-fns";
 import { useMemo, useState } from "react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,8 +24,8 @@ const mealTypes = ["Breakfast", "Lunch", "Dinner"];
 
 interface WeeklyPlannerProps {
   userId: string;
-  currentWeekStart: Date; // Prop for current week's start date
-  onWeekNavigate: (direction: "prev" | "next") => void; // Prop for navigation callback
+  currentWeekStart: Date;
+  onWeekNavigate: (direction: "prev" | "next") => void;
 }
 
 const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart, onWeekNavigate }) => {
@@ -36,7 +36,6 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart,
   const queryClient = useQueryClient();
 
   const { data: mealPlans, isLoading, error, refetch: refetchMealPlans } = useQuery<MealPlan[]>({
-    // Query key now depends on the currentWeekStart prop
     queryKey: ["mealPlans", userId, format(currentWeekStart, 'yyyy-MM-dd')], 
     queryFn: async () => {
       if (!userId) return [];
@@ -63,7 +62,11 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart,
     },
     onSuccess: () => {
       showSuccess("Meal removed from plan!");
-      refetchMealPlans();
+      refetchMealPlans(); // Refetches the planner's own data
+      // Invalidate the grocery list query to trigger its refetch
+      queryClient.invalidateQueries({ 
+        queryKey: ["groceryList", userId, format(currentWeekStart, 'yyyy-MM-dd')] 
+      });
     },
     onError: (error) => {
       console.error("Error removing meal from plan:", error);
@@ -78,7 +81,7 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart,
 
   const daysOfWeek = useMemo(() => {
     return Array.from({ length: 7 }).map((_, i) => addDays(currentWeekStart, i));
-  }, [currentWeekStart]); // Recalculate if currentWeekStart prop changes
+  }, [currentWeekStart]);
 
   const handleMealSlotClick = (day: Date, mealType: string, plannedMeal: MealPlan | undefined) => {
     setSelectedDateForDialog(day);
@@ -97,7 +100,6 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart,
         </CardHeader>
         <CardContent>
           <div className="flex justify-between items-center mb-4">
-            {/* Use onWeekNavigate prop for navigation */}
             <Button variant="outline" size="sm" onClick={() => onWeekNavigate("prev")}><ChevronLeft className="h-4 w-4 mr-1" /> Previous</Button>
             <h3 className="text-lg font-semibold text-center">{format(currentWeekStart, 'MMM dd')} - {format(addDays(currentWeekStart, 6), 'MMM dd, yyyy')}</h3>
             <Button variant="outline" size="sm" onClick={() => onWeekNavigate("next")}>Next <ChevronRight className="h-4 w-4 ml-1" /></Button>
@@ -144,7 +146,10 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart,
         open={isDialogOpen}
         onOpenChange={(isOpen) => {
           setIsDialogOpen(isOpen);
-          if (!isOpen) refetchMealPlans();
+          if (!isOpen) {
+            // No explicit refetch here, rely on AddMealToPlanDialog's own success handlers
+            // which should invalidate relevant queries including groceryList.
+          }
         }}
         planDate={selectedDateForDialog}
         mealType={selectedMealTypeForDialog}
