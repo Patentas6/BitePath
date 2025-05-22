@@ -22,19 +22,56 @@ interface GroceryListProps {
 // Helper function to strip portions, units, and some descriptors
 function stripPortions(line: string): string {
   let processedLine = line.toLowerCase();
+
+  // 1. Remove parenthetical phrases and common trailing qualifiers
   processedLine = processedLine.replace(/\s*\([^)]*\)\s*/g, ' ').trim();
-  const trailingQualifiers = [/,?\s*to taste/, /,?\s*for garnish/, /,?\s*optional/, /,?\s*as needed/, /,?\s*for serving/, /,?\s*if desired/, /,?\s*if using/, /,?\s*or more to taste/, /,?\s*or as needed/];
+  const trailingQualifiers = [
+    /,?\s*to taste/, /,?\s*for garnish/, /,?\s*optional/, /,?\s*as needed/,
+    /,?\s*for serving/, /,?\s*if desired/, /,?\s*if using/, /,?\s*or more to taste/,
+    /,?\s*or as needed/
+  ];
   for (const regex of trailingQualifiers) {
     processedLine = processedLine.replace(new RegExp(regex.source + '$', 'i'), '');
   }
   processedLine = processedLine.trim();
-  processedLine = processedLine.replace(/^\d+-\d+\s+/, ''); 
-  processedLine = processedLine.replace(/^\d+(\s*\/\s*\d+)?(\.\d+)?\s*/, ''); 
-  processedLine = processedLine.replace(/^a\s+/, ''); 
+
+  // 2. Attempt to remove trailing numbers and optional simple units/descriptors
+  // Regex: matches a space, then number(s) (potentially fraction/decimal), 
+  // optionally followed by a space and a simple unit/descriptor, then end of string.
+  const trailingNumberRegex = /\s+(\d+(\s*\/\s*\d+)?(\.\d+)?)\s*(?:pcs?|pieces?|large|medium|small|oz|g|kg|lb|lbs|ml|l|can|cans|pack|packs)?\s*$/i;
+  processedLine = processedLine.replace(trailingNumberRegex, '').trim();
+  
+  // 3. Remove leading numbers/fractions (if any are left or were primary)
+  processedLine = processedLine.replace(/^\d+-\d+\s+/, ''); // e.g., "1-2 "
+  processedLine = processedLine.replace(/^\d+(\s*\/\s*\d+)?(\.\d+)?\s*/, ''); // e.g., "1 ", "1/2 ", "0.5 "
+  
+  // 4. Remove "a " if it's at the beginning (e.g., "a pinch")
+  processedLine = processedLine.replace(/^a\s+/, '');
   processedLine = processedLine.trim();
-  const unitsAndAdjectives = ['tablespoons', 'tablespoon', 'tbsp', 'teaspoons', 'teaspoon', 'tsp', 'fluid ounces', 'fluid ounce', 'fl oz', 'ounces', 'ounce', 'oz', 'pounds', 'pound', 'lbs', 'lb', 'kilograms', 'kilogram', 'kg', 'grams', 'gram', 'g', 'milliliters', 'milliliter', 'ml', 'liters', 'liter', 'l', 'cups', 'cup', 'c', 'pints', 'pint', 'pt', 'quarts', 'quart', 'qt', 'gallons', 'gallon', 'gal', 'cloves', 'clove', 'pinches', 'pinch', 'dashes', 'dash', 'cans', 'can', 'packages', 'package', 'pkg', 'bunches', 'bunch', 'heads', 'head', 'stalks', 'stalk', 'sprigs', 'sprig', 'slices', 'slice', 'pieces', 'piece', 'sticks', 'stick', 'bottles', 'bottle', 'boxes', 'box', 'bags', 'bag', 'containers', 'container', 'bars', 'bar', 'loaves', 'loaf', 'bulbs', 'bulb', 'ears', 'ear', 'sheets', 'sheet', 'leaves', 'leaf', 'large', 'medium', 'small', 'fresh', 'dried', 'ground', 'boneless', 'skinless', 'whole', 'diced', 'sliced', 'chopped', 'minced', 'grated', 'pounded', 'melted', 'softened', 'beaten', 'crushed', 'toasted', 'cooked', 'uncooked', 'ripe', 'firm', 'raw', 'peeled', 'cored', 'seeded', 'rinsed', 'drained', 'divided'];
+
+  // 5. Iteratively remove known units and adjectives from the beginning of the string
+  const unitsAndAdjectives = [
+    'tablespoons', 'tablespoon', 'tbsp', 'teaspoons', 'teaspoon', 'tsp', 
+    'fluid ounces', 'fluid ounce', 'fl oz', 'ounces', 'ounce', 'oz', 
+    'pounds', 'pound', 'lbs', 'lb', 'kilograms', 'kilogram', 'kg', 
+    'grams', 'gram', 'g', 'milliliters', 'milliliter', 'ml', 'liters', 'liter', 'l', 
+    'cups', 'cup', 'c', 'pints', 'pint', 'pt', 'quarts', 'quart', 'qt', 
+    'gallons', 'gallon', 'gal', 'cloves', 'clove', 'pinches', 'pinch', 
+    'dashes', 'dash', 'cans', 'can', 'packages', 'package', 'pkg', 
+    'bunches', 'bunch', 'heads', 'head', 'stalks', 'stalk', 'sprigs', 'sprig', 
+    'slices', 'slice', 'pieces', 'piece', 'sticks', 'stick', 'bottles', 'bottle', 
+    'boxes', 'box', 'bags', 'bag', 'containers', 'container', 'bars', 'bar', 
+    'loaves', 'loaf', 'bulbs', 'bulb', 'ears', 'ear', 'sheets', 'sheet', 'leaves', 'leaf',
+    // Adjectives / descriptors (often precede the noun)
+    'large', 'medium', 'small', 'fresh', 'dried', 'ground', 'boneless', 
+    'skinless', 'whole', 'diced', 'sliced', 'chopped', 'minced', 'grated', 
+    'pounded', 'melted', 'softened', 'beaten', 'crushed', 'toasted', 
+    'cooked', 'uncooked', 'ripe', 'firm', 'raw', 'peeled', 'cored', 'seeded', 
+    'rinsed', 'drained', 'divided'
+  ];
+
   let unitFoundAndRemoved = true;
-  while(unitFoundAndRemoved) {
+  while (unitFoundAndRemoved) {
     unitFoundAndRemoved = false;
     for (const unit of unitsAndAdjectives) {
       const unitRegex = new RegExp(`^${unit}(\\s+|$)`, 'i');
@@ -46,11 +83,15 @@ function stripPortions(line: string): string {
     }
   }
   processedLine = processedLine.trim();
+
+  // 6. Capitalize the first letter of the remaining string
   if (processedLine.length > 0) {
     processedLine = processedLine.charAt(0).toUpperCase() + processedLine.slice(1);
   }
+
   return processedLine;
 }
+
 
 const categoriesMap = {
   Produce: ['apple', 'banana', 'orange', 'pear', 'grape', 'berry', 'berries', 'strawberry', 'blueberry', 'raspberry', 'avocado', 'tomato', 'potato', 'onion', 'garlic', 'carrot', 'broccoli', 'spinach', 'lettuce', 'salad greens', 'celery', 'cucumber', 'bell pepper', 'pepper', 'zucchini', 'mushroom', 'lemon', 'lime', 'cabbage', 'kale', 'asparagus', 'eggplant', 'corn', 'sweet potato', 'ginger', 'parsley', 'cilantro', 'basil', 'mint', 'rosemary', 'thyme', 'dill', 'leek', 'scallion', 'green bean', 'pea', 'artichoke', 'beet', 'radish', 'squash'],
