@@ -117,9 +117,9 @@ function parseIngredientLine(line: string): ParsedIngredient {
   let match; 
 
   if (rangeMatch) {
-    const num1Str = rangeMatch[1]?.replace(',', '.');
-    const num2Str = rangeMatch[2]?.replace(',', '.');
-    const num1 = smartParseFloat(num1Str);
+    const num1Str = rangeMatch[1]?.replace(',', '.'); // Pre-replace for safety before smartParseFloat
+    const num2Str = rangeMatch[2]?.replace(',', '.'); // Pre-replace for safety
+    const num1 = smartParseFloat(num1Str); // smartParseFloat will also handle (now redundant but safe)
     const num2 = smartParseFloat(num2Str);
     if (num1 !== null && num2 !== null) {
       quantity = Math.max(num1, num2); 
@@ -141,13 +141,13 @@ function parseIngredientLine(line: string): ParsedIngredient {
       }
     }
   } else {
-    const singleNumRegex = /^\s*(\d+(?:[\,\.\/]\d+)?)\s*([a-zA-Z]+(?:\s+[a-zA-Z]+){0,2})?\s*(.*)/; // Allow comma in numStr
+    const singleNumRegex = /^\s*(\d+(?:[\,\.\/]\d+)?)\s*([a-zA-Z]+(?:\s+[a-zA-Z]+){0,2})?\s*(.*)/;
     match = ingredientPart.match(singleNumRegex);
     if (match) {
-      const numStr = match[1]; // Will be processed by smartParseFloat
+      const numStr = match[1]; 
       const potentialUnit = match[2]?.trim();
       const remainingName = match[3]?.trim();
-      const tempQty = smartParseFloat(numStr); // smartParseFloat now handles comma
+      const tempQty = smartParseFloat(numStr); 
       if (tempQty !== null) {
         const potentialUnitLC = potentialUnit?.toLowerCase();
         if (potentialUnitLC && (potentialUnitLC === 'lbs' || potentialUnitLC === 'lb' || potentialUnitLC === 'g' || potentialUnitLC === 'gram' || potentialUnitLC === 'grams' || potentialUnitLC === 'kg' || potentialUnitLC === 'kilogram' || potentialUnitLC === 'kilograms' || potentialUnitLC === 'oz' || potentialUnitLC === 'ounce' || potentialUnitLC === 'ounces')) {
@@ -184,13 +184,13 @@ function parseIngredientLine(line: string): ParsedIngredient {
   }
 
   if (quantity === null) { 
-    const trailingRegex = /^(.*?)\s+(\d+(?:[\,\.\/]\d+)?)\s*([a-zA-Z]+(?:\s+[a-zA-Z]+){0,2})?\s*$/; // Allow comma in numStr
+    const trailingRegex = /^(.*?)\s+(\d+(?:[\,\.\/]\d+)?)\s*([a-zA-Z]+(?:\s+[a-zA-Z]+){0,2})?\s*$/; 
     match = ingredientPart.match(trailingRegex);
     if (match) {
-      const numStr = match[2]; // Will be processed by smartParseFloat
+      const numStr = match[2]; 
       const potentialUnit = match[3]?.trim();
       const namePart = match[1]?.trim();
-      const tempQty = smartParseFloat(numStr); // smartParseFloat now handles comma
+      const tempQty = smartParseFloat(numStr); 
       if (tempQty !== null) {
         const potentialUnitLC = potentialUnit?.toLowerCase();
         if (potentialUnitLC && (potentialUnitLC === 'lbs' || potentialUnitLC === 'lb' || potentialUnitLC === 'g' || potentialUnitLC === 'gram' || potentialUnitLC === 'grams' || potentialUnitLC === 'kg' || potentialUnitLC === 'kilogram' || potentialUnitLC === 'kilograms' || potentialUnitLC === 'oz' || potentialUnitLC === 'ounce' || potentialUnitLC === 'ounces')) {
@@ -476,7 +476,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center"><ListChecks className="mr-2 h-5 w-5" />Grocery List for {format(currentWeekStart, 'MMM dd')} - {format(weekEnd, 'MMM dd')}</Title>
+        <CardTitle className="flex items-center"><ListChecks className="mr-2 h-5 w-5" />Grocery List for {format(currentWeekStart, 'MMM dd')} - {format(weekEnd, 'MMM dd')}</CardTitle>
       </CardHeader>
       <CardContent>
         {isEmptyList ? (
