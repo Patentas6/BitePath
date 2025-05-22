@@ -90,8 +90,9 @@ const ALL_KNOWN_UNIT_STRINGS = [...new Set([...SUMMABLE_WEIGHT_MASS_UNITS, ...DI
 
 function smartParseFloat(numStr: string | undefined): number | null {
   if (!numStr) return null;
-  if (numStr.includes('/')) {
-    const parts = numStr.split('/');
+  const standardizedNumStr = numStr.replace(',', '.'); // Replace comma with period
+  if (standardizedNumStr.includes('/')) {
+    const parts = standardizedNumStr.split('/');
     if (parts.length === 2) {
       const num = parseFloat(parts[0]);
       const den = parseFloat(parts[1]);
@@ -99,7 +100,7 @@ function smartParseFloat(numStr: string | undefined): number | null {
     }
     return null;
   }
-  const val = parseFloat(numStr);
+  const val = parseFloat(standardizedNumStr);
   return isNaN(val) ? null : val;
 }
 
@@ -116,8 +117,10 @@ function parseIngredientLine(line: string): ParsedIngredient {
   let match; 
 
   if (rangeMatch) {
-    const num1 = smartParseFloat(rangeMatch[1]);
-    const num2 = smartParseFloat(rangeMatch[2]);
+    const num1Str = rangeMatch[1]?.replace(',', '.');
+    const num2Str = rangeMatch[2]?.replace(',', '.');
+    const num1 = smartParseFloat(num1Str);
+    const num2 = smartParseFloat(num2Str);
     if (num1 !== null && num2 !== null) {
       quantity = Math.max(num1, num2); 
       ingredientPart = ingredientPart.substring(rangeMatch[0].length); 
@@ -138,18 +141,18 @@ function parseIngredientLine(line: string): ParsedIngredient {
       }
     }
   } else {
-    const singleNumRegex = /^\s*(\d+(?:[\.\/]\d+)?)\s*([a-zA-Z]+(?:\s+[a-zA-Z]+){0,2})?\s*(.*)/;
+    const singleNumRegex = /^\s*(\d+(?:[\,\.\/]\d+)?)\s*([a-zA-Z]+(?:\s+[a-zA-Z]+){0,2})?\s*(.*)/; // Allow comma in numStr
     match = ingredientPart.match(singleNumRegex);
     if (match) {
-      const numStr = match[1];
+      const numStr = match[1]; // Will be processed by smartParseFloat
       const potentialUnit = match[2]?.trim();
       const remainingName = match[3]?.trim();
-      const tempQty = smartParseFloat(numStr);
+      const tempQty = smartParseFloat(numStr); // smartParseFloat now handles comma
       if (tempQty !== null) {
         const potentialUnitLC = potentialUnit?.toLowerCase();
         if (potentialUnitLC && (potentialUnitLC === 'lbs' || potentialUnitLC === 'lb' || potentialUnitLC === 'g' || potentialUnitLC === 'gram' || potentialUnitLC === 'grams' || potentialUnitLC === 'kg' || potentialUnitLC === 'kilogram' || potentialUnitLC === 'kilograms' || potentialUnitLC === 'oz' || potentialUnitLC === 'ounce' || potentialUnitLC === 'ounces')) {
             quantity = tempQty;
-            extractedUnit = potentialUnitLC; // Store consistently (e.g. "g" not "G")
+            extractedUnit = potentialUnitLC; 
             ingredientPart = remainingName || "";
         } else if (potentialUnit && ALL_KNOWN_UNIT_STRINGS.includes(potentialUnit)) { 
           quantity = tempQty;
@@ -181,13 +184,13 @@ function parseIngredientLine(line: string): ParsedIngredient {
   }
 
   if (quantity === null) { 
-    const trailingRegex = /^(.*?)\s+(\d+(?:[\.\/]\d+)?)\s*([a-zA-Z]+(?:\s+[a-zA-Z]+){0,2})?\s*$/;
+    const trailingRegex = /^(.*?)\s+(\d+(?:[\,\.\/]\d+)?)\s*([a-zA-Z]+(?:\s+[a-zA-Z]+){0,2})?\s*$/; // Allow comma in numStr
     match = ingredientPart.match(trailingRegex);
     if (match) {
-      const numStr = match[2];
+      const numStr = match[2]; // Will be processed by smartParseFloat
       const potentialUnit = match[3]?.trim();
       const namePart = match[1]?.trim();
-      const tempQty = smartParseFloat(numStr);
+      const tempQty = smartParseFloat(numStr); // smartParseFloat now handles comma
       if (tempQty !== null) {
         const potentialUnitLC = potentialUnit?.toLowerCase();
         if (potentialUnitLC && (potentialUnitLC === 'lbs' || potentialUnitLC === 'lb' || potentialUnitLC === 'g' || potentialUnitLC === 'gram' || potentialUnitLC === 'grams' || potentialUnitLC === 'kg' || potentialUnitLC === 'kilogram' || potentialUnitLC === 'kilograms' || potentialUnitLC === 'oz' || potentialUnitLC === 'ounce' || potentialUnitLC === 'ounces')) {
@@ -473,7 +476,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center"><ListChecks className="mr-2 h-5 w-5" />Grocery List for {format(currentWeekStart, 'MMM dd')} - {format(weekEnd, 'MMM dd')}</CardTitle>
+        <CardTitle className="flex items-center"><ListChecks className="mr-2 h-5 w-5" />Grocery List for {format(currentWeekStart, 'MMM dd')} - {format(weekEnd, 'MMM dd')}</Title>
       </CardHeader>
       <CardContent>
         {isEmptyList ? (
