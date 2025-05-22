@@ -85,7 +85,6 @@ const DISPLAY_NAME_ONLY_UNITS: ReadonlyArray<string> = [
   "pinch", "pinches", "dash", "dashes"
 ];
 
-// Combined list of all known unit strings for parsing, sorted by length descending for greedy matching
 const ALL_KNOWN_UNIT_STRINGS = [...new Set([...SUMMABLE_WEIGHT_MASS_UNITS, ...DISPLAY_NAME_ONLY_UNITS, ...COUNTABLE_UNITS_KEYWORDS])].sort((a, b) => b.length - a.length);
 
 
@@ -122,11 +121,15 @@ function parseIngredientLine(line: string): ParsedIngredient {
     if (num1 !== null && num2 !== null) {
       quantity = Math.max(num1, num2); 
       ingredientPart = ingredientPart.substring(rangeMatch[0].length); 
-      const unitAfterRangeRegex = /^\s*([a-zA-Z]+(?:\s+[a-zA-Z]+){0,2})?\s*(.*)/; // Allow up to 3 words for unit e.g. "fluid ounces"
+      const unitAfterRangeRegex = /^\s*([a-zA-Z]+(?:\s+[a-zA-Z]+){0,2})?\s*(.*)/;
       const unitMatch = ingredientPart.match(unitAfterRangeRegex);
       if (unitMatch) {
           const potentialUnit = unitMatch[1]?.trim();
-          if (potentialUnit && ALL_KNOWN_UNIT_STRINGS.includes(potentialUnit)) { // Check against combined list
+          const potentialUnitLC = potentialUnit?.toLowerCase();
+          if (potentialUnitLC && (potentialUnitLC === 'lbs' || potentialUnitLC === 'lb' || potentialUnitLC === 'g' || potentialUnitLC === 'gram' || potentialUnitLC === 'grams' || potentialUnitLC === 'kg' || potentialUnitLC === 'kilogram' || potentialUnitLC === 'kilograms' || potentialUnitLC === 'oz' || potentialUnitLC === 'ounce' || potentialUnitLC === 'ounces')) {
+              extractedUnit = potentialUnitLC;
+              ingredientPart = unitMatch[2]?.trim() || "";
+          } else if (potentialUnit && ALL_KNOWN_UNIT_STRINGS.includes(potentialUnit)) {
               extractedUnit = potentialUnit;
               ingredientPart = unitMatch[2]?.trim() || "";
           } else {
@@ -135,7 +138,7 @@ function parseIngredientLine(line: string): ParsedIngredient {
       }
     }
   } else {
-    const singleNumRegex = /^\s*(\d+(?:[\.\/]\d+)?)\s*([a-zA-Z]+(?:\s+[a-zA-Z]+){0,2})?\s*(.*)/; // Allow up to 3 words for unit
+    const singleNumRegex = /^\s*(\d+(?:[\.\/]\d+)?)\s*([a-zA-Z]+(?:\s+[a-zA-Z]+){0,2})?\s*(.*)/;
     match = ingredientPart.match(singleNumRegex);
     if (match) {
       const numStr = match[1];
@@ -143,7 +146,12 @@ function parseIngredientLine(line: string): ParsedIngredient {
       const remainingName = match[3]?.trim();
       const tempQty = smartParseFloat(numStr);
       if (tempQty !== null) {
-        if (potentialUnit && ALL_KNOWN_UNIT_STRINGS.includes(potentialUnit)) { // Check against combined list
+        const potentialUnitLC = potentialUnit?.toLowerCase();
+        if (potentialUnitLC && (potentialUnitLC === 'lbs' || potentialUnitLC === 'lb' || potentialUnitLC === 'g' || potentialUnitLC === 'gram' || potentialUnitLC === 'grams' || potentialUnitLC === 'kg' || potentialUnitLC === 'kilogram' || potentialUnitLC === 'kilograms' || potentialUnitLC === 'oz' || potentialUnitLC === 'ounce' || potentialUnitLC === 'ounces')) {
+            quantity = tempQty;
+            extractedUnit = potentialUnitLC; // Store consistently (e.g. "g" not "G")
+            ingredientPart = remainingName || "";
+        } else if (potentialUnit && ALL_KNOWN_UNIT_STRINGS.includes(potentialUnit)) { 
           quantity = tempQty;
           extractedUnit = potentialUnit;
           ingredientPart = remainingName || "";
@@ -155,17 +163,16 @@ function parseIngredientLine(line: string): ParsedIngredient {
     }
   }
 
-  // If no unit found next to quantity, check for unit at the end of ingredientPart
   if (extractedUnit === null && quantity !== null && ingredientPart.length > 0) {
-    for (const unitStr of ALL_KNOWN_UNIT_STRINGS) { // Use the sorted list
+    for (const unitStr of ALL_KNOWN_UNIT_STRINGS) { 
       if (ingredientPart.endsWith(" " + unitStr)) {
         const newNamePart = ingredientPart.substring(0, ingredientPart.length - (unitStr.length + 1)).trim();
-        if (newNamePart.length > 0 || (newNamePart.length === 0 && quantity !== null)) { // Allow empty name if quantity exists
+        if (newNamePart.length > 0 || (newNamePart.length === 0 && quantity !== null)) { 
           extractedUnit = unitStr;
           ingredientPart = newNamePart;
           break;
         }
-      } else if (ingredientPart === unitStr) { // Case where ingredientPart is just the unit
+      } else if (ingredientPart === unitStr) { 
         extractedUnit = unitStr;
         ingredientPart = ""; 
         break;
@@ -173,9 +180,8 @@ function parseIngredientLine(line: string): ParsedIngredient {
     }
   }
 
-
-  if (quantity === null) { // Only try trailing quantity if no leading quantity was found
-    const trailingRegex = /^(.*?)\s+(\d+(?:[\.\/]\d+)?)\s*([a-zA-Z]+(?:\s+[a-zA-Z]+){0,2})?\s*$/; // Allow up to 3 words for unit
+  if (quantity === null) { 
+    const trailingRegex = /^(.*?)\s+(\d+(?:[\.\/]\d+)?)\s*([a-zA-Z]+(?:\s+[a-zA-Z]+){0,2})?\s*$/;
     match = ingredientPart.match(trailingRegex);
     if (match) {
       const numStr = match[2];
@@ -183,14 +189,19 @@ function parseIngredientLine(line: string): ParsedIngredient {
       const namePart = match[1]?.trim();
       const tempQty = smartParseFloat(numStr);
       if (tempQty !== null) {
-        if (potentialUnit && ALL_KNOWN_UNIT_STRINGS.includes(potentialUnit)) { // Check against combined list
+        const potentialUnitLC = potentialUnit?.toLowerCase();
+        if (potentialUnitLC && (potentialUnitLC === 'lbs' || potentialUnitLC === 'lb' || potentialUnitLC === 'g' || potentialUnitLC === 'gram' || potentialUnitLC === 'grams' || potentialUnitLC === 'kg' || potentialUnitLC === 'kilogram' || potentialUnitLC === 'kilograms' || potentialUnitLC === 'oz' || potentialUnitLC === 'ounce' || potentialUnitLC === 'ounces')) {
+            quantity = tempQty;
+            extractedUnit = potentialUnitLC;
+            ingredientPart = namePart || "";
+        } else if (potentialUnit && ALL_KNOWN_UNIT_STRINGS.includes(potentialUnit)) {
             quantity = tempQty;
             extractedUnit = potentialUnit;
             ingredientPart = namePart || "";
-        } else if (!potentialUnit) { // Number at end, no unit
+        } else if (!potentialUnit) { 
             quantity = tempQty;
             ingredientPart = namePart || "";
-        } else { // Number and something not a unit
+        } else { 
             ingredientPart = `${namePart} ${numStr} ${potentialUnit}`.trim();
         }
       }
@@ -206,16 +217,8 @@ function parseIngredientLine(line: string): ParsedIngredient {
   let changed;
   do {
     changed = false;
-    // Adjective stripping should be more careful not to strip parts of multi-word units if extractedUnit is complex
-    // For now, rely on extractedUnit being correct and currentName being the true name part.
-    // The UNITS_AND_ADJECTIVES list is broad; stripping from it can be aggressive.
-    // A simpler approach: if extractedUnit is set, only strip adjectives not part of it.
-    // This part needs more refinement if multi-word units are common and complex.
-    // For now, the main unit extraction is prioritized.
     for (const adj of UNITS_AND_ADJECTIVES) {
-        // Avoid stripping the extracted unit itself if it's multi-word and was part of ingredientPart initially
         if (extractedUnit && extractedUnit.includes(adj) && extractedUnit.includes(" ")) continue;
-
         if (currentName.startsWith(adj + " ")) {
             if (extractedUnit && adj.toLowerCase() === extractedUnit.toLowerCase()) continue;
             currentName = currentName.substring(adj.length + 1).trim();
@@ -240,8 +243,7 @@ function parseIngredientLine(line: string): ParsedIngredient {
   } else if (normalizedName.endsWith('ies') && normalizedName.length > 3) {
       normalizedName = normalizedName.slice(0, -3) + 'y';
   } else if (normalizedName.endsWith('s') && !normalizedName.endsWith('ss') && !['gas', 'bus', 'lens', 'series', 'species', 'molasses', 'hummus', 'cress'].includes(normalizedName) && normalizedName.length > 1) {
-      // Avoid de-pluralizing words like "skinless" or units like "ounces" if they weren't caught as units
-      if (!ALL_KNOWN_UNIT_STRINGS.includes(normalizedName.toLowerCase())) { // Check if the plural form is a known unit
+      if (!ALL_KNOWN_UNIT_STRINGS.includes(normalizedName.toLowerCase())) { 
         normalizedName = normalizedName.slice(0, -1);
       }
   }
@@ -271,7 +273,7 @@ function parseIngredientLine(line: string): ParsedIngredient {
     } else {
       if (nameLC === "black pepper" || nameLC === "white pepper" || nameLC === "cayenne pepper" || nameLC === "ground pepper" || nameLC === "chilli powder" || nameLC === "curry powder" || nameLC === "paprika" || nameLC === "salt") {
         isCountable = false; 
-      } else if (COUNTABLE_UNITS_KEYWORDS.some(kw => unitLC.includes(kw) || nameLC.includes(kw))) { // unitLC could be "cans", nameLC could contain "thighs"
+      } else if (COUNTABLE_UNITS_KEYWORDS.some(kw => unitLC.includes(kw) || nameLC.includes(kw))) { 
         isCountable = true;
       } else if (IMPLICITLY_COUNTABLE_INGREDIENTS_ENDINGS.some(ending => nameLC.endsWith(ending))) {
         isCountable = true;
@@ -391,7 +393,6 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
         if (item.unit) {
           let currentUnit = item.unit;
           if (item.totalQuantity > 1 && !currentUnit.endsWith('s') && currentUnit.length > 0) {
-             // Simple pluralization, can be expanded
              if (currentUnit.endsWith('y') && !['day', 'key', 'way', 'toy', 'boy', 'guy'].includes(currentUnit.toLowerCase())) {
                 currentUnit = currentUnit.slice(0, -1) + 'ies';
              } else {
@@ -399,7 +400,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
              }
           }
           unitSuffix = " " + currentUnit;
-        } else { // No explicit unit, but item is countable (e.g. "2 Apples")
+        } else { 
           if (item.totalQuantity > 1 && !baseName.endsWith('s') && !baseName.endsWith('es')) {
              if (baseName.endsWith('y') && !['day', 'key', 'way', 'toy', 'boy', 'guy'].includes(baseName.toLowerCase())) {
                 baseName = baseName.slice(0,-1) + "ies";
