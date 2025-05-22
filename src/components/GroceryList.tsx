@@ -160,24 +160,37 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
       </CardHeader>
       <CardContent>
         {uniqueIngredientLines.length > 0 ? (
-          categoryOrder.map(category => (
-            categorizedIngredients[category] && categorizedIngredients[category].length > 0 && (
-              <div key={category} className="mb-4">
-                <h3 className="text-md font-semibold text-gray-800 border-b pb-1 mb-2">{category}</h3>
-                <ul className="space-y-1 text-sm">
-                  {categorizedIngredients[category].map((line, index) => (
-                    <li
-                      key={`${category}-${index}-${line}`}
-                      onClick={() => handleItemClick(line)}
-                      className={`cursor-pointer p-1 rounded hover:bg-gray-100 ${struckItems.has(line) ? 'line-through text-gray-400' : 'text-gray-700'}`}
-                    >
-                      {line}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )
-          ))
+          categoryOrder.map(category => {
+            const itemsInCategory = categorizedIngredients[category];
+            if (itemsInCategory && itemsInCategory.length > 0) {
+              const allItemsInCategoryStruck = itemsInCategory.every(item => struckItems.has(item));
+              return (
+                <div key={category} className="mb-4">
+                  <h3 
+                    className={`text-md font-semibold text-gray-800 border-b pb-1 mb-2 ${
+                      allItemsInCategoryStruck ? 'line-through text-gray-400' : ''
+                    }`}
+                  >
+                    {category}
+                  </h3>
+                  <ul className="space-y-1 text-sm">
+                    {itemsInCategory.map((line, index) => (
+                      <li
+                        key={`${category}-${index}-${line}`}
+                        onClick={() => handleItemClick(line)}
+                        className={`cursor-pointer p-1 rounded hover:bg-gray-100 ${
+                          struckItems.has(line) ? 'line-through text-gray-400' : 'text-gray-700'
+                        }`}
+                      >
+                        {line}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            }
+            return null;
+          })
         ) : (
           <p className="text-sm text-gray-600">No ingredients found for the planned meals this week, or ingredients could not be processed.</p>
         )}
