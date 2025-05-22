@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState, useEffect } from "react"; // Added useState and useEffect
+import { useMemo, useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { format, endOfWeek } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -140,9 +140,20 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
     return Array.from(new Set(processedLines)).sort();
   }, [plannedMeals]);
 
-  // Reset struck items when the list itself changes (e.g., week changes)
+  // Persist struck items if they still exist in the new list
   useEffect(() => {
-    setStruckItems(new Set());
+    setStruckItems(prevStruckItems => {
+      const newPersistedStruckItems = new Set<string>();
+      // Ensure uniqueIngredientLines is available and has items before iterating
+      if (uniqueIngredientLines && uniqueIngredientLines.length > 0) {
+        for (const item of prevStruckItems) {
+          if (uniqueIngredientLines.includes(item)) {
+            newPersistedStruckItems.add(item);
+          }
+        }
+      }
+      return newPersistedStruckItems;
+    });
   }, [uniqueIngredientLines]);
 
   const handleItemClick = (item: string) => {
