@@ -6,7 +6,7 @@ const Index = () => {
       {/* Navigation Bar Placeholder */}
       <header className="w-full p-4 bg-white shadow-sm">
         <div className="container mx-auto flex justify-between items-center">
-          <div className="text-lg font-bold">Meal Planner</div>
+          <div className="text-lg font-bold">BitePath</div>
           <nav className="space-x-4">
             <a href="#features" className="hover:underline">Features</a>
             <a href="#pricing" className="hover:underline">Pricing</a>
