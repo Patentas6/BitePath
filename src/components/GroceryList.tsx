@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react"; // Added useState and useEffect
 import { supabase } from "@/lib/supabase";
 import { format, endOfWeek } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,7 +44,6 @@ function stripPortions(line: string): string {
   processedLine = processedLine.trim();
 
   // 4. Loop to remove common units and descriptive adjectives that often precede ingredients
-  // Order can be important; longer units/phrases first if they are substrings of others.
   const unitsAndAdjectives = [
     'tablespoons', 'tablespoon', 'tbsp',
     'teaspoons', 'teaspoon', 'tsp',
@@ -59,21 +58,20 @@ function stripPortions(line: string): string {
     'pints', 'pint', 'pt',
     'quarts', 'quart', 'qt',
     'gallons', 'gallon', 'gal',
-    'cloves', 'clove', // for garlic
+    'cloves', 'clove', 
     'pinches', 'pinch',
     'dashes', 'dash',
     'cans', 'can',
     'packages', 'package', 'pkg',
     'bunches', 'bunch',
-    'heads', 'head', // for lettuce, garlic
-    'stalks', 'stalk', // for celery
-    'sprigs', 'sprig', // for herbs
+    'heads', 'head', 
+    'stalks', 'stalk',
+    'sprigs', 'sprig',
     'slices', 'slice',
     'pieces', 'piece',
-    'sticks', 'stick', // for butter
+    'sticks', 'stick', 
     'bottles', 'bottle', 'boxes', 'box', 'bags', 'bag', 'containers', 'container',
     'bars', 'bar', 'loaves', 'loaf', 'bulbs', 'bulb', 'ears', 'ear', 'sheets', 'sheet', 'leaves', 'leaf',
-    // Common adjectives
     'large', 'medium', 'small',
     'fresh', 'dried', 'ground',
     'boneless', 'skinless',
@@ -95,7 +93,6 @@ function stripPortions(line: string): string {
     }
   }
   
-  // 5. Final trim and capitalize
   processedLine = processedLine.trim();
   if (processedLine.length > 0) {
     processedLine = processedLine.charAt(0).toUpperCase() + processedLine.slice(1);
@@ -105,7 +102,8 @@ function stripPortions(line: string): string {
 }
 
 const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) => {
-  const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 }); // Assuming week starts on Monday
+  const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
+  const [struckItems, setStruckItems] = useState<Set<string>>(new Set());
 
   const { data: plannedMeals, isLoading, error } = useQuery<PlannedMealWithIngredients[]>({
     queryKey: ["groceryList", userId, format(currentWeekStart, 'yyyy-MM-dd')],
@@ -129,36 +127,43 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
 
   const uniqueIngredientLines = useMemo(() => {
     if (!plannedMeals) return [];
-
     const allIngredientBlocks = plannedMeals
       .map(pm => pm.meals?.ingredients)
       .filter(Boolean) as string[];
-
     const processedLines = allIngredientBlocks.flatMap(block =>
       block.split('\n')
         .map(line => line.trim())
         .filter(line => line.length > 0)
-        .map(line => stripPortions(line)) // Apply stripping function
-        .filter(line => line.length > 0) // Filter out if stripping made it empty
+        .map(line => stripPortions(line))
+        .filter(line => line.length > 0)
     );
-    
-    // Make unique *after* stripping portions and sort for consistent order
     return Array.from(new Set(processedLines)).sort();
   }, [plannedMeals]);
+
+  // Reset struck items when the list itself changes (e.g., week changes)
+  useEffect(() => {
+    setStruckItems(new Set());
+  }, [uniqueIngredientLines]);
+
+  const handleItemClick = (item: string) => {
+    setStruckItems(prevStruckItems => {
+      const newStruckItems = new Set(prevStruckItems);
+      if (newStruckItems.has(item)) {
+        newStruckItems.delete(item);
+      } else {
+        newStruckItems.add(item);
+      }
+      return newStruckItems;
+    });
+  };
 
   if (isLoading) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <ListChecks className="mr-2 h-5 w-5" />
-            Grocery List
-          </CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle className="flex items-center"><ListChecks className="mr-2 h-5 w-5" />Grocery List</CardTitle></CardHeader>
         <CardContent>
           <Skeleton className="h-4 w-1/2 mb-2" />
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full mt-2" />
+          <Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full mt-2" />
         </CardContent>
       </Card>
     );
@@ -167,12 +172,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
   if (error) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <ListChecks className="mr-2 h-5 w-5" />
-            Grocery List
-          </CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle className="flex items-center"><ListChecks className="mr-2 h-5 w-5" />Grocery List</CardTitle></CardHeader>
         <CardContent>
           <Alert variant="destructive">
             <AlertTitle>Error</AlertTitle>
@@ -193,9 +193,17 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
       </CardHeader>
       <CardContent>
         {uniqueIngredientLines.length > 0 ? (
-          <ul className="list-disc pl-5 space-y-1 text-sm">
+          <ul className="space-y-1 text-sm">
             {uniqueIngredientLines.map((line, index) => (
-              <li key={index}>{line}</li>
+              <li
+                key={index}
+                onClick={() => handleItemClick(line)}
+                className={`cursor-pointer p-1 rounded hover:bg-gray-100 ${
+                  struckItems.has(line) ? 'line-through text-gray-400' : 'text-gray-700'
+                }`}
+              >
+                {line}
+              </li>
             ))}
           </ul>
         ) : (
