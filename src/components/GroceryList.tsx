@@ -194,7 +194,7 @@ function parseIngredientLine(line: string): ParsedIngredient {
   } while (changed);
   
   let normalizedName = currentName.trim();
-  normalizedName = normalizedName.replace(/^[,;\s]+|[,;\s]+$/g, '').trim(); // Strip leading/trailing commas, semicolons, spaces
+  normalizedName = normalizedName.replace(/^[,;\s]+|[,;\s]+$/g, '').trim(); 
 
   const commonIrregularPlurals: {[key: string]: string} = { 'potatoes': 'potato', 'tomatoes': 'tomato', 'leaves': 'leaf', 'loaves': 'loaf', 'knives': 'knife', 'lives': 'life', 'shelves': 'shelf', 'wolves': 'wolf', 'elves': 'elf' };
   if (commonIrregularPlurals[normalizedName]) {
@@ -207,9 +207,13 @@ function parseIngredientLine(line: string): ParsedIngredient {
 
   if (normalizedName.length > 0) {
     normalizedName = normalizedName.charAt(0).toUpperCase() + normalizedName.slice(1);
-  } else if (originalLine.length > 0) { // Fallback if name became empty
+  } else if (originalLine.length > 0) { 
     normalizedName = originalLine.trim().replace(/^[,;\s]+|[,;\s]+$/g, '').trim();
-    normalizedName = normalizedName.charAt(0).toUpperCase() + normalizedName.slice(1);
+    if (normalizedName.length > 0) {
+      normalizedName = normalizedName.charAt(0).toUpperCase() + normalizedName.slice(1);
+    } else {
+      normalizedName = "Unknown ingredient";
+    }
   } else {
     normalizedName = "Unknown ingredient";
   }
@@ -282,34 +286,42 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
           if (trimmedLine.length === 0) return;
           
           const parsed = parseIngredientLine(trimmedLine);
-          if (parsed.normalizedName === "Unknown ingredient" || parsed.normalizedName.length === 0) return; // Skip if parsing failed badly
+          if (parsed.normalizedName === "Unknown ingredient" || parsed.normalizedName.length === 0) return;
           
           const existing = ingredientMap.get(parsed.normalizedName);
           if (existing) {
+            // Update isCountable status
             if (parsed.unit && DISPLAY_NAME_ONLY_UNITS.includes(parsed.unit.toLowerCase())) {
-              existing.isCountable = false;
-              existing.totalQuantity = 0; 
-            } else if (parsed.isCountable && parsed.quantity !== null) {
-              if (existing.isCountable) {
-                existing.totalQuantity += parsed.quantity;
-              } else {
-                // existing was not countable, but this one is (and not a display-only unit)
-                existing.isCountable = true;
-                existing.totalQuantity = parsed.quantity;
+              existing.isCountable = false; // Force non-countable if a display-only unit is encountered
+              existing.totalQuantity = 0;
+            } else if (parsed.isCountable && !existing.isCountable) {
+              // If existing was not countable (e.g. no quantity before, or different unit type)
+              // and current parsed line IS countable (and not a display-only unit), make existing countable.
+              if (!(parsed.unit && DISPLAY_NAME_ONLY_UNITS.includes(parsed.unit.toLowerCase()))){
+                 existing.isCountable = true;
+                 existing.totalQuantity = parsed.quantity !== null ? parsed.quantity : 0; // Start sum with current quantity
+              }
+            } else if (parsed.isCountable && existing.isCountable && parsed.quantity !== null) {
+              existing.totalQuantity += parsed.quantity; // Both are countable, sum quantities
+            }
+            // else if (!parsed.isCountable && existing.isCountable) -> existing remains countable, quantity not changed by this non-countable line.
+            
+            // Update unit: Prioritize SUMMABLE_WEIGHT_MASS_UNITS, then any unit if existing had none.
+            if (parsed.unit) {
+              if (SUMMABLE_WEIGHT_MASS_UNITS.includes(parsed.unit.toLowerCase())) {
+                existing.unit = parsed.unit;
+              } else if (!existing.unit && !DISPLAY_NAME_ONLY_UNITS.includes(parsed.unit.toLowerCase())) {
+                // If existing had no unit, and parsed unit is not a display-only one, take it.
+                existing.unit = parsed.unit;
               }
             }
-            if (!existing.unit && parsed.unit) existing.unit = parsed.unit;
             existing.originalLines.push(trimmedLine);
           } else { 
-            let initialIsCountable = parsed.isCountable;
-            if (parsed.unit && DISPLAY_NAME_ONLY_UNITS.includes(parsed.unit.toLowerCase())) {
-                initialIsCountable = false;
-            }
             ingredientMap.set(parsed.normalizedName, {
               name: parsed.normalizedName,
-              totalQuantity: (initialIsCountable && parsed.quantity !== null) ? parsed.quantity : 0,
-              unit: parsed.unit,
-              isCountable: initialIsCountable,
+              totalQuantity: (parsed.isCountable && parsed.quantity !== null) ? parsed.quantity : 0,
+              unit: (parsed.unit && DISPLAY_NAME_ONLY_UNITS.includes(parsed.unit.toLowerCase())) ? null : parsed.unit, // Don't store display-only units if it's the first entry
+              isCountable: parsed.isCountable,
               originalLines: [trimmedLine]
             });
           }
@@ -343,7 +355,6 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
 
         if (item.unit) {
           let currentUnit = item.unit;
-          // Pluralize explicit unit if quantity > 1 and it's not already plural (simple 's' check)
           if (item.totalQuantity > 1 && !currentUnit.endsWith('s') && currentUnit.length > 0) {
              if (currentUnit.endsWith('y') && !['day', 'key', 'way', 'toy', 'boy', 'guy'].includes(currentUnit.toLowerCase())) {
                 currentUnit = currentUnit.slice(0, -1) + 'ies';
@@ -353,8 +364,6 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
           }
           unitSuffix = " " + currentUnit;
         } else {
-          // No explicit unit, but item is countable (e.g. "2 Apples")
-          // Pluralize baseName if quantity > 1
           if (item.totalQuantity > 1 && !baseName.endsWith('s') && !baseName.endsWith('es')) {
              if (baseName.endsWith('y') && !['day', 'key', 'way', 'toy', 'boy', 'guy'].includes(baseName.toLowerCase())) {
                 baseName = baseName.slice(0,-1) + "ies";
