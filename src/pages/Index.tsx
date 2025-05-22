@@ -97,7 +97,7 @@ const Index = () => {
       {/* Footer Placeholder */}
       <footer className="w-full py-8 bg-gray-800 text-white text-center">
         <div className="container mx-auto px-4">
-          <p>&copy; 2024 Minimalist Meal Planner. All rights reserved.</p>
+          <p>&copy; 2024 BitePath. All rights reserved.</p>
           {/* Add privacy policy, terms links here later */}
         </div>
       </footer>

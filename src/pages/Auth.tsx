@@ -2,9 +2,9 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useNavigate } from "react-router-dom"; // Import useNavigate
-import { supabase } from "@/lib/supabase"; // Import the Supabase client
-import { showError, showSuccess } from "@/utils/toast"; // Import toast utilities
+import { useNavigate, Link } from "react-router-dom"; // Import Link
+import { supabase } from "@/lib/supabase"; 
+import { showError, showSuccess } from "@/utils/toast"; 
 
 import { Button } from "@/components/ui/button";
 import {
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ArrowLeft } from "lucide-react"; // Icon for back button
 
 // Define validation schema for auth forms
 const authFormSchema = z.object({
@@ -27,9 +28,9 @@ const authFormSchema = z.object({
 type AuthFormValues = z.infer<typeof authFormSchema>;
 
 const Auth = () => {
-  const [isLogin, setIsLogin] = useState(true); // State to toggle between login and sign-up
-  const [isLoading, setIsLoading] = useState(false); // State for loading indicator
-  const navigate = useNavigate(); // Hook for navigation
+  const [isLogin, setIsLogin] = useState(true); 
+  const [isLoading, setIsLoading] = useState(false); 
+  const navigate = useNavigate(); 
 
   const form = useForm<AuthFormValues>({
     resolver: zodResolver(authFormSchema),
@@ -39,7 +40,6 @@ const Auth = () => {
     },
   });
 
-  // Handle form submission
   const onSubmit = async (values: AuthFormValues) => {
     setIsLoading(true);
     const { email, password } = values;
@@ -63,7 +63,6 @@ const Auth = () => {
       });
       error = signUpError;
       if (!error) {
-         // Supabase often requires email confirmation, so inform the user
         showSuccess("Sign up successful! Please check your email to confirm.");
       }
     }
@@ -74,17 +73,14 @@ const Auth = () => {
       console.error("Auth error:", error);
       showError(error.message);
     } else {
-      // Redirect to dashboard or home page on success
-      // For sign-up, Supabase might require email confirmation before redirecting
       if (isLogin) {
-         navigate("/dashboard"); // Redirect only on successful login
+         navigate("/dashboard"); 
       }
-      // For sign-up, the user needs to confirm email first, no immediate redirect
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-center">
@@ -137,6 +133,12 @@ const Auth = () => {
           </div>
         </CardContent>
       </Card>
+      <Button variant="link" asChild className="mt-8 text-gray-600 hover:text-gray-800">
+        <Link to="/">
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Home
+        </Link>
+      </Button>
     </div>
   );
 };
