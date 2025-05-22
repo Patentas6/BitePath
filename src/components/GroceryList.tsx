@@ -31,7 +31,7 @@ interface ParsedIngredient {
 
 const UNITS_AND_ADJECTIVES: ReadonlyArray<string> = [
   'tablespoons', 'tablespoon', 'tbsp', 'teaspoons', 'teaspoon', 'tsp',
-  'fluid ounces', 'fluid ounce', 'fl oz', 'ounces', 'ounce', 'oz',
+  'fluid ounces', 'fluid ounce', 'fl oz', 'ounces', 'ounce', 'oz', // Note: "oz" is ambiguous, handled by specific lists below
   'pounds', 'pound', 'lbs', 'lb', 'kilograms', 'kilogram', 'kg',
   'grams', 'gram', 'g', 'milliliters', 'milliliter', 'ml', 'liters', 'liter', 'l',
   'cups', 'cup', 'c', 'pints', 'pint', 'pt', 'quarts', 'quart', 'qt',
@@ -54,27 +54,39 @@ const TRAILING_QUALIFIERS_PATTERNS: ReadonlyArray<RegExp> = [
   /,?\s*or as needed/i
 ];
 
-const COUNTABLE_UNITS_KEYWORDS: ReadonlyArray<string> = [
+const COUNTABLE_UNITS_KEYWORDS: ReadonlyArray<string> = [ // For ingredient names or units that imply direct count
   'egg', 'eggs', 'clove', 'cloves', 'can', 'cans', 'bottle', 'bottles', 'head', 'heads',
   'bunch', 'bunches', 'stalk', 'stalks', 'sprig', 'sprigs', 'slice', 'slices',
   'piece', 'pieces', 'fillet', 'fillets', 'breast', 'breasts', 'thigh', 'thighs',
   'link', 'links', 'sheet', 'sheets', 'bar', 'bars', 'loaf', 'loaves', 'bulb', 'bulbs', 'ear', 'ears'
 ];
 
-const IMPLICITLY_COUNTABLE_INGREDIENTS_ENDINGS: ReadonlyArray<string> = [
+const IMPLICITLY_COUNTABLE_INGREDIENTS_ENDINGS: ReadonlyArray<string> = [ // If no unit, these names imply countability
   'apple', 'apples', 'potato', 'potatoes', 'onion', 'onions', 'carrot', 'carrots', 'tomato', 'tomatoes',
-  'lemon', 'lemons', 'lime', 'limes', 'banana', 'bananas', 'pepper', 'peppers', 'zucchini', 'zucchinis',
-  'cucumber', 'cucumbers', 'mushroom', 'mushrooms', 'radish', 'radishes', 'beet', 'beets',
-  'orange', 'oranges', 'pear', 'pears', 'peach', 'peaches', 'plum', 'plums'
+  'lemon', 'lemons', 'lime', 'limes', 'banana', 'bananas', 'pepper', 'peppers', // For bell peppers etc.
+  'zucchini', 'zucchinis', 'cucumber', 'cucumbers', 'mushroom', 'mushrooms', 
+  'radish', 'radishes', 'beet', 'beets', 'orange', 'oranges', 'pear', 'pears', 'peach', 'peaches', 'plum', 'plums'
 ];
 
-const NON_COUNTABLE_PURCHASE_UNITS: ReadonlyArray<string> = [
-  "cup", "cups", "tsp", "teaspoon", "teaspoons", "tbsp", "tablespoon", "tablespoons",
-  "gram", "grams", "g", "kg", "kgs", "kilogram", "kilograms",
-  "oz", "ounce", "ounces", "lb", "lbs", "pound", "pounds",
-  "ml", "milliliter", "milliliters", "l", "liter", "liters",
+// Units whose quantities should be summed up (e.g., "Chicken: 700g")
+const SUMMABLE_WEIGHT_MASS_UNITS: ReadonlyArray<string> = [
+  "g", "gram", "grams", 
+  "kg", "kgs", "kilogram", "kilograms", 
+  "lb", "lbs", "pound", "pounds",
+  "oz", "ounce", "ounces" // Assuming "oz" here refers to weight
+];
+
+// Units where we just display the ingredient name (e.g., "Flour", "Salt")
+const DISPLAY_NAME_ONLY_UNITS: ReadonlyArray<string> = [
+  "cup", "cups", 
+  "tsp", "teaspoon", "teaspoons", 
+  "tbsp", "tablespoon", "tablespoons",
+  "ml", "milliliter", "milliliters", 
+  "l", "liter", "liters",
+  "fl oz", "fluid ounce", "fluid ounces", // Explicit fluid oz
   "pinch", "pinches", "dash", "dashes"
 ];
+
 
 function smartParseFloat(numStr: string | undefined): number | null {
   if (!numStr) return null;
@@ -99,19 +111,16 @@ function parseIngredientLine(line: string): ParsedIngredient {
 
   ingredientPart = ingredientPart.replace(/\s*\([^)]*\)\s*/g, ' ').trim(); 
 
-  // Check for ranged quantities first (e.g., "1-2 units", "1/2 - 3/4 units")
   const rangeRegex = /^\s*(\d+(?:[\.\/]\d+)?)\s*-\s*(\d+(?:[\.\/]\d+)?)\s*/;
   const rangeMatch = ingredientPart.match(rangeRegex);
-  let match; // for single number regex
+  let match; 
 
   if (rangeMatch) {
     const num1 = smartParseFloat(rangeMatch[1]);
     const num2 = smartParseFloat(rangeMatch[2]);
     if (num1 !== null && num2 !== null) {
-      quantity = Math.max(num1, num2); // Use max of range for internal quantity
-      ingredientPart = ingredientPart.substring(rangeMatch[0].length); // Remove the "1-2 " part
-
-      // Try to get unit immediately following the range
+      quantity = Math.max(num1, num2); 
+      ingredientPart = ingredientPart.substring(rangeMatch[0].length); 
       const unitAfterRangeRegex = /^\s*([a-zA-Z]+(?:\s+[a-zA-Z]+){0,1})?\s*(.*)/;
       const unitMatch = ingredientPart.match(unitAfterRangeRegex);
       if (unitMatch) {
@@ -120,13 +129,11 @@ function parseIngredientLine(line: string): ParsedIngredient {
               extractedUnit = potentialUnit;
               ingredientPart = unitMatch[2]?.trim() || "";
           } else {
-              // No clear unit, potentialUnit is part of the name or it's just the name
               ingredientPart = unitMatch[0]?.trim(); 
           }
       }
     }
   } else {
-    // No range, try single number regex
     const singleNumRegex = /^\s*(\d+(?:[\.\/]\d+)?)\s*([a-zA-Z]+(?:\s+[a-zA-Z]+){0,1})?\s*(.*)/;
     match = ingredientPart.match(singleNumRegex);
     if (match) {
@@ -147,7 +154,6 @@ function parseIngredientLine(line: string): ParsedIngredient {
     }
   }
 
-  // If no leading quantity was found (neither range nor single), try trailing quantity
   if (quantity === null) {
     const trailingRegex = /^(.*?)\s+(\d+(?:[\.\/]\d+)?)\s*([a-zA-Z]+)?\s*$/;
     match = ingredientPart.match(trailingRegex);
@@ -158,7 +164,7 @@ function parseIngredientLine(line: string): ParsedIngredient {
       const tempQty = smartParseFloat(numStr);
       if (tempQty !== null) {
         quantity = tempQty;
-        extractedUnit = potentialUnit || null; // Keep if present, else null
+        extractedUnit = potentialUnit || null; 
         ingredientPart = namePart || "";
       }
     }
@@ -212,9 +218,12 @@ function parseIngredientLine(line: string): ParsedIngredient {
     const unitLC = (extractedUnit || "").toLowerCase();
     const nameLC = normalizedName.toLowerCase();
 
-    if (NON_COUNTABLE_PURCHASE_UNITS.includes(unitLC)) {
+    if (SUMMABLE_WEIGHT_MASS_UNITS.includes(unitLC)) {
+      isCountable = true;
+    } else if (DISPLAY_NAME_ONLY_UNITS.includes(unitLC)) {
       isCountable = false; 
     } else {
+      // Default logic if unit doesn't strongly dictate countability
       if (nameLC === "black pepper" || nameLC === "white pepper" || nameLC === "cayenne pepper" || nameLC === "ground pepper" || nameLC === "chilli powder" || nameLC === "curry powder" || nameLC === "paprika" || nameLC === "salt") {
         isCountable = false; 
       } else if (COUNTABLE_UNITS_KEYWORDS.some(kw => unitLC.includes(kw) || nameLC.includes(kw))) {
@@ -222,6 +231,7 @@ function parseIngredientLine(line: string): ParsedIngredient {
       } else if (IMPLICITLY_COUNTABLE_INGREDIENTS_ENDINGS.some(ending => nameLC.endsWith(ending))) {
         isCountable = true;
       }
+      // If none of the above, isCountable remains false (default from initialization)
     }
   }
 
@@ -276,38 +286,33 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
           
           const existing = ingredientMap.get(parsed.normalizedName);
           if (existing) {
-            // If this new parsed entry uses a non-countable purchase unit,
-            // or if the existing one was already forced to non-countable, keep it non-countable.
-            if ((parsed.unit && NON_COUNTABLE_PURCHASE_UNITS.includes(parsed.unit.toLowerCase())) || !existing.isCountable ) {
+            // If this new parsed entry uses a unit that makes it non-countable for display sum,
+            // then the aggregated item becomes non-countable for display sum.
+            if (parsed.unit && DISPLAY_NAME_ONLY_UNITS.includes(parsed.unit.toLowerCase())) {
               existing.isCountable = false;
               existing.totalQuantity = 0; 
             } else if (parsed.isCountable && parsed.quantity !== null) {
               // Only add to quantity if the existing item is still considered countable
-              // (which it is if we are in this 'else' block)
-              existing.totalQuantity += parsed.quantity;
+              if (existing.isCountable) {
+                existing.totalQuantity += parsed.quantity;
+              } else {
+                // If existing was not countable, but this parsed one is (and not overridden by unit type)
+                // make it countable and start sum.
+                existing.isCountable = true;
+                existing.totalQuantity = parsed.quantity;
+              }
             }
-            // If parsed is countable and existing was not (and not forced non-countable by unit), make existing countable.
-            // This case is now handled by the initial check for NON_COUNTABLE_PURCHASE_UNITS on existing.
-            // If existing.isCountable is false due to a previous NON_COUNTABLE_PURCHASE_UNIT, it stays false.
-            // If existing.isCountable is false because it had no quantity before, but parsed.isCountable is true (and not a non-countable unit), then update.
-            else if (parsed.isCountable && !existing.isCountable && !(parsed.unit && NON_COUNTABLE_PURCHASE_UNITS.includes(parsed.unit.toLowerCase()))) {
-                 existing.isCountable = true;
-                 existing.totalQuantity = parsed.quantity !== null ? parsed.quantity : 0;
-            }
+            // If parsed is countable and existing was not, and existing hasn't been forced non-countable by unit:
+            // This logic is now more integrated: if existing.isCountable is false, the above block handles it.
 
-
-            if (!existing.unit && parsed.unit) existing.unit = parsed.unit;
+            if (!existing.unit && parsed.unit) existing.unit = parsed.unit; // Try to retain a unit
             existing.originalLines.push(trimmedLine);
           } else { // New entry
-            let initialIsCountable = parsed.isCountable;
-            if (parsed.unit && NON_COUNTABLE_PURCHASE_UNITS.includes(parsed.unit.toLowerCase())) {
-                initialIsCountable = false;
-            }
             ingredientMap.set(parsed.normalizedName, {
               name: parsed.normalizedName,
-              totalQuantity: (initialIsCountable && parsed.quantity !== null) ? parsed.quantity : 0,
+              totalQuantity: (parsed.isCountable && parsed.quantity !== null) ? parsed.quantity : 0,
               unit: parsed.unit,
-              isCountable: initialIsCountable,
+              isCountable: parsed.isCountable,
               originalLines: [trimmedLine]
             });
           }
@@ -338,12 +343,20 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
         const displayTotalQuantity = item.totalQuantity % 1 === 0 ? item.totalQuantity : item.totalQuantity.toFixed(1);
         let displayUnitText = item.unit || "";
 
-        if (item.totalQuantity > 1 && displayUnitText && !displayUnitText.endsWith('s') && !NON_COUNTABLE_PURCHASE_UNITS.includes(displayUnitText.toLowerCase())) {
+        if (item.totalQuantity > 1 && displayUnitText && !displayUnitText.endsWith('s') && !DISPLAY_NAME_ONLY_UNITS.includes(displayUnitText.toLowerCase()) && !SUMMABLE_WEIGHT_MASS_UNITS.includes(displayUnitText.toLowerCase())) {
+            // Basic pluralization for units not in specific lists (e.g. "clove" -> "cloves")
             if (displayUnitText.endsWith('y') && !['day', 'key', 'way', 'toy', 'boy', 'guy'].includes(displayUnitText)) { 
                 displayUnitText = displayUnitText.slice(0, -1) + 'ies';
             } else if (displayUnitText.length > 0) {
                 displayUnitText += 's';
             }
+        } else if (SUMMABLE_WEIGHT_MASS_UNITS.includes(displayUnitText.toLowerCase()) && item.totalQuantity > 1 && displayUnitText.length > 0 && !displayUnitText.endsWith('s')) {
+            // Pluralize summable weight units if not already, e.g. "gram" -> "grams"
+             if (displayUnitText.endsWith('y') && !['day', 'key', 'way', 'toy', 'boy', 'guy'].includes(displayUnitText)) { 
+                displayUnitText = displayUnitText.slice(0, -1) + 'ies';
+             } else {
+                displayUnitText += 's';
+             }
         }
         
         if (!item.unit && item.name) { 
@@ -357,7 +370,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
            }
            displayText = `${nameForDisplay}: ${displayTotalQuantity}`;
         } else {
-           displayText = `${item.name}: ${displayTotalQuantity} ${displayUnitText}`.trim();
+           displayText = `${item.name}: ${displayTotalQuantity}${displayUnitText ? ' ' + displayUnitText : ''}`.trim();
         }
       }
 
