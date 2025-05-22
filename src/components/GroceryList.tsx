@@ -68,8 +68,6 @@ const IMPLICITLY_COUNTABLE_INGREDIENTS_ENDINGS: ReadonlyArray<string> = [
   'orange', 'oranges', 'pear', 'pears', 'peach', 'peaches', 'plum', 'plums'
 ];
 
-// Units that, if present, mean the quantity should NOT be summed up for individual purchase.
-// User buys a standard container (e.g. a jar of spice, a bag of flour).
 const NON_COUNTABLE_PURCHASE_UNITS: ReadonlyArray<string> = [
   "cup", "cups", "tsp", "teaspoon", "teaspoons", "tbsp", "tablespoon", "tablespoons",
   "gram", "grams", "g", "kg", "kgs", "kilogram", "kilograms",
@@ -148,7 +146,7 @@ function parseIngredientLine(line: string): ParsedIngredient {
     changed = false;
     for (const adj of UNITS_AND_ADJECTIVES) {
       if (currentName.startsWith(adj + " ")) {
-        if (extractedUnit && adj.toLowerCase() === extractedUnit.toLowerCase()) continue; // Avoid removing the already extracted unit
+        if (extractedUnit && adj.toLowerCase() === extractedUnit.toLowerCase()) continue;
         currentName = currentName.substring(adj.length + 1).trim();
         changed = true;
         break;
@@ -182,18 +180,17 @@ function parseIngredientLine(line: string): ParsedIngredient {
   
   let isCountable = false;
   if (quantity !== null) {
-    const unitForCountCheck = (extractedUnit || "").toLowerCase();
-    const nameForCountCheck = normalizedName.toLowerCase();
+    const unitLC = (extractedUnit || "").toLowerCase();
+    const nameLC = normalizedName.toLowerCase();
 
-    if (NON_COUNTABLE_PURCHASE_UNITS.includes(unitForCountCheck)) {
-      isCountable = false;
+    if (NON_COUNTABLE_PURCHASE_UNITS.includes(unitLC)) {
+      isCountable = false; 
     } else {
-      if (COUNTABLE_UNITS_KEYWORDS.some(kw => unitForCountCheck.includes(kw) || nameForCountCheck.includes(kw))) {
+      if (nameLC === "black pepper" || nameLC === "white pepper" || nameLC === "cayenne pepper" || nameLC === "ground pepper" || nameLC === "chilli powder" || nameLC === "curry powder" || nameLC === "paprika" || nameLC === "salt") {
+        isCountable = false; // Specific spices are not countable for summation
+      } else if (COUNTABLE_UNITS_KEYWORDS.some(kw => unitLC.includes(kw) || nameLC.includes(kw))) {
         isCountable = true;
-      } else if (IMPLICITLY_COUNTABLE_INGREDIENTS_ENDINGS.some(ending => nameForCountCheck.endsWith(ending))) {
-         // This applies if no specific unit was found, or the unit isn't a non-countable one.
-         // e.g. "2 apples" (unit is null or "apples") -> countable
-         // but "2 cups apples" (unit is "cups") -> already handled by NON_COUNTABLE_PURCHASE_UNITS
+      } else if (IMPLICITLY_COUNTABLE_INGREDIENTS_ENDINGS.some(ending => nameLC.endsWith(ending))) {
         isCountable = true;
       }
     }
@@ -250,18 +247,41 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
           
           const existing = ingredientMap.get(parsed.normalizedName);
           if (existing) {
-            if (parsed.isCountable && parsed.quantity !== null) {
-              existing.totalQuantity += parsed.quantity;
+            // If this new parsed entry uses a non-countable purchase unit,
+            // the aggregated item becomes non-countable for display.
+            if (parsed.unit && NON_COUNTABLE_PURCHASE_UNITS.includes(parsed.unit.toLowerCase())) {
+              existing.isCountable = false;
+              existing.totalQuantity = 0; // Reset quantity as it won't be displayed with sum
+            } else if (parsed.isCountable && parsed.quantity !== null) {
+              // Only add to quantity if the existing item is still considered countable
+              if (existing.isCountable) {
+                existing.totalQuantity += parsed.quantity;
+              } else {
+                // This case (existing is not countable, but parsed is) is tricky.
+                // For now, if existing became non-countable due to a previous entry, it stays that way.
+                // Or, if this is the first countable entry for an item previously non-countable:
+                // existing.isCountable = true; existing.totalQuantity = parsed.quantity; (This might be too complex for now)
+              }
             }
-            if (parsed.isCountable && !existing.isCountable) existing.isCountable = true; 
-            if (!existing.unit && parsed.unit) existing.unit = parsed.unit; 
+            // If parsed is countable and existing was not, and existing hasn't been forced non-countable by unit:
+            if (parsed.isCountable && !existing.isCountable && !(existing.unit && NON_COUNTABLE_PURCHASE_UNITS.includes(existing.unit.toLowerCase()))) {
+                 existing.isCountable = true;
+                 existing.totalQuantity = parsed.quantity !== null ? parsed.quantity : 0;
+            }
+
+            if (!existing.unit && parsed.unit) existing.unit = parsed.unit;
             existing.originalLines.push(trimmedLine);
-          } else {
+          } else { // New entry
+            let initialIsCountable = parsed.isCountable;
+            // Ensure that if a unit makes it non-countable, this is respected from the start
+            if (parsed.unit && NON_COUNTABLE_PURCHASE_UNITS.includes(parsed.unit.toLowerCase())) {
+                initialIsCountable = false;
+            }
             ingredientMap.set(parsed.normalizedName, {
               name: parsed.normalizedName,
-              totalQuantity: (parsed.isCountable && parsed.quantity !== null) ? parsed.quantity : 0,
+              totalQuantity: (initialIsCountable && parsed.quantity !== null) ? parsed.quantity : 0,
               unit: parsed.unit,
-              isCountable: parsed.isCountable,
+              isCountable: initialIsCountable,
               originalLines: [trimmedLine]
             });
           }
@@ -289,23 +309,30 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
       
       let displayText = item.name;
       if (item.isCountable && item.totalQuantity > 0) {
-        let displayUnit = item.unit || "";
-        // Basic pluralization for display unit if quantity > 1
-        if (item.totalQuantity > 1 && displayUnit && !displayUnit.endsWith('s') && !NON_COUNTABLE_PURCHASE_UNITS.includes(displayUnit.toLowerCase())) {
-            if (displayUnit.endsWith('y') && !['day', 'key', 'way', 'toy', 'boy', 'guy'].includes(displayUnit)) { 
-                displayUnit = displayUnit.slice(0, -1) + 'ies';
-            } else if (displayUnit.length > 0) { // Avoid adding 's' to empty string
-                displayUnit += 's';
+        const displayTotalQuantity = item.totalQuantity % 1 === 0 ? item.totalQuantity : item.totalQuantity.toFixed(1);
+        let displayUnitText = item.unit || "";
+
+        if (item.totalQuantity > 1 && displayUnitText && !displayUnitText.endsWith('s') && !NON_COUNTABLE_PURCHASE_UNITS.includes(displayUnitText.toLowerCase())) {
+            if (displayUnitText.endsWith('y') && !['day', 'key', 'way', 'toy', 'boy', 'guy'].includes(displayUnitText)) { 
+                displayUnitText = displayUnitText.slice(0, -1) + 'ies';
+            } else if (displayUnitText.length > 0) {
+                displayUnitText += 's';
             }
         }
-        // If no unit was extracted but it's countable (e.g. "2 Apples"), try to use the item name as unit or make it plural
-        if (!item.unit && item.name) {
-            displayUnit = item.name + (item.totalQuantity > 1 && !item.name.endsWith('s') ? "s" : "");
-             displayText = `${item.totalQuantity % 1 === 0 ? item.totalQuantity : item.totalQuantity.toFixed(1)} ${displayUnit}`.trim();
+        
+        if (!item.unit && item.name) { // e.g. "2 Apples" -> item.name="Apple", item.unit=null
+           let nameForDisplay = item.name;
+           if (item.totalQuantity > 1 && !nameForDisplay.endsWith('s') && !nameForDisplay.endsWith('es')) { // basic pluralization
+             if (nameForDisplay.endsWith('y') && !['day', 'key', 'way', 'toy', 'boy', 'guy'].includes(nameForDisplay)) {
+                nameForDisplay = nameForDisplay.slice(0,-1) + "ies";
+             } else {
+                nameForDisplay += "s";
+             }
+           }
+           displayText = `${nameForDisplay}: ${displayTotalQuantity}`;
         } else {
-            displayText = `${item.name}: ${item.totalQuantity % 1 === 0 ? item.totalQuantity : item.totalQuantity.toFixed(1)} ${displayUnit}`.trim();
+           displayText = `${item.name}: ${displayTotalQuantity} ${displayUnitText}`.trim();
         }
-
       }
 
       grouped[foundCategory].push({ name: item.name, displayText, originalLines: item.originalLines });
