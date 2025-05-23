@@ -62,8 +62,7 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart,
     },
     onSuccess: () => {
       showSuccess("Meal removed from plan!");
-      refetchMealPlans(); // Refetches the planner's own data
-      // Invalidate the grocery list query to trigger its refetch
+      refetchMealPlans(); 
       queryClient.invalidateQueries({ 
         queryKey: ["groceryList", userId, format(currentWeekStart, 'yyyy-MM-dd')] 
       });
@@ -90,7 +89,7 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart,
   };
 
   if (isLoading) return <Card><CardHeader><CardTitle>Weekly Plan</CardTitle></CardHeader><CardContent><Skeleton className="h-64 w-full" /></CardContent></Card>;
-  if (error) return <Card><CardHeader><CardTitle>Weekly Plan</CardTitle></CardHeader><CardContent><p className="text-red-500">Error loading meal plans.</p></CardContent></Card>;
+  if (error) return <Card><CardHeader><CardTitle>Weekly Plan</CardTitle></CardHeader><CardContent><p className="text-red-500 dark:text-red-400">Error loading meal plans.</p></CardContent></Card>;
 
   return (
     <>
@@ -101,11 +100,16 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart,
         <CardContent>
           <div className="flex justify-between items-center mb-4">
             <Button variant="outline" size="sm" onClick={() => onWeekNavigate("prev")}><ChevronLeft className="h-4 w-4 mr-1" /> Previous</Button>
-            <h3 className="text-lg font-semibold text-center">{format(currentWeekStart, 'MMM dd')} - {format(addDays(currentWeekStart, 6), 'MMM dd, yyyy')}</h3>
+            <h3 className="text-lg font-semibold text-center text-foreground">{format(currentWeekStart, 'MMM dd')} - {format(addDays(currentWeekStart, 6), 'MMM dd, yyyy')}</h3>
             <Button variant="outline" size="sm" onClick={() => onWeekNavigate("next")}>Next <ChevronRight className="h-4 w-4 ml-1" /></Button>
           </div>
           <div className="grid grid-cols-7 gap-2 text-center mb-2">
-            {daysOfWeek.map(day => (<div key={day.toISOString()} className="flex flex-col items-center"><div className="font-semibold">{format(day, 'EEE')}</div><div className="text-sm text-gray-600">{format(day, 'MMM dd')}</div></div>))}
+            {daysOfWeek.map(day => (
+              <div key={day.toISOString()} className="flex flex-col items-center">
+                <div className="font-semibold text-foreground">{format(day, 'EEE')}</div>
+                <div className="text-sm text-muted-foreground">{format(day, 'MMM dd')}</div>
+              </div>
+            ))}
           </div>
           <div className="grid grid-cols-7 gap-2">
             {daysOfWeek.map(day => (
@@ -115,23 +119,23 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart,
                   return (
                     <div 
                       key={mealType} 
-                      className="border rounded-md p-2 text-sm h-24 flex flex-col justify-between overflow-hidden cursor-pointer hover:bg-gray-50 transition-colors relative"
+                      className="border rounded-md p-2 text-xs h-24 flex flex-col justify-between overflow-hidden cursor-pointer hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors relative"
                       onClick={() => handleMealSlotClick(day, mealType, plannedMeal)}
                     >
-                      <div className="font-medium text-gray-700 self-start">{mealType}</div>
+                      <div className="font-medium text-gray-600 dark:text-gray-400 self-start">{mealType}</div>
                       {plannedMeal ? (
                         <>
-                          <div className="text-xs text-gray-600 truncate self-start flex-grow mt-1">{plannedMeal.meals?.name || 'Unknown Meal'}</div>
+                          <div className="text-sm font-medium text-foreground truncate self-start flex-grow mt-1">{plannedMeal.meals?.name || 'Unknown Meal'}</div>
                           <button 
                             onClick={(e) => handleRemoveMeal(plannedMeal.id, e)} 
-                            className="absolute top-1 right-1 p-0.5 rounded-full hover:bg-red-100 text-red-500 hover:text-red-700 transition-colors"
+                            className="absolute top-1 right-1 p-0.5 rounded-full text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors"
                             aria-label="Remove meal"
                           >
                             <XCircle size={16} />
                           </button>
                         </>
                       ) : (
-                        <div className="text-xs text-gray-400 italic self-start mt-1">Click to add</div>
+                        <div className="text-xs text-gray-400 dark:text-gray-500 italic self-start mt-1 flex-grow flex items-center justify-start">Click to add</div>
                       )}
                     </div>
                   );
@@ -146,10 +150,6 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart,
         open={isDialogOpen}
         onOpenChange={(isOpen) => {
           setIsDialogOpen(isOpen);
-          if (!isOpen) {
-            // No explicit refetch here, rely on AddMealToPlanDialog's own success handlers
-            // which should invalidate relevant queries including groceryList.
-          }
         }}
         planDate={selectedDateForDialog}
         mealType={selectedMealTypeForDialog}
