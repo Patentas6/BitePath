@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, CheckCircle2 } from 'lucide-react'; // Added CheckCircle2
+import { PlusCircle, CheckCircle2 } from 'lucide-react';
 import { Badge } from "@/components/ui/badge"; 
 import { cn } from '@/lib/utils';
 
@@ -26,7 +26,7 @@ interface MealTemplateCardProps {
   template: MealTemplate;
   onAddToMyMeals: (template: MealTemplate) => void;
   isAdding: boolean;
-  isAlreadyAdded: boolean; // New prop
+  isAlreadyAdded: boolean;
 }
 
 const MealTemplateCard: React.FC<MealTemplateCardProps> = ({ template, onAddToMyMeals, isAdding, isAlreadyAdded }) => {
@@ -61,7 +61,7 @@ const MealTemplateCard: React.FC<MealTemplateCardProps> = ({ template, onAddToMy
   return (
     <Card className={cn(
       "flex flex-col hover:shadow-lg transition-shadow duration-200",
-      isAlreadyAdded && "opacity-70" // Fade if already added
+      isAlreadyAdded && "opacity-70" 
     )}>
       <CardHeader>
         {template.image_url && (
@@ -87,13 +87,13 @@ const MealTemplateCard: React.FC<MealTemplateCardProps> = ({ template, onAddToMy
       <CardContent className="flex-grow">
         <div>
           <h4 className="font-semibold text-sm mb-1">Ingredients:</h4>
-          <p className="text-xs text-gray-600 dark:text-gray-400 mb-2 whitespace-pre-line">
+          <p className="text-xs text-muted-foreground mb-2 whitespace-pre-line">
             {formatIngredientsForDisplay(template.ingredients)}
           </p>
         </div>
         <div>
           <h4 className="font-semibold text-sm mb-1">Instructions:</h4>
-          <p className="text-xs text-gray-600 dark:text-gray-400 whitespace-pre-line">
+          <p className="text-xs text-muted-foreground whitespace-pre-line">
             {truncateText(template.instructions, 120)}
           </p>
         </div>

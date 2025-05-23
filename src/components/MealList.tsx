@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Trash2, Edit3, Search, ChefHat } from "lucide-react"; // Kept ChefHat
+import { Trash2, Edit3, Search, ChefHat } from "lucide-react";
 import EditMealDialog, { MealForEditing } from "./EditMealDialog";
 import {
   AlertDialog,
@@ -21,7 +21,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge"; 
 
-
 interface Meal extends MealForEditing {
   meal_tags?: string[] | null; 
 }
@@ -32,7 +31,6 @@ interface ParsedIngredient {
   unit: string;
   description?: string;
 }
-
 
 const MealList = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -118,19 +116,18 @@ const MealList = () => {
         const names = parsedIngredients.map(ing => ing.name).filter(Boolean);
         if (names.length === 0) return 'Ingredients listed (check format).';
         
-        let displayText = names.slice(0, 4).join(', ');
-        if (names.length > 4) {
+        let displayText = names.slice(0, 5).join(', '); // Show up to 5 ingredients
+        if (names.length > 5) {
           displayText += ', ...';
         }
         return displayText;
       }
       return 'No ingredients listed or format error.'; 
     } catch (e) {
-      const maxLength = 60;
+      const maxLength = 70; // Increased snippet length
       return ingredientsString.substring(0, maxLength) + (ingredientsString.length > maxLength ? '...' : '');
     }
   };
-
 
   if (isLoading) {
     return (
@@ -138,9 +135,9 @@ const MealList = () => {
         <CardHeader><CardTitle>My Meals</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <Skeleton className="h-10 w-full mb-4" />
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-20 w-full" />
+          <Skeleton className="h-20 w-full" />
+          <Skeleton className="h-20 w-full" />
         </CardContent>
       </Card>
     );
@@ -191,36 +188,52 @@ const MealList = () => {
           )}
           
           {filteredMeals && filteredMeals.length > 0 && (
-            filteredMeals.map((meal) => (
-              <div key={meal.id} className="border p-3 rounded-md shadow-sm bg-card hover:shadow-md transition-shadow duration-150">
-                <div className="flex justify-between items-start">
-                  <div className="flex-grow">
-                    <h3 className="text-lg font-semibold text-foreground">{meal.name}</h3>
-                    {meal.meal_tags && meal.meal_tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-1 mb-1">
-                        {meal.meal_tags.map(tag => (
-                          <Badge key={tag} variant="secondary">{tag}</Badge>
-                        ))}
-                      </div>
-                    )}
-                    {meal.ingredients && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Ingredients: {formatIngredientsDisplay(meal.ingredients)}
-                      </p>
-                    )}
-                    {meal.instructions && <p className="text-xs text-muted-foreground mt-1">Instructions: {meal.instructions.substring(0,50)}{meal.instructions.length > 50 ? '...' : ''}</p>}
+            <div className="space-y-3">
+              {filteredMeals.map((meal) => (
+                <div key={meal.id} className="border p-4 rounded-lg shadow-sm bg-card hover:shadow-md transition-shadow duration-150 space-y-2">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-grow pr-2">
+                      <h3 className="text-xl font-semibold text-foreground">{meal.name}</h3>
+                      {meal.meal_tags && meal.meal_tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1.5">
+                          {meal.meal_tags.map(tag => (
+                            <Badge key={tag} variant="outline" className="text-xs px-1.5 py-0.5">{tag}</Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex space-x-2 flex-shrink-0 ml-2">
+                      <Button variant="outline" size="icon" onClick={() => handleEditClick(meal)} aria-label="Edit meal">
+                        <Edit3 className="h-5 w-5" />
+                      </Button>
+                      <Button variant="destructive" size="icon" onClick={() => handleDeleteClick(meal)} aria-label="Delete meal">
+                        <Trash2 className="h-5 w-5" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex space-x-2 flex-shrink-0 ml-2">
-                    <Button variant="outline" size="icon" onClick={() => handleEditClick(meal)} aria-label="Edit meal">
-                      <Edit3 className="h-5 w-5" />
-                    </Button>
-                    <Button variant="destructive" size="icon" onClick={() => handleDeleteClick(meal)} aria-label="Delete meal">
-                      <Trash2 className="h-5 w-5" />
-                    </Button>
-                  </div>
+                  {(meal.ingredients || (meal.instructions && meal.instructions.trim() !== "")) && (
+                    <div className="space-y-2 pt-2 border-t border-muted/50">
+                      {meal.ingredients && (
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Ingredients:</p>
+                          <p className="text-xs text-foreground/80 mt-0.5 pl-2">
+                            {formatIngredientsDisplay(meal.ingredients)}
+                          </p>
+                        </div>
+                      )}
+                      {meal.instructions && meal.instructions.trim() !== "" && (
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Instructions:</p>
+                          <p className="text-xs text-foreground/80 mt-0.5 pl-2 whitespace-pre-line">
+                            {meal.instructions.substring(0, 100)}{meal.instructions.length > 100 ? '...' : ''}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))
+              ))}
+            </div>
           )}
         </CardContent>
       </Card>
