@@ -11,7 +11,7 @@ import { ArrowLeft } from "lucide-react";
 import { Auth as SupabaseAuthUI } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
-import { useTheme } from "next-themes"; // Import useTheme
+import { useTheme } from "next-themes";
 
 const authFormSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
@@ -25,7 +25,7 @@ const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { theme: appTheme } = useTheme(); // Get the current app theme ('light' or 'dark')
+  const { theme: appTheme } = useTheme();
 
   const form = useForm<AuthFormValues>({
     resolver: zodResolver(authFormSchema),
@@ -53,8 +53,6 @@ const Auth = () => {
     return () => authListener?.subscription.unsubscribe();
   }, [navigate]);
 
-  // onSubmit logic omitted for brevity
-
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-900 p-4 relative">
       <div className="absolute top-4 left-4 md:top-6 md:left-6 flex items-center space-x-3">
@@ -63,7 +61,6 @@ const Auth = () => {
         </Link>
         <ThemeToggleButton />
       </div>
-      {/* Card will now follow app theme naturally */}
       <Card className="w-full max-w-md mt-16 md:mt-0">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold">
@@ -78,28 +75,30 @@ const Auth = () => {
         <CardContent>
           <SupabaseAuthUI
             supabaseClient={supabase}
-            // Dynamically set SupabaseAuthUI theme based on app's theme
             theme={appTheme === 'dark' ? 'dark' : 'light'}
             appearance={{
-              theme: ThemeSupa, // Base UI kit
+              theme: ThemeSupa,
               variables: {
-                default: { // For 'light' mode of SupabaseAuthUI
+                default: { // For 'light' mode of SupabaseAuthUI (when app is in light mode)
                   colors: {
-                    brand: 'hsl(var(--primary))',
-                    brandAccent: 'hsl(var(--primary-foreground))',
-                    inputBackground: 'hsl(var(--input))',      // App's light input background
-                    inputText: 'hsl(var(--foreground))',       // App's dark text for light mode
-                    inputLabelText: 'hsl(var(--foreground))',  // App's dark text for labels in light mode
+                    brand: 'hsl(var(--primary))', // App's light mode primary (dark bg)
+                    brandAccent: 'hsl(var(--primary-foreground))', // App's light mode primary text (light text)
+                    inputBackground: 'hsl(var(--input))',
+                    inputText: 'hsl(var(--foreground))',
+                    inputLabelText: 'hsl(var(--foreground))',
                     inputPlaceholder: 'hsl(var(--muted-foreground))',
                   },
                 },
-                dark: { // For 'dark' mode of SupabaseAuthUI
+                dark: { // For 'dark' mode of SupabaseAuthUI (when app is in dark mode)
                   colors: {
-                    brand: 'hsl(var(--primary))',
-                    brandAccent: 'hsl(var(--primary-foreground))',
-                    inputBackground: 'hsl(var(--input))',      // App's dark input background
-                    inputText: 'hsl(var(--foreground))',       // App's light text for dark mode
-                    inputLabelText: 'hsl(var(--foreground))',  // App's light text for labels in dark mode
+                    // Force button to look like light mode primary button
+                    brand: 'hsl(222.2 47.4% 11.2%)', // Explicit dark background (from light mode --primary)
+                    brandAccent: 'hsl(210 40% 98%)',    // Explicit light text (from light mode --primary-foreground)
+                    
+                    // Keep input fields themed for app's dark mode
+                    inputBackground: 'hsl(var(--input))',
+                    inputText: 'hsl(var(--foreground))',
+                    inputLabelText: 'hsl(var(--foreground))',
                     inputPlaceholder: 'hsl(var(--muted-foreground))',
                   },
                 },
