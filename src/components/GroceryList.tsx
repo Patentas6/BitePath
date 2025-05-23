@@ -84,25 +84,37 @@ interface GroceryListProps {
 }
 
 const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) => {
+  console.log("[GroceryList.tsx] Component rendering or re-rendering. Props:", { userId, currentWeekStart }); // Added log
+
   const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
   const [struckItems, setStruckItems] = useState<Set<string>>(new Set());
   const [displaySystem, setDisplaySystem] = useState<'imperial' | 'metric'>('imperial');
 
-  const { data: plannedMeals, isLoading, error } = useQuery<PlannedMealWithIngredients[]>({
-    queryKey: ["groceryList", userId, format(currentWeekStart, 'yyyy-MM-dd'), displaySystem], // Add displaySystem to queryKey
+  const { data: plannedMeals, isLoading, error: plannedMealsError } = useQuery<PlannedMealWithIngredients[]>({ // Renamed error
+    queryKey: ["groceryList", userId, format(currentWeekStart, 'yyyy-MM-dd'), displaySystem],
     queryFn: async () => {
+      console.log("[GroceryList.tsx] Fetching planned meals for grocery list."); // Added log
       if (!userId) return [];
       const startDateStr = format(currentWeekStart, 'yyyy-MM-dd');
       const endDateStr = format(weekEnd, 'yyyy-MM-dd');
       const { data, error } = await supabase.from("meal_plans").select("meals ( name, ingredients )").eq("user_id", userId).gte("plan_date", startDateStr).lte("plan_date", endDateStr);
-      if (error) throw error;
+      if (error) {
+        console.error("[GroceryList.tsx] Error fetching planned meals:", error); // Added log
+        throw error;
+      }
+      console.log("[GroceryList.tsx] Planned meals fetched:", data ? data.length : 0); // Added log
       return data || [];
     },
     enabled: !!userId,
   });
 
   const aggregatedIngredients = useMemo(() => {
-    if (!plannedMeals) return [];
+    console.log("[GroceryList.tsx] Recalculating aggregatedIngredients."); // Added log
+    if (!plannedMeals) {
+      console.log("[GroceryList.tsx] No plannedMeals for aggregation."); // Added log
+      return [];
+    }
+    // ... (rest of aggregation logic)
     const ingredientMap = new Map<string, GroceryListItem>();
     plannedMeals.forEach(pm => {
       const ingredientsBlock = pm.meals?.ingredients;
@@ -113,7 +125,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
             parsedIngredientList.forEach(item => {
               const quantityAsNumber = typeof item.quantity === 'string' ? parseFloat(item.quantity) : item.quantity;
               if (!item.name || typeof quantityAsNumber !== 'number' || isNaN(quantityAsNumber) || !item.unit) {
-                console.warn("Skipping malformed ingredient item:", item); return;
+                console.warn("[GroceryList.tsx] Skipping malformed ingredient item:", item); return;
               }
               const processedItem: ParsedIngredientItem = { ...item, quantity: quantityAsNumber };
               const normalizedName = processedItem.name.trim().toLowerCase();
@@ -135,13 +147,16 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
               }
             });
           }
-        } catch (e) { console.warn("Failed to parse ingredients JSON:", ingredientsBlock, e); }
+        } catch (e) { console.warn("[GroceryList.tsx] Failed to parse ingredients JSON:", ingredientsBlock, e); }
       }
     });
+    console.log("[GroceryList.tsx] Aggregation complete. Count:", ingredientMap.size); // Added log
     return Array.from(ingredientMap.values());
   }, [plannedMeals]);
 
   const categorizedDisplayList = useMemo(() => {
+    console.log("[GroceryList.tsx] Recalculating categorizedDisplayList. Display system:", displaySystem); // Added log
+    // ... (rest of categorization logic)
     const grouped: Record<Category, CategorizedDisplayListItem[]> = 
       categoryOrder.reduce((acc, cat) => { acc[cat] = []; return acc; }, {} as Record<Category, CategorizedDisplayListItem[]>);
 
@@ -171,7 +186,6 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
             currentUnit = converted.unit;
           }
         }
-        // For non-summable items, conversion will happen when constructing detailsPart below
       }
 
       const isOriginalUnitPiece = PIECE_UNITS.includes(originalUnitForLogic);
@@ -179,10 +193,10 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
 
       if (aggItem.isSummable && currentQuantity > 0) {
         const roundedDisplayQty = (currentQuantity % 1 === 0) ? Math.round(currentQuantity) : parseFloat(currentQuantity.toFixed(1));
-        if (isOriginalUnitPiece) { // Use original unit to decide if it's a "piece" type
+        if (isOriginalUnitPiece) {
           detailsPart = `${roundedDisplayQty}`;
         } else {
-          let unitStr = currentUnit; // currentUnit is already potentially converted
+          let unitStr = currentUnit; 
           if (roundedDisplayQty > 1 && !['L', 'ml', 'g', 'kg'].includes(unitStr) && !unitStr.endsWith('s') && unitStr.length > 0) {
              if (unitStr.endsWith('y') && !['day', 'key', 'way', 'toy', 'boy', 'guy'].includes(unitStr.toLowerCase())) {
                 unitStr = unitStr.slice(0, -1) + 'ies';
@@ -201,7 +215,6 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
               u = convertedPart.unit;
             }
           }
-          // Use original unit of this specific part to check if it's a piece
           if (PIECE_UNITS.includes(orig.unit.toLowerCase())) return `${q}`; 
           return `${q} ${u}`;
         }).join('; ');
@@ -216,18 +229,17 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
       const uniqueKey = `${itemName}:${detailsPart}-${foundCategory}-${displaySystem}`;
       const originalItemsTooltip = aggItem.originalItems.map(oi => `${oi.quantity} ${oi.unit} ${oi.name}${oi.description ? ` (${oi.description})` : ''}`).join('\n');
       
-      if (detailsPart.trim() !== "" || itemName.trim() !== "") { // Ensure we add item even if detailsPart is empty (e.g. for some piece items)
+      if (detailsPart.trim() !== "" || itemName.trim() !== "") {
         grouped[foundCategory].push({ itemName, detailsPart, detailsClass, originalItemsTooltip, uniqueKey });
       }
     });
-
-    for (const cat of categoryOrder) {
-      grouped[cat].sort((a,b) => a.itemName.localeCompare(b.itemName));
-    }
+    console.log("[GroceryList.tsx] Categorization complete."); // Added log
     return grouped;
   }, [aggregatedIngredients, displaySystem]);
 
   useEffect(() => {
+    console.log("[GroceryList.tsx] useEffect for struckItems running."); // Added log
+    // ... (rest of useEffect logic)
     setStruckItems(prevStruckItems => {
       const newPersistedStruckItems = new Set<string>();
       const currentUniqueKeys = Object.values(categorizedDisplayList).flat().map(item => item.uniqueKey);
@@ -240,7 +252,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
       }
       return newPersistedStruckItems;
     });
-  }, [categorizedDisplayList]); // This will re-run if displaySystem changes, due to categorizedDisplayList changing
+  }, [categorizedDisplayList]);
 
   const handleItemClick = (uniqueKey: string) => {
     setStruckItems(prevStruckItems => {
@@ -251,9 +263,17 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
     });
   };
 
-  if (isLoading) { /* ... loading skeleton ... */ }
-  if (error) { /* ... error display ... */ }
+  if (isLoading) { 
+    console.log("[GroceryList.tsx] Rendering loading skeleton."); // Added log
+    return <Card><CardHeader><CardTitle>Grocery List</CardTitle></CardHeader><CardContent><Skeleton className="h-40 w-full" /></CardContent></Card> 
+  }
+  if (plannedMealsError) { 
+    console.error("[GroceryList.tsx] Rendering error state due to plannedMealsError:", plannedMealsError); // Added log
+    return <Card><CardHeader><CardTitle>Grocery List</CardTitle></CardHeader><CardContent><Alert variant="destructive"><AlertTitle>Error</AlertTitle><AlertDescription>Could not load grocery list: {plannedMealsError.message}</AlertDescription></Alert></CardContent></Card>
+  }
+  
   const isEmptyList = Object.values(categorizedDisplayList).every(list => list.length === 0);
+  console.log("[GroceryList.tsx] Rendering main content. Is empty list:", isEmptyList); // Added log
 
   return (
     <Card>
