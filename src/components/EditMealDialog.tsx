@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -25,11 +25,22 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { PlusCircle, Trash2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card } from "@/components/ui/card"; // Added Card for consistency
+import { UNITS } from "./MealForm"; // Import UNITS constant
 
-// Define validation schema for the meal form (can be reused or adapted)
+// Define validation schema for an individual ingredient
+const ingredientSchema = z.object({
+  name: z.string().min(1, { message: "Ingredient name is required." }),
+  quantity: z.coerce.number().positive({ message: "Quantity must be a positive number." }),
+  unit: z.string().min(1, { message: "Unit is required." }),
+});
+
+// Define validation schema for the meal form
 const mealFormSchema = z.object({
   name: z.string().min(1, { message: "Meal name is required." }),
-  ingredients: z.string().optional(),
+  ingredients: z.array(ingredientSchema).optional(),
   instructions: z.string().optional(),
 });
 
@@ -38,9 +49,9 @@ type MealFormValues = z.infer<typeof mealFormSchema>;
 export interface MealForEditing {
   id: string;
   name: string;
-  ingredients?: string | null; // Allow null from DB
-  instructions?: string | null; // Allow null from DB
-  user_id: string; // To ensure user owns the meal
+  ingredients?: string | null; // This will be JSON string or old plain text
+  instructions?: string | null;
+  user_id: string;
 }
 
 interface EditMealDialogProps {
@@ -56,20 +67,52 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
     resolver: zodResolver(mealFormSchema),
     defaultValues: {
       name: "",
-      ingredients: "",
+      ingredients: [{ name: "", quantity: "", unit: "" }],
       instructions: "",
     },
   });
 
+  const { fields, append, remove, replace } = useFieldArray({
+    control: form.control,
+    name: "ingredients",
+  });
+
   useEffect(() => {
     if (meal && open) {
+      let parsedIngredients = [{ name: "", quantity: "", unit: "" }]; // Default for new or unparsable
+      if (meal.ingredients) {
+        try {
+          const parsed = JSON.parse(meal.ingredients);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            // Ensure all items have the required fields, even if empty initially
+            parsedIngredients = parsed.map(item => ({
+              name: item.name || "",
+              quantity: item.quantity || "",
+              unit: item.unit || ""
+            }));
+          } else if (Array.isArray(parsed) && parsed.length === 0) {
+            parsedIngredients = [{ name: "", quantity: "", unit: "" }]; // Keep one empty row if array is empty
+          }
+        } catch (e) {
+          console.warn("Failed to parse ingredients JSON, starting fresh for this meal:", e);
+          // If parsing fails (e.g. old plain text format), parsedIngredients remains the default
+        }
+      }
+      
       form.reset({
         name: meal.name,
-        ingredients: meal.ingredients || "",
+        ingredients: parsedIngredients,
         instructions: meal.instructions || "",
       });
+    } else if (!open) {
+      // Reset form when dialog closes to prevent stale data on reopen
+      form.reset({
+        name: "",
+        ingredients: [{ name: "", quantity: "", unit: "" }],
+        instructions: "",
+      });
     }
-  }, [meal, open, form]);
+  }, [meal, open, form, replace]); // `replace` is stable, but good practice to include if used by effect
 
   const editMealMutation = useMutation({
     mutationFn: async (values: MealFormValues) => {
@@ -80,15 +123,17 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
         throw new Error("You can only edit your own meals.");
       }
 
+      const ingredientsJSON = values.ingredients ? JSON.stringify(values.ingredients) : null;
+
       const { data, error } = await supabase
         .from("meals")
         .update({
           name: values.name,
-          ingredients: values.ingredients,
+          ingredients: ingredientsJSON,
           instructions: values.instructions,
         })
         .eq("id", meal.id)
-        .eq("user_id", user.id) // Ensure user owns the meal they are updating
+        .eq("user_id", user.id)
         .select();
 
       if (error) throw error;
@@ -97,8 +142,6 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
     onSuccess: () => {
       showSuccess("Meal updated successfully!");
       queryClient.invalidateQueries({ queryKey: ["meals"] });
-      // Potentially invalidate mealPlans and groceryList if ingredients change often
-      // For simplicity, we'll start with just invalidating meals
       queryClient.invalidateQueries({ queryKey: ["mealPlans"] }); 
       queryClient.invalidateQueries({ queryKey: ["groceryList"] });
       onOpenChange(false);
@@ -117,13 +160,13 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-lg"> {/* Increased width slightly */}
         <DialogHeader>
           <DialogTitle>Edit Meal</DialogTitle>
           <DialogDescription>Make changes to your meal here. Click save when you're done.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4 max-h-[70vh] overflow-y-auto pr-2">
             <FormField
               control={form.control}
               name="name"
@@ -137,19 +180,84 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="ingredients"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Ingredients</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="List ingredients..." {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+
+            <div>
+              <FormLabel>Ingredients</FormLabel>
+              <div className="space-y-4 mt-2">
+                {fields.map((field, index) => (
+                  <Card key={field.id} className="p-3 bg-slate-50">
+                    <div className="grid grid-cols-1 md:grid-cols-7 gap-2 items-end">
+                       <FormField
+                        control={form.control}
+                        name={`ingredients.${index}.name`}
+                        render={({ field: itemField }) => (
+                          <FormItem className="md:col-span-3">
+                            <FormLabel className="text-xs">Name</FormLabel>
+                            <FormControl>
+                              <Input placeholder="e.g., Tomato" {...itemField} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`ingredients.${index}.quantity`}
+                        render={({ field: itemField }) => (
+                          <FormItem className="md:col-span-1">
+                            <FormLabel className="text-xs">Qty</FormLabel>
+                            <FormControl>
+                              <Input type="number" placeholder="e.g., 2" {...itemField} step="any"/>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`ingredients.${index}.unit`}
+                        render={({ field: itemField }) => (
+                          <FormItem className="md:col-span-2">
+                            <FormLabel className="text-xs">Unit</FormLabel>
+                            <Select onValueChange={itemField.onChange} value={itemField.value || undefined}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select unit" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {UNITS.map(unit => <SelectItem key={unit} value={unit}>{unit}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => remove(index)}
+                        className="md:col-span-1"
+                        aria-label="Remove ingredient"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </Card>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => append({ name: "", quantity: "", unit: "" })}
+                  className="mt-2"
+                >
+                  <PlusCircle className="mr-2 h-4 w-4" /> Add Ingredient
+                </Button>
+              </div>
+            </div>
+
             <FormField
               control={form.control}
               name="instructions"
@@ -157,13 +265,13 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
                 <FormItem>
                   <FormLabel>Instructions</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Cooking steps..." {...field} />
+                    <Textarea placeholder="Cooking steps..." {...field} rows={5} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            <DialogFooter>
+            <DialogFooter className="mt-6 pt-4 border-t">
               <Button variant="outline" onClick={() => onOpenChange(false)} disabled={editMealMutation.isPending}>
                 Cancel
               </Button>
