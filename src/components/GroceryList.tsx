@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { ListChecks, RefreshCw } from "lucide-react"; // Added RefreshCw for toggle
+import { ListChecks, RefreshCw } from "lucide-react";
 import { convertToPreferredSystem } from "@/utils/conversionUtils";
 
 interface PlannedMealWithIngredients {
@@ -89,7 +89,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
   const [displaySystem, setDisplaySystem] = useState<'imperial' | 'metric'>('imperial');
 
   const { data: plannedMeals, isLoading, error } = useQuery<PlannedMealWithIngredients[]>({
-    queryKey: ["groceryList", userId, format(currentWeekStart, 'yyyy-MM-dd')],
+    queryKey: ["groceryList", userId, format(currentWeekStart, 'yyyy-MM-dd'), displaySystem], // Add displaySystem to queryKey
     queryFn: async () => {
       if (!userId) return [];
       const startDateStr = format(currentWeekStart, 'yyyy-MM-dd');
@@ -102,7 +102,6 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
   });
 
   const aggregatedIngredients = useMemo(() => {
-    // ... (aggregation logic remains the same as before)
     if (!plannedMeals) return [];
     const ingredientMap = new Map<string, GroceryListItem>();
     plannedMeals.forEach(pm => {
@@ -157,79 +156,67 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
       }
 
       const itemName = aggItem.name;
-      let detailsPart = "";
-      let detailsClass = "text-gray-700"; // Default color for details
-
-      // Determine styling based on the original unit
+      let currentQuantity = aggItem.totalQuantity;
+      let currentUnit = aggItem.unit || "";
       const originalUnitForLogic = aggItem.unit?.toLowerCase() || '';
-      const isOriginalUnitPiece = PIECE_UNITS.includes(originalUnitForLogic);
-      const isOriginalUnitMeasurement = MEASUREMENT_UNITS_FOR_LIGHTER_COLOR.includes(originalUnitForLogic);
 
-      let displayQuantity = aggItem.totalQuantity;
-      let displayUnit = aggItem.unit || "";
+      let detailsClass = "text-gray-700";
+      let detailsPart = "";
 
       if (displaySystem === 'metric') {
         if (aggItem.isSummable) {
           const converted = convertToPreferredSystem(aggItem.totalQuantity, aggItem.unit || "", 'metric');
           if (converted) {
-            displayQuantity = converted.quantity;
-            displayUnit = converted.unit;
+            currentQuantity = converted.quantity;
+            currentUnit = converted.unit;
           }
-        } else if (aggItem.originalItems.length > 0) {
-          // For non-summable, convert each original item and join for display (simplified)
-          detailsPart = aggItem.originalItems.map(orig => {
+        }
+        // For non-summable items, conversion will happen when constructing detailsPart below
+      }
+
+      const isOriginalUnitPiece = PIECE_UNITS.includes(originalUnitForLogic);
+      const isOriginalUnitMeasurement = MEASUREMENT_UNITS_FOR_LIGHTER_COLOR.includes(originalUnitForLogic);
+
+      if (aggItem.isSummable && currentQuantity > 0) {
+        const roundedDisplayQty = (currentQuantity % 1 === 0) ? Math.round(currentQuantity) : parseFloat(currentQuantity.toFixed(1));
+        if (isOriginalUnitPiece) { // Use original unit to decide if it's a "piece" type
+          detailsPart = `${roundedDisplayQty}`;
+        } else {
+          let unitStr = currentUnit; // currentUnit is already potentially converted
+          if (roundedDisplayQty > 1 && !['L', 'ml', 'g', 'kg'].includes(unitStr) && !unitStr.endsWith('s') && unitStr.length > 0) {
+             if (unitStr.endsWith('y') && !['day', 'key', 'way', 'toy', 'boy', 'guy'].includes(unitStr.toLowerCase())) {
+                unitStr = unitStr.slice(0, -1) + 'ies';
+             } else { unitStr += "s"; }
+          }
+          detailsPart = `${roundedDisplayQty} ${unitStr}`;
+        }
+      } else if (!aggItem.isSummable && aggItem.originalItems.length > 0) {
+        detailsPart = aggItem.originalItems.map(orig => {
+          let q = orig.quantity;
+          let u = orig.unit;
+          if (displaySystem === 'metric') {
             const convertedPart = convertToPreferredSystem(orig.quantity, orig.unit, 'metric');
-            const currentPartUnit = convertedPart ? convertedPart.unit : orig.unit;
-            const currentPartQty = convertedPart ? convertedPart.quantity : orig.quantity;
-            if (PIECE_UNITS.includes(currentPartUnit.toLowerCase())) return `${currentPartQty}`;
-            return `${currentPartQty} ${currentPartUnit}`;
-          }).join('; ');
-          // For non-summable, the detailsClass is based on the first original item's nature
-          if (aggItem.originalItems.length > 0 && MEASUREMENT_UNITS_FOR_LIGHTER_COLOR.includes(aggItem.originalItems[0].unit.toLowerCase())) {
-            detailsClass = "text-gray-500";
-          }
-        }
-      }
-      
-      // Construct detailsPart if not already set by non-summable metric conversion
-      if (detailsPart === "") { // i.e. for summable items, or imperial non-summable
-        if (aggItem.isSummable && displayQuantity > 0) {
-          const roundedDisplayQty = (displayQuantity % 1 === 0) ? Math.round(displayQuantity) : parseFloat(displayQuantity.toFixed(1));
-          if (isOriginalUnitPiece) { // Use original unit nature for "piece" display rule
-            detailsPart = `${roundedDisplayQty}`;
-          } else {
-            let unitStr = displayUnit;
-            // Basic pluralization for displayUnit if it's not metric L/ml/g/kg (which are often singular)
-            if (roundedDisplayQty > 1 && !['L', 'ml', 'g', 'kg'].includes(unitStr) && !unitStr.endsWith('s') && unitStr.length > 0) {
-                 if (unitStr.endsWith('y') && !['day', 'key', 'way', 'toy', 'boy', 'guy'].includes(unitStr.toLowerCase())) {
-                    unitStr = unitStr.slice(0, -1) + 'ies';
-                 } else {
-                    unitStr += "s";
-                 }
+            if (convertedPart) {
+              q = convertedPart.quantity;
+              u = convertedPart.unit;
             }
-            detailsPart = `${roundedDisplayQty} ${unitStr}`;
           }
-        } else if (!aggItem.isSummable && aggItem.originalItems.length > 0) {
-           // Non-summable, imperial display
-           detailsPart = aggItem.originalItems.map(orig => {
-            if (PIECE_UNITS.includes(orig.unit.toLowerCase())) return `${orig.quantity}`;
-            return `${orig.quantity} ${orig.unit}`;
-          }).join('; ');
-        }
+          // Use original unit of this specific part to check if it's a piece
+          if (PIECE_UNITS.includes(orig.unit.toLowerCase())) return `${q}`; 
+          return `${q} ${u}`;
+        }).join('; ');
       }
       
-      // Determine detailsClass based on original unit's nature, unless already set for non-summable metric
-      if (detailsClass === "text-gray-700" && isOriginalUnitMeasurement && !isOriginalUnitPiece) {
-         detailsClass = "text-gray-500";
-      }
-      if (isOriginalUnitPiece) { // Quantities for pieces are normal color
+      if (isOriginalUnitPiece) {
         detailsClass = "text-gray-700";
+      } else if (isOriginalUnitMeasurement) {
+        detailsClass = "text-gray-500";
       }
       
       const uniqueKey = `${itemName}:${detailsPart}-${foundCategory}-${displaySystem}`;
       const originalItemsTooltip = aggItem.originalItems.map(oi => `${oi.quantity} ${oi.unit} ${oi.name}${oi.description ? ` (${oi.description})` : ''}`).join('\n');
       
-      if (detailsPart !== "") { // Only add if there's something to display in details
+      if (detailsPart.trim() !== "" || itemName.trim() !== "") { // Ensure we add item even if detailsPart is empty (e.g. for some piece items)
         grouped[foundCategory].push({ itemName, detailsPart, detailsClass, originalItemsTooltip, uniqueKey });
       }
     });
@@ -253,7 +240,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
       }
       return newPersistedStruckItems;
     });
-  }, [categorizedDisplayList]);
+  }, [categorizedDisplayList]); // This will re-run if displaySystem changes, due to categorizedDisplayList changing
 
   const handleItemClick = (uniqueKey: string) => {
     setStruckItems(prevStruckItems => {
