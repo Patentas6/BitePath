@@ -27,14 +27,15 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { PlusCircle, Trash2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card } from "@/components/ui/card"; // Added Card for consistency
-import { UNITS } from "./MealForm"; // Import UNITS constant
+import { Card } from "@/components/ui/card";
+import { UNITS } from "./MealForm";
 
 // Define validation schema for an individual ingredient
 const ingredientSchema = z.object({
   name: z.string().min(1, { message: "Ingredient name is required." }),
   quantity: z.coerce.number().positive({ message: "Quantity must be a positive number." }),
   unit: z.string().min(1, { message: "Unit is required." }),
+  description: z.string().optional(), // Added description field
 });
 
 // Define validation schema for the meal form
@@ -49,7 +50,7 @@ type MealFormValues = z.infer<typeof mealFormSchema>;
 export interface MealForEditing {
   id: string;
   name: string;
-  ingredients?: string | null; // This will be JSON string or old plain text
+  ingredients?: string | null;
   instructions?: string | null;
   user_id: string;
 }
@@ -67,7 +68,7 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
     resolver: zodResolver(mealFormSchema),
     defaultValues: {
       name: "",
-      ingredients: [{ name: "", quantity: "", unit: "" }],
+      ingredients: [{ name: "", quantity: "", unit: "", description: "" }], // Added description
       instructions: "",
     },
   });
@@ -79,23 +80,22 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
 
   useEffect(() => {
     if (meal && open) {
-      let parsedIngredients = [{ name: "", quantity: "", unit: "" }]; // Default for new or unparsable
+      let parsedIngredients = [{ name: "", quantity: "", unit: "", description: "" }];
       if (meal.ingredients) {
         try {
           const parsed = JSON.parse(meal.ingredients);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            // Ensure all items have the required fields, even if empty initially
             parsedIngredients = parsed.map(item => ({
               name: item.name || "",
               quantity: item.quantity || "",
-              unit: item.unit || ""
+              unit: item.unit || "",
+              description: item.description || "", // Added description
             }));
           } else if (Array.isArray(parsed) && parsed.length === 0) {
-            parsedIngredients = [{ name: "", quantity: "", unit: "" }]; // Keep one empty row if array is empty
+            parsedIngredients = [{ name: "", quantity: "", unit: "", description: "" }];
           }
         } catch (e) {
           console.warn("Failed to parse ingredients JSON, starting fresh for this meal:", e);
-          // If parsing fails (e.g. old plain text format), parsedIngredients remains the default
         }
       }
       
@@ -105,14 +105,13 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
         instructions: meal.instructions || "",
       });
     } else if (!open) {
-      // Reset form when dialog closes to prevent stale data on reopen
       form.reset({
         name: "",
-        ingredients: [{ name: "", quantity: "", unit: "" }],
+        ingredients: [{ name: "", quantity: "", unit: "", description: "" }], // Added description
         instructions: "",
       });
     }
-  }, [meal, open, form, replace]); // `replace` is stable, but good practice to include if used by effect
+  }, [meal, open, form, replace]);
 
   const editMealMutation = useMutation({
     mutationFn: async (values: MealFormValues) => {
@@ -160,7 +159,7 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg"> {/* Increased width slightly */}
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Edit Meal</DialogTitle>
           <DialogDescription>Make changes to your meal here. Click save when you're done.</DialogDescription>
@@ -186,7 +185,7 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
               <div className="space-y-4 mt-2">
                 {fields.map((field, index) => (
                   <Card key={field.id} className="p-3 bg-slate-50">
-                    <div className="grid grid-cols-1 md:grid-cols-7 gap-2 items-end">
+                    <div className="grid grid-cols-1 md:grid-cols-10 gap-2 items-end">
                        <FormField
                         control={form.control}
                         name={`ingredients.${index}.name`}
@@ -233,6 +232,19 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
                           </FormItem>
                         )}
                       />
+                      <FormField
+                        control={form.control}
+                        name={`ingredients.${index}.description`}
+                        render={({ field: itemField }) => (
+                          <FormItem className="md:col-span-3">
+                            <FormLabel className="text-xs">Description (Optional)</FormLabel>
+                            <FormControl>
+                              <Input placeholder="e.g., minced, cored" {...itemField} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                       <Button
                         type="button"
                         variant="destructive"
@@ -250,7 +262,7 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => append({ name: "", quantity: "", unit: "" })}
+                  onClick={() => append({ name: "", quantity: "", unit: "", description: "" })} // Added description
                   className="mt-2"
                 >
                   <PlusCircle className="mr-2 h-4 w-4" /> Add Ingredient

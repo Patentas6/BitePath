@@ -27,6 +27,7 @@ const ingredientSchema = z.object({
   name: z.string().min(1, { message: "Ingredient name is required." }),
   quantity: z.coerce.number().positive({ message: "Quantity must be a positive number." }),
   unit: z.string().min(1, { message: "Unit is required." }),
+  description: z.string().optional(), // Added description field
 });
 
 // Define validation schema for the meal form
@@ -45,7 +46,7 @@ const MealForm = () => {
     resolver: zodResolver(mealFormSchema),
     defaultValues: {
       name: "",
-      ingredients: [{ name: "", quantity: "", unit: "" }], // Start with one empty ingredient row
+      ingredients: [{ name: "", quantity: "", unit: "", description: "" }], // Added description
       instructions: "",
     },
   });
@@ -86,7 +87,7 @@ const MealForm = () => {
       showSuccess("Meal added successfully!");
       form.reset({
         name: "",
-        ingredients: [{ name: "", quantity: "", unit: "" }],
+        ingredients: [{ name: "", quantity: "", unit: "", description: "" }], // Added description
         instructions: "",
       });
       queryClient.invalidateQueries({ queryKey: ["meals"] });
@@ -128,7 +129,7 @@ const MealForm = () => {
               <div className="space-y-4 mt-2">
                 {fields.map((field, index) => (
                   <Card key={field.id} className="p-3 bg-slate-50">
-                    <div className="grid grid-cols-1 md:grid-cols-7 gap-2 items-end">
+                    <div className="grid grid-cols-1 md:grid-cols-10 gap-2 items-end">
                       <FormField
                         control={form.control}
                         name={`ingredients.${index}.name`}
@@ -175,6 +176,19 @@ const MealForm = () => {
                           </FormItem>
                         )}
                       />
+                      <FormField
+                        control={form.control}
+                        name={`ingredients.${index}.description`}
+                        render={({ field: itemField }) => (
+                          <FormItem className="md:col-span-3">
+                            <FormLabel className="text-xs">Description (Optional)</FormLabel>
+                            <FormControl>
+                              <Input placeholder="e.g., minced, finely chopped" {...itemField} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                       <Button
                         type="button"
                         variant="destructive"
@@ -192,7 +206,7 @@ const MealForm = () => {
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => append({ name: "", quantity: "", unit: "" })}
+                  onClick={() => append({ name: "", quantity: "", unit: "", description: "" })} // Added description
                   className="mt-2"
                 >
                   <PlusCircle className="mr-2 h-4 w-4" /> Add Ingredient

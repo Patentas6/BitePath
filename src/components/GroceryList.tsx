@@ -16,8 +16,9 @@ interface PlannedMealWithIngredients {
 
 interface ParsedIngredientItem {
   name: string;
-  quantity: number;
+  quantity: number; // Assuming quantity is consistently a number after parsing
   unit: string;
+  description?: string; // Added optional description
 }
 
 // Constants for unit categorization (can be refined)
@@ -53,9 +54,14 @@ const categoryOrder: Category[] = ['Produce', 'Meat & Poultry', 'Dairy & Eggs', 
 interface GroceryListItem {
   name: string;
   totalQuantity: number;
-  unit: string | null; // Unit might be null if not summable or not consistently defined
-  isSummable: boolean; // Indicates if totalQuantity represents a sum
-  originalItems: ParsedIngredientItem[]; // To store original parsed items for tooltip or detailed view
+  unit: string | null; 
+  isSummable: boolean; 
+  originalItems: ParsedIngredientItem[]; 
+}
+
+interface GroceryListProps {
+  userId: string;
+  currentWeekStart: Date;
 }
 
 const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) => {
@@ -87,43 +93,41 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
           const parsedIngredientList: ParsedIngredientItem[] = JSON.parse(ingredientsBlock);
           if (Array.isArray(parsedIngredientList)) {
             parsedIngredientList.forEach(item => {
-              if (!item.name || typeof item.quantity !== 'number' || !item.unit) {
-                console.warn("Skipping malformed ingredient item:", item);
+              // Ensure item.quantity is a number for aggregation
+              const quantityAsNumber = typeof item.quantity === 'string' ? parseFloat(item.quantity) : item.quantity;
+
+              if (!item.name || typeof quantityAsNumber !== 'number' || isNaN(quantityAsNumber) || !item.unit) {
+                console.warn("Skipping malformed ingredient item (name, quantity, or unit issue):", item);
                 return;
               }
+              // Create a new item with quantity as number for processing
+              const processedItem: ParsedIngredientItem = { ...item, quantity: quantityAsNumber };
 
-              const normalizedName = item.name.trim().toLowerCase();
-              const unitLower = item.unit.toLowerCase();
+              const normalizedName = processedItem.name.trim().toLowerCase();
+              const unitLower = processedItem.unit.toLowerCase();
               
-              // Use a composite key if units are not meant to be mixed (e.g. "flour, 1 cup" and "flour, 200g")
-              // For simplicity here, we'll use normalizedName as key and handle unit logic below.
-              const mapKey = normalizedName;
+              const mapKey = normalizedName; // Key by name only for grocery list
 
               const existing = ingredientMap.get(mapKey);
 
               if (existing) {
-                existing.originalItems.push(item);
+                existing.originalItems.push(processedItem);
                 if (existing.isSummable && SUMMABLE_UNITS.includes(unitLower) && existing.unit?.toLowerCase() === unitLower) {
-                  existing.totalQuantity += item.quantity;
+                  existing.totalQuantity += processedItem.quantity;
                 } else if (existing.isSummable && SUMMABLE_UNITS.includes(unitLower) && !NON_SUMMABLE_DISPLAY_UNITS.includes(unitLower)) {
-                  // If units are different but both summable (e.g. g and kg), this needs conversion logic (not implemented here)
-                  // For now, if units differ, we might list them separately or just add to originalItems
-                  // This part can be enhanced for unit conversion.
-                  // As a simple approach, if units differ, we might make it non-summable for display.
-                  console.warn(`Mixing units for ${normalizedName}: ${existing.unit} and ${item.unit}. Summation might be inaccurate without conversion.`);
-                  existing.isSummable = false; // Mark as non-summable if units are mixed without conversion
+                  console.warn(`Mixing units for ${normalizedName}: ${existing.unit} and ${processedItem.unit}. Summation might be inaccurate without conversion.`);
+                  existing.isSummable = false; 
                 } else {
-                  // If existing is not summable, or new item's unit is not summable with existing
                   existing.isSummable = false;
                 }
               } else {
                 const isItemSummable = SUMMABLE_UNITS.includes(unitLower);
                 ingredientMap.set(mapKey, {
-                  name: item.name, // Keep original casing for display name
-                  totalQuantity: item.quantity,
-                  unit: item.unit,
+                  name: processedItem.name, 
+                  totalQuantity: processedItem.quantity,
+                  unit: processedItem.unit,
                   isSummable: isItemSummable,
-                  originalItems: [item]
+                  originalItems: [processedItem]
                 });
               }
             });
@@ -152,12 +156,11 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
         }
       }
       
-      let displayText = item.name;
+      let displayText = item.name; // Display name should not include description
       if (item.isSummable && item.totalQuantity > 0) {
         const displayTotalQuantity = item.totalQuantity % 1 === 0 ? item.totalQuantity : item.totalQuantity.toFixed(1);
         let unitDisplay = item.unit || "";
         if (item.totalQuantity > 1 && unitDisplay && !unitDisplay.endsWith('s') && !NON_SUMMABLE_DISPLAY_UNITS.includes(unitDisplay.toLowerCase())) {
-           // Basic pluralization, can be improved
            if (unitDisplay.endsWith('y') && !['day', 'key', 'way', 'toy', 'boy', 'guy'].includes(unitDisplay.toLowerCase())) {
               unitDisplay = unitDisplay.slice(0, -1) + 'ies';
            } else {
@@ -167,14 +170,20 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
         displayText = `${item.name}: ${displayTotalQuantity} ${unitDisplay}`;
       } else if (!item.isSummable && item.originalItems.length > 0) {
         // For non-summable items, list them or show the first one
-        displayText = item.originalItems.map(orig => `${item.name}: ${orig.quantity} ${orig.unit}`).join('; ');
-         if (item.originalItems.length > 1) displayText = `${item.name} (multiple entries)`; // Simpler display for multiple non-summable
+        // Ensure only name, quantity, unit are used for display text
+        displayText = item.originalItems.map(orig => `${orig.name}: ${orig.quantity} ${orig.unit}`).join('; ');
+         if (item.originalItems.length > 1) displayText = `${item.name} (multiple entries)`;
          else displayText = `${item.name}: ${item.originalItems[0].quantity} ${item.originalItems[0].unit}`;
-
       }
 
-
-      const originalItemsTooltip = item.originalItems.map(oi => `${oi.quantity} ${oi.unit} ${oi.name}`).join('\n');
+      // Tooltip can show more details, including description if desired, but primary display text should be clean.
+      const originalItemsTooltip = item.originalItems.map(oi => {
+        let tip = `${oi.quantity} ${oi.unit} ${oi.name}`;
+        if (oi.description) { // Optionally include description in tooltip
+          tip += ` (${oi.description})`;
+        }
+        return tip;
+      }).join('\n');
 
       grouped[foundCategory].push({ name: item.name, displayText, originalItemsTooltip });
     });
@@ -264,9 +273,9 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
                         className={`cursor-pointer p-1 rounded hover:bg-gray-100 ${
                           struckItems.has(item.displayText) ? 'line-through text-gray-400' : 'text-gray-700'
                         }`}
-                        title={item.originalItemsTooltip}
+                        title={item.originalItemsTooltip} // Tooltip can show more details
                       >
-                        {item.displayText}
+                        {item.displayText} 
                       </li>
                     ))}
                   </ul>
