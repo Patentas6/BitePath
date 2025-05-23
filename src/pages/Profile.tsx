@@ -7,8 +7,8 @@ import { supabase } from "@/lib/supabase";
 import { showError, showSuccess } from "@/utils/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription as ShadcnCardDescription } from "@/components/ui/card"; // Renamed to avoid conflict
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form"; // Added FormDescription
 import { useNavigate, Link } from "react-router-dom";
 import type { User } from "@supabase/supabase-js";
 
@@ -193,13 +193,12 @@ const ProfilePage = () => {
         <Link to="/dashboard" className="text-2xl font-bold text-gray-800 hover:text-teal-600 transition-colors">
           BitePath
         </Link>
-        {/* You can add other header elements here if needed, like a page title or back button */}
       </header>
       <div className="flex flex-col items-center">
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle>Your Profile</CardTitle>
-            <CardDescription>Update your first and last name.</CardDescription>
+            <ShadcnCardDescription>Update your display name. Feel free to get creative!</ShadcnCardDescription>
           </CardHeader>
           <CardContent>
             <Form {...form}>
@@ -211,8 +210,11 @@ const ProfilePage = () => {
                     <FormItem>
                       <FormLabel>First Name</FormLabel>
                       <FormControl>
-                        <Input placeholder="Your first name" {...field} disabled={updateProfileMutation.isPending || isLoadingProfile} />
+                        <Input placeholder="e.g., Captain Cook" {...field} disabled={updateProfileMutation.isPending || isLoadingProfile} />
                       </FormControl>
+                      <FormDescription>
+                        This can be your real name or something fun!
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -224,8 +226,11 @@ const ProfilePage = () => {
                     <FormItem>
                       <FormLabel>Last Name</FormLabel>
                       <FormControl>
-                        <Input placeholder="Your last name" {...field} disabled={updateProfileMutation.isPending || isLoadingProfile} />
+                        <Input placeholder="e.g., The Magnificent" {...field} disabled={updateProfileMutation.isPending || isLoadingProfile} />
                       </FormControl>
+                      <FormDescription>
+                        Your surname, a cool title, or leave it blank!
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
