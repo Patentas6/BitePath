@@ -10,18 +10,23 @@ import { ListChecks } from "lucide-react";
 interface PlannedMealWithIngredients {
   meals: {
     name: string;
-    ingredients: string | null; // This will be a JSON string
+    ingredients: string | null; 
   } | null;
 }
 
 interface ParsedIngredientItem {
   name: string;
-  quantity: number; // Assuming quantity is consistently a number after parsing
+  quantity: number; 
   unit: string;
-  description?: string; // Added optional description
+  description?: string; 
 }
 
-// Constants for unit categorization (can be refined)
+// Units that are typically not summed but listed with their quantities
+const NON_SUMMABLE_DISPLAY_UNITS: ReadonlyArray<string> = [
+  "cup", "cups", "tsp", "teaspoon", "teaspoons",
+  "tbsp", "tablespoon", "tablespoons", "pinch", "pinches", "dash", "dashes"
+];
+
 const SUMMABLE_UNITS: ReadonlyArray<string> = [
   "g", "gram", "grams", "kg", "kgs", "kilogram", "kilograms",
   "lb", "lbs", "pound", "pounds", "oz", "ounce", "ounces",
@@ -31,10 +36,18 @@ const SUMMABLE_UNITS: ReadonlyArray<string> = [
   "head", "heads", "bunch", "bunches"
 ];
 
-// Units that are typically not summed but listed with their quantities
-const NON_SUMMABLE_DISPLAY_UNITS: ReadonlyArray<string> = [
-  "cup", "cups", "tsp", "teaspoon", "teaspoons",
-  "tbsp", "tablespoon", "tablespoons", "pinch", "pinches", "dash", "dashes"
+// New constants for display logic
+const PIECE_UNITS: ReadonlyArray<string> = ['piece', 'pieces', 'item', 'items', 'unit', 'units']; // Added 'unit' as it's sometimes used generically
+const MEASUREMENT_UNITS_FOR_LIGHTER_COLOR: ReadonlyArray<string> = [
+  'tsp', 'teaspoon', 'teaspoons',
+  'tbsp', 'tablespoon', 'tablespoons',
+  'cup', 'cups',
+  'pinch', 'pinches', 'dash', 'dashes',
+  'ml', 'milliliter', 'milliliters',
+  'l', 'liter', 'liters', // Liters can be borderline, but often a recipe measurement for liquids
+  'fl oz', 'fluid ounce', 'fluid ounces',
+  'g', 'gram', 'grams', // Grams can be for buying (e.g. spices) but often recipe specific for small amounts
+  'oz', 'ounce', 'ounces' // Ounces can be for buying (e.g. cheese) but often recipe specific
 ];
 
 
@@ -57,6 +70,14 @@ interface GroceryListItem {
   unit: string | null; 
   isSummable: boolean; 
   originalItems: ParsedIngredientItem[]; 
+}
+
+// Updated structure for the display list
+interface CategorizedDisplayListItem {
+  name: string;
+  displayText: string;
+  originalItemsTooltip: string;
+  applyLighterColor: boolean;
 }
 
 interface GroceryListProps {
@@ -93,20 +114,18 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
           const parsedIngredientList: ParsedIngredientItem[] = JSON.parse(ingredientsBlock);
           if (Array.isArray(parsedIngredientList)) {
             parsedIngredientList.forEach(item => {
-              // Ensure item.quantity is a number for aggregation
               const quantityAsNumber = typeof item.quantity === 'string' ? parseFloat(item.quantity) : item.quantity;
 
               if (!item.name || typeof quantityAsNumber !== 'number' || isNaN(quantityAsNumber) || !item.unit) {
                 console.warn("Skipping malformed ingredient item (name, quantity, or unit issue):", item);
                 return;
               }
-              // Create a new item with quantity as number for processing
               const processedItem: ParsedIngredientItem = { ...item, quantity: quantityAsNumber };
 
               const normalizedName = processedItem.name.trim().toLowerCase();
               const unitLower = processedItem.unit.toLowerCase();
               
-              const mapKey = normalizedName; // Key by name only for grocery list
+              const mapKey = normalizedName; 
 
               const existing = ingredientMap.get(mapKey);
 
@@ -121,7 +140,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
                   existing.isSummable = false;
                 }
               } else {
-                const isItemSummable = SUMMABLE_UNITS.includes(unitLower);
+                const isItemSummable = SUMMABLE_UNITS.includes(unitLower) && !NON_SUMMABLE_DISPLAY_UNITS.includes(unitLower);
                 ingredientMap.set(mapKey, {
                   name: processedItem.name, 
                   totalQuantity: processedItem.quantity,
@@ -141,8 +160,8 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
   }, [plannedMeals]);
 
   const categorizedDisplayList = useMemo(() => {
-    const grouped: Record<Category, Array<{ name: string; displayText: string; originalItemsTooltip: string }>> = 
-      categoryOrder.reduce((acc, cat) => { acc[cat] = []; return acc; }, {} as Record<Category, Array<{ name: string; displayText: string; originalItemsTooltip: string }>>);
+    const grouped: Record<Category, CategorizedDisplayListItem[]> = 
+      categoryOrder.reduce((acc, cat) => { acc[cat] = []; return acc; }, {} as Record<Category, CategorizedDisplayListItem[]>);
 
     aggregatedIngredients.forEach(item => {
       let foundCategory: Category = 'Other';
@@ -156,36 +175,59 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
         }
       }
       
-      let displayText = item.name; // Display name should not include description
+      const itemUnitLower = item.unit?.toLowerCase() || '';
+      const isPieceUnitItem = PIECE_UNITS.includes(itemUnitLower);
+      const applyLighterColor = MEASUREMENT_UNITS_FOR_LIGHTER_COLOR.includes(itemUnitLower);
+
+      let currentDisplayText = item.name; // Default to just name for piece units or if logic below doesn't apply
+
       if (item.isSummable && item.totalQuantity > 0) {
-        const displayTotalQuantity = item.totalQuantity % 1 === 0 ? item.totalQuantity : item.totalQuantity.toFixed(1);
-        let unitDisplay = item.unit || "";
-        if (item.totalQuantity > 1 && unitDisplay && !unitDisplay.endsWith('s') && !NON_SUMMABLE_DISPLAY_UNITS.includes(unitDisplay.toLowerCase())) {
-           if (unitDisplay.endsWith('y') && !['day', 'key', 'way', 'toy', 'boy', 'guy'].includes(unitDisplay.toLowerCase())) {
-              unitDisplay = unitDisplay.slice(0, -1) + 'ies';
-           } else {
-              unitDisplay += "s";
-           }
+        if (isPieceUnitItem) {
+          currentDisplayText = item.name; // Only name if it's a piece unit
+        } else {
+          const displayTotalQuantity = item.totalQuantity % 1 === 0 ? item.totalQuantity : item.totalQuantity.toFixed(1);
+          let unitDisplay = item.unit || "";
+          if (item.totalQuantity > 1 && unitDisplay && !unitDisplay.endsWith('s') && !NON_SUMMABLE_DISPLAY_UNITS.includes(unitDisplay.toLowerCase()) && !PIECE_UNITS.includes(unitDisplay.toLowerCase())) {
+             if (unitDisplay.endsWith('y') && !['day', 'key', 'way', 'toy', 'boy', 'guy'].includes(unitDisplay.toLowerCase())) {
+                unitDisplay = unitDisplay.slice(0, -1) + 'ies';
+             } else {
+                unitDisplay += "s";
+             }
+          }
+          currentDisplayText = `${item.name}: ${displayTotalQuantity} ${unitDisplay}`;
         }
-        displayText = `${item.name}: ${displayTotalQuantity} ${unitDisplay}`;
       } else if (!item.isSummable && item.originalItems.length > 0) {
-        // For non-summable items, list them or show the first one
-        // Ensure only name, quantity, unit are used for display text
-        displayText = item.originalItems.map(orig => `${orig.name}: ${orig.quantity} ${orig.unit}`).join('; ');
-         if (item.originalItems.length > 1) displayText = `${item.name} (multiple entries)`;
-         else displayText = `${item.name}: ${item.originalItems[0].quantity} ${item.originalItems[0].unit}`;
+         // For non-summable, show individual entries or a summary
+         // If it's a piece unit, just the name might be preferred if quantities are small or implied
+        if (item.originalItems.length === 1 && PIECE_UNITS.includes(item.originalItems[0].unit.toLowerCase())) {
+            currentDisplayText = item.originalItems[0].name;
+        } else if (item.originalItems.length > 1 && item.originalItems.every(oi => PIECE_UNITS.includes(oi.unit.toLowerCase()))) {
+            currentDisplayText = item.name; // If multiple "piece" items, just show the aggregated name
+        } else {
+            // Fallback for non-summable, non-piece, or mixed units
+            currentDisplayText = item.originalItems.map(orig => {
+                if (PIECE_UNITS.includes(orig.unit.toLowerCase())) return orig.name;
+                return `${orig.name}: ${orig.quantity} ${orig.unit}`;
+            }).join('; ');
+            if (item.originalItems.length > 1) currentDisplayText = `${item.name} (multiple entries)`;
+            else if (!PIECE_UNITS.includes(item.originalItems[0].unit.toLowerCase())) {
+                 currentDisplayText = `${item.name}: ${item.originalItems[0].quantity} ${item.originalItems[0].unit}`;
+            } else {
+                 currentDisplayText = item.name; // Single non-summable piece item
+            }
+        }
       }
 
-      // Tooltip can show more details, including description if desired, but primary display text should be clean.
+
       const originalItemsTooltip = item.originalItems.map(oi => {
         let tip = `${oi.quantity} ${oi.unit} ${oi.name}`;
-        if (oi.description) { // Optionally include description in tooltip
+        if (oi.description) { 
           tip += ` (${oi.description})`;
         }
         return tip;
       }).join('\n');
 
-      grouped[foundCategory].push({ name: item.name, displayText, originalItemsTooltip });
+      grouped[foundCategory].push({ name: item.name, displayText: currentDisplayText, originalItemsTooltip, applyLighterColor });
     });
 
     for (const cat of categoryOrder) {
@@ -268,12 +310,14 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
                   <ul className="space-y-1 text-sm">
                     {itemsInCategory.map((item) => (
                       <li
-                        key={item.displayText}
+                        key={item.displayText + item.name} // Ensure unique key if displayText can be non-unique
                         onClick={() => handleItemClick(item.displayText)}
                         className={`cursor-pointer p-1 rounded hover:bg-gray-100 ${
-                          struckItems.has(item.displayText) ? 'line-through text-gray-400' : 'text-gray-700'
+                          struckItems.has(item.displayText) 
+                            ? 'line-through text-gray-400' 
+                            : (item.applyLighterColor ? 'text-gray-500' : 'text-gray-700')
                         }`}
-                        title={item.originalItemsTooltip} // Tooltip can show more details
+                        title={item.originalItemsTooltip} 
                       >
                         {item.displayText} 
                       </li>
