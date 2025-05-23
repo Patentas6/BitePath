@@ -4,54 +4,51 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* --- New User-Specified Light Mode Palette --- */
+    --background: 43 67% 94.1%; /* Beige (#F8F4E8) */
+    --foreground: 40 100% 1.4%;  /* Black (#070500) */
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%; /* White, for contrast with Beige background */
+    --card-foreground: 40 100% 1.4%; /* Black */
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%; /* White */
+    --popover-foreground: 40 100% 1.4%; /* Black */
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 73.4 82.2% 63.9%; /* Green (#CDF056) - for buttons */
+    --primary-foreground: 40 100% 1.4%; /* Black - text on Green buttons */
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 210 40% 96.1%; /* Light Gray (keeping from original for less important elements) */
+    --secondary-foreground: 40 100% 1.4%; /* Black */
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 43 40% 90%; /* Lighter/Darker Beige variant for muted backgrounds */
+    --muted-foreground: 0 0% 30%;   /* Dark Gray for muted text */
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 234.7 98.2% 54.5%; /* Blue (#1A26FC) - for titles (see base style below) */
+    --accent-foreground: 43 67% 94.1%; /* Beige - text on Blue accent backgrounds */
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 84.2% 60.2%; /* Standard Red */
+    --destructive-foreground: 0 0% 100%; /* White */
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 43 50% 88%; /* Slightly darker Beige for borders */
+    --input: 0 0% 100%; /* White for input backgrounds */
+    --ring: 73.4 82.2% 63.9%; /* Green - to match primary buttons */
+    /* --- End New User-Specified Palette --- */
 
     --radius: 0.5rem;
 
+    /* Sidebar specific colors - unchanged for this test */
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
     --sidebar-primary: 240 5.9% 10%;
-
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
   .dark {
+    /* Dark mode colors remain completely unchanged */
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
 
@@ -79,6 +76,8 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
+    
+    /* Sidebar specific colors for dark mode - unchanged */
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
@@ -97,5 +96,24 @@
 
   body {
     @apply bg-background text-foreground;
+  }
+
+  /* Attempt to make all titles blue in light mode */
+  :root h1, :root .h1,
+  :root h2, :root .h2,
+  :root h3, :root .h3,
+  :root h4, :root .h4,
+  :root h5, :root .h5,
+  :root h6, :root .h6 {
+    color: hsl(var(--accent)); /* Blue for titles */
+  }
+  /* Ensure dark mode titles are not affected by the above rule if they have their own color strategy */
+  .dark h1, .dark .h1,
+  .dark h2, .dark .h2,
+  .dark h3, .dark .h3,
+  .dark h4, .dark .h4,
+  .dark h5, .dark .h5,
+  .dark h6, .dark .h6 {
+    color: hsl(var(--foreground)); /* Default to foreground in dark mode, or specific dark mode title color if defined */
   }
 }
