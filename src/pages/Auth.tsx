@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { ArrowLeft } from "lucide-react";
 import { Auth as SupabaseAuthUI } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
-import { ThemeToggleButton } from "@/components/ThemeToggleButton"; // Import
+import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 
 const authFormSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
@@ -51,9 +51,7 @@ const Auth = () => {
     return () => authListener?.subscription.unsubscribe();
   }, [navigate]);
 
-  const onSubmit = async (values: AuthFormValues) => {
-    // onSubmit logic omitted for brevity
-  };
+  // onSubmit logic omitted for brevity
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-900 p-4 relative">
@@ -63,7 +61,17 @@ const Auth = () => {
         </Link>
         <ThemeToggleButton />
       </div>
-      <Card className="w-full max-w-md mt-16 md:mt-0">
+      <Card 
+        className="w-full max-w-md mt-16 md:mt-0"
+        style={{
+          // Force light card theme variables for this specific card,
+          // ensuring SupabaseAuthUI (theme="light") has a light background.
+          // @ts-ignore 
+          '--card': 'hsl(0 0% 100%)', /* card background: white */
+          // @ts-ignore 
+          '--card-foreground': 'hsl(222.2 84% 4.9%)' /* card text: dark blue/black */
+        } as React.CSSProperties}
+      >
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold">
             {isLogin ? "Login to Your Account" : "Join BitePath Today!"}
@@ -82,12 +90,11 @@ const Auth = () => {
               variables: {
                 default: { // These variables apply to the 'default' (light) theme of ThemeSupa
                   colors: {
-                    inputBackground: 'hsl(0 0% 100%)', // white
-                    inputText: 'hsl(0 0% 0%)',         // black
-                    inputLabelText: 'hsl(0 0% 20%)',   // dark gray for labels
-                    inputPlaceholder: 'hsl(0 0% 40%)', // medium gray for placeholders
-                    // You can add more overrides here if needed, e.g., for borders
-                    // inputBorder: 'hsl(0 0% 80%)', 
+                    inputBackground: 'hsl(0 0% 100%)',   // White input background
+                    inputText: 'hsl(0 0% 0%)',           // Black input text (on white input bg)
+                    inputLabelText: 'hsl(0 0% 20%)',      // Dark gray label text (on white card bg)
+                    inputPlaceholder: 'hsl(0 0% 40%)', // Medium gray placeholder (on white input bg)
+                    // anchorTextColor: 'hsl(var(--primary))', // Optional: if links inside SupabaseUI need styling
                   },
                 },
               },
@@ -109,7 +116,7 @@ const Auth = () => {
             {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
             <button
               onClick={() => navigate(`/auth${isLogin ? '?mode=signup' : ''}`, { replace: true })}
-              className="text-blue-600 hover:underline"
+              className="text-blue-600 hover:underline" // Standard link color, should be visible on light card
               disabled={isLoading}
             >
               {isLogin ? "Sign Up" : "Login"}
