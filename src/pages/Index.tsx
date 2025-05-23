@@ -1,4 +1,5 @@
-import { Button } from "@/components/ui/button"; // Assuming shadcn Button is available
+import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom"; // Import Link for navigation
 
 const Index = () => {
   return (
@@ -12,7 +13,9 @@ const Index = () => {
             <a href="#pricing" className="hover:underline">Pricing</a>
             <a href="#testimonials" className="hover:underline">Testimonials</a>
             <a href="/auth" className="hover:underline">Login</a>
-            <Button variant="default" size="sm">Sign Up</Button>
+            <Button variant="default" size="sm" asChild>
+              <Link to="/auth">Sign Up</Link>
+            </Button>
           </nav>
         </div>
       </header>
@@ -26,8 +29,8 @@ const Index = () => {
           <p className="text-xl md:text-2xl text-gray-600 mb-8">
             Plan your week in minutes and get an instant grocery list. Less stress, more delicious meals.
           </p>
-          <Button size="lg" className="bg-teal-600 hover:bg-teal-700 text-white">
-            Start Planning for Free
+          <Button size="lg" className="bg-teal-600 hover:bg-teal-700 text-white" asChild>
+            <Link to="/auth">Start Planning for Free</Link>
           </Button>
         </div>
       </section>
@@ -39,7 +42,7 @@ const Index = () => {
           <div className="grid md:grid-cols-3 gap-8">
             <div className="p-6 border rounded-lg shadow-sm">
               <h3 className="text-xl font-semibold mb-2">Minimalist Planning</h3>
-              <p className="text-gray-600">Easily drag and drop meals onto your weekly calendar.</p>
+              <p className="text-gray-600">Easily place meals onto your weekly calendar.</p>
             </div>
             <div className="p-6 border rounded-lg shadow-sm">
               <h3 className="text-xl font-semibold mb-2">Automated Grocery Lists</h3>
@@ -76,7 +79,9 @@ const Index = () => {
                 <li>✓ Limited meal library</li>
                 <li>✓ Grocery list generation</li>
               </ul>
-              <Button variant="outline" className="w-full">Sign Up for Free</Button>
+              <Button variant="outline" className="w-full" asChild>
+                <Link to="/auth">Sign Up for Free</Link>
+              </Button>
             </div>
             {/* Premium Tier Card */}
             <div className="p-6 border rounded-lg shadow-sm flex flex-col">
