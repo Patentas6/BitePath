@@ -9,10 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import type { User } from "@supabase/supabase-js";
 
-// Define validation schema for the profile form
 const profileFormSchema = z.object({
   first_name: z.string().min(1, { message: "First name is required." }).max(50, { message: "First name cannot exceed 50 characters." }),
   last_name: z.string().min(1, { message: "Last name is required." }).max(50, { message: "Last name cannot exceed 50 characters." }),
@@ -33,7 +32,6 @@ const ProfilePage = () => {
   const [user, setUser] = useState<User | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
 
-  // Effect to get current session and user ID
   useEffect(() => {
     console.log("[PROFILE_EFFECT_SESSION] Running effect to get session and user ID.");
     const getSessionAndUser = async () => {
@@ -83,7 +81,6 @@ const ProfilePage = () => {
     },
   });
 
-  // Query to fetch user profile data
   const { data: profile, isLoading: isLoadingProfile, error: profileError } = useQuery<ProfileData | null>({
     queryKey: ["userProfile", userId],
     queryFn: async () => {
@@ -100,16 +97,16 @@ const ProfilePage = () => {
 
       if (error) {
         console.error(`[PROFILE_QUERY_FN] Supabase error for userId ${userId}:`, error);
-        if (error.code === 'PGRST116') { // "Exactly one row was expected, but 0 or more than 1 were found"
+        if (error.code === 'PGRST116') { 
           console.warn(`[PROFILE_QUERY_FN] Profile not found for userId ${userId} (PGRST116). This is normal for new users.`);
-          return null; // No profile exists yet, return null
+          return null; 
         }
-        throw error; // For other errors, re-throw to be caught by react-query
+        throw error; 
       }
       console.log(`[PROFILE_QUERY_FN] Profile data fetched for userId ${userId}:`, data);
       return data;
     },
-    enabled: !!userId, // Only run query if userId is available
+    enabled: !!userId, 
   });
   
   useEffect(() => {
@@ -121,15 +118,11 @@ const ProfilePage = () => {
         last_name: profile.last_name || "",
       });
     } else if (!isLoadingProfile && userId) {
-      // If not loading, userId exists, but profile is null (e.g., new user or error handled as null)
       console.log("[PROFILE_EFFECT_FORM_RESET] Profile data is null, not loading, userId exists. Resetting form to empty.");
       form.reset({ first_name: "", last_name: "" });
     }
-    // If isLoadingProfile is true, or no userId, do nothing to avoid clearing form during load or if user is not identified
   }, [profile, isLoadingProfile, userId, form]);
 
-
-  // Mutation to update profile
   const updateProfileMutation = useMutation({
     mutationFn: async (values: ProfileFormValues) => {
       if (!userId) {
@@ -145,7 +138,7 @@ const ProfilePage = () => {
           first_name: values.first_name,
           last_name: values.last_name,
         })
-        .select(); // .select() ensures RLS for select is also checked and returns the upserted data
+        .select(); 
 
       console.log("[PROFILE_MUTATION_FN_RESPONSE] Supabase upsert().select() response:", response);
 
@@ -195,53 +188,61 @@ const ProfilePage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-4 flex items-center justify-center">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Your Profile</CardTitle>
-          <CardDescription>Update your first and last name.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="first_name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>First Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Your first name" {...field} disabled={updateProfileMutation.isPending || isLoadingProfile} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="last_name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Last Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Your last name" {...field} disabled={updateProfileMutation.isPending || isLoadingProfile} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className="flex space-x-2 justify-end">
-                <Button variant="outline" onClick={() => navigate("/dashboard")} disabled={updateProfileMutation.isPending}>
-                  Back
-                </Button>
-                <Button type="submit" disabled={!userId || updateProfileMutation.isPending || isLoadingProfile}>
-                  {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
-                </Button>
-              </div>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
+    <div className="min-h-screen bg-gray-100 p-4">
+      <header className="container mx-auto mb-6 flex justify-between items-center">
+        <Link to="/dashboard" className="text-2xl font-bold text-gray-800 hover:text-teal-600 transition-colors">
+          BitePath
+        </Link>
+        {/* You can add other header elements here if needed, like a page title or back button */}
+      </header>
+      <div className="flex flex-col items-center">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Your Profile</CardTitle>
+            <CardDescription>Update your first and last name.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <FormField
+                  control={form.control}
+                  name="first_name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>First Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Your first name" {...field} disabled={updateProfileMutation.isPending || isLoadingProfile} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="last_name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Last Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Your last name" {...field} disabled={updateProfileMutation.isPending || isLoadingProfile} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="flex space-x-2 justify-end">
+                  <Button variant="outline" onClick={() => navigate("/dashboard")} disabled={updateProfileMutation.isPending}>
+                    Back
+                  </Button>
+                  <Button type="submit" disabled={!userId || updateProfileMutation.isPending || isLoadingProfile}>
+                    {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };

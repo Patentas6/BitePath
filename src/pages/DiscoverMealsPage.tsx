@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { showError, showSuccess } from '@/utils/toast';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Search, Sparkles } from 'lucide-react';
-import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card'; // Import Card components for skeletons
+import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
 
 const DiscoverMealsPage = () => {
   console.log("DiscoverMealsPage: Component rendering or re-rendering.");
@@ -42,10 +42,10 @@ const DiscoverMealsPage = () => {
         .select('*');
       if (error) {
         console.error("DiscoverMealsPage: Supabase error fetching meal_templates:", error);
-        throw error; // Re-throw to be caught by react-query
+        throw error; 
       }
       console.log("DiscoverMealsPage: Meal templates fetched:", data);
-      return data || []; // Ensure it's always an array
+      return data || []; 
     },
   });
 
@@ -62,7 +62,7 @@ const DiscoverMealsPage = () => {
       )).sort();
       return uniqueCategories;
     },
-    enabled: !!mealTemplates && mealTemplates.length > 0, // Ensure mealTemplates is not empty
+    enabled: !!mealTemplates && mealTemplates.length > 0, 
   });
 
   const addMealMutation = useMutation({
@@ -148,10 +148,13 @@ const DiscoverMealsPage = () => {
   return (
     <div className="min-h-screen bg-gray-100 p-4">
       <div className="container mx-auto space-y-6">
-        <header className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+        <header className="flex justify-between items-center mb-6">
+          <Link to="/dashboard" className="text-2xl font-bold text-gray-800 hover:text-teal-600 transition-colors">
+            BitePath
+          </Link>
           <div className="flex items-center">
-            <Sparkles className="h-8 w-8 mr-3 text-teal-600" />
-            <h1 className="text-3xl font-bold">Discover Meal Templates</h1>
+            <Sparkles className="h-8 w-8 mr-3 text-teal-600 hidden sm:block" />
+            <h1 className="text-xl sm:text-3xl font-bold">Discover Meal Templates</h1>
           </div>
           <Button variant="outline" asChild>
             <Link to="/dashboard">

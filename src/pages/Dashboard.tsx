@@ -7,7 +7,7 @@ import WeeklyPlanner from "@/components/WeeklyPlanner";
 import GroceryList from "@/components/GroceryList";
 import type { User } from "@supabase/supabase-js";
 import { startOfWeek, addDays } from "date-fns";
-import { UserCircle, BookOpenText, Sparkles, Utensils } from "lucide-react"; // Added Utensils
+import { UserCircle, BookOpenText, Sparkles } from "lucide-react";
 
 interface UserProfile {
   first_name: string | null;
@@ -81,7 +81,7 @@ const Dashboard = () => {
   };
 
   const getWelcomeMessage = () => {
-    if (!user) return "Loading..."; // Simplified loading message
+    if (!user) return "Loading..."; 
 
     if (isUserProfileLoading && !userProfile) {
       return `Welcome, ${user.email ? user.email.split('@')[0] : 'User'}!`;
@@ -100,8 +100,7 @@ const Dashboard = () => {
     <div className="min-h-screen bg-gray-100 p-4">
       <div className="container mx-auto space-y-6">
         <header className="flex justify-between items-center">
-          <Link to="/dashboard" className="flex items-center text-2xl font-bold text-gray-800 hover:text-teal-600 transition-colors">
-            <Utensils className="h-7 w-7 mr-2 text-teal-600" />
+          <Link to="/dashboard" className="text-2xl font-bold text-gray-800 hover:text-teal-600 transition-colors">
             BitePath
           </Link>
           <div className="flex items-center space-x-2">

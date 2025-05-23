@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ArrowLeft, Utensils } from "lucide-react"; // Added Utensils for a generic logo icon
+import { ArrowLeft } from "lucide-react";
 import { Auth as SupabaseAuthUI } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 
@@ -112,8 +112,7 @@ const Auth = () => {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-4 relative">
       <div className="absolute top-4 left-4 md:top-6 md:left-6">
-        <Link to="/" className="flex items-center text-2xl font-bold text-gray-800 hover:text-teal-600 transition-colors">
-          <Utensils className="h-7 w-7 mr-2 text-teal-600" />
+        <Link to="/" className="text-2xl font-bold text-gray-800 hover:text-teal-600 transition-colors">
           BitePath
         </Link>
       </div>
