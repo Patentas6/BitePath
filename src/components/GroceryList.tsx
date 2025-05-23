@@ -72,6 +72,7 @@ interface GroceryListItem {
 
 interface CategorizedDisplayListItem {
   itemName: string;
+  itemNameClass: string; // Added for item name styling
   detailsPart: string;
   detailsClass: string; 
   originalItemsTooltip: string;
@@ -84,37 +85,36 @@ interface GroceryListProps {
 }
 
 const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) => {
-  console.log("[GroceryList.tsx] Component rendering or re-rendering. Props:", { userId, currentWeekStart }); // Added log
+  console.log("[GroceryList.tsx] Component rendering or re-rendering. Props:", { userId, currentWeekStart }); 
 
   const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
   const [struckItems, setStruckItems] = useState<Set<string>>(new Set());
   const [displaySystem, setDisplaySystem] = useState<'imperial' | 'metric'>('imperial');
 
-  const { data: plannedMeals, isLoading, error: plannedMealsError } = useQuery<PlannedMealWithIngredients[]>({ // Renamed error
+  const { data: plannedMeals, isLoading, error: plannedMealsError } = useQuery<PlannedMealWithIngredients[]>({ 
     queryKey: ["groceryList", userId, format(currentWeekStart, 'yyyy-MM-dd'), displaySystem],
     queryFn: async () => {
-      console.log("[GroceryList.tsx] Fetching planned meals for grocery list."); // Added log
+      console.log("[GroceryList.tsx] Fetching planned meals for grocery list."); 
       if (!userId) return [];
       const startDateStr = format(currentWeekStart, 'yyyy-MM-dd');
       const endDateStr = format(weekEnd, 'yyyy-MM-dd');
       const { data, error } = await supabase.from("meal_plans").select("meals ( name, ingredients )").eq("user_id", userId).gte("plan_date", startDateStr).lte("plan_date", endDateStr);
       if (error) {
-        console.error("[GroceryList.tsx] Error fetching planned meals:", error); // Added log
+        console.error("[GroceryList.tsx] Error fetching planned meals:", error); 
         throw error;
       }
-      console.log("[GroceryList.tsx] Planned meals fetched:", data ? data.length : 0); // Added log
+      console.log("[GroceryList.tsx] Planned meals fetched:", data ? data.length : 0); 
       return data || [];
     },
     enabled: !!userId,
   });
 
   const aggregatedIngredients = useMemo(() => {
-    console.log("[GroceryList.tsx] Recalculating aggregatedIngredients."); // Added log
+    console.log("[GroceryList.tsx] Recalculating aggregatedIngredients."); 
     if (!plannedMeals) {
-      console.log("[GroceryList.tsx] No plannedMeals for aggregation."); // Added log
+      console.log("[GroceryList.tsx] No plannedMeals for aggregation."); 
       return [];
     }
-    // ... (rest of aggregation logic)
     const ingredientMap = new Map<string, GroceryListItem>();
     plannedMeals.forEach(pm => {
       const ingredientsBlock = pm.meals?.ingredients;
@@ -150,13 +150,12 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
         } catch (e) { console.warn("[GroceryList.tsx] Failed to parse ingredients JSON:", ingredientsBlock, e); }
       }
     });
-    console.log("[GroceryList.tsx] Aggregation complete. Count:", ingredientMap.size); // Added log
+    console.log("[GroceryList.tsx] Aggregation complete. Count:", ingredientMap.size); 
     return Array.from(ingredientMap.values());
   }, [plannedMeals]);
 
   const categorizedDisplayList = useMemo(() => {
-    console.log("[GroceryList.tsx] Recalculating categorizedDisplayList. Display system:", displaySystem); // Added log
-    // ... (rest of categorization logic)
+    console.log("[GroceryList.tsx] Recalculating categorizedDisplayList. Display system:", displaySystem); 
     const grouped: Record<Category, CategorizedDisplayListItem[]> = 
       categoryOrder.reduce((acc, cat) => { acc[cat] = []; return acc; }, {} as Record<Category, CategorizedDisplayListItem[]>);
 
@@ -171,11 +170,14 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
       }
 
       const itemName = aggItem.name;
+      const itemNameClass = "text-foreground"; // Theme-aware for item name
+
       let currentQuantity = aggItem.totalQuantity;
       let currentUnit = aggItem.unit || "";
       const originalUnitForLogic = aggItem.unit?.toLowerCase() || '';
 
-      let detailsClass = "text-gray-700";
+      // Default details class for important units like kg, lbs (non-measurement)
+      let detailsClass = "text-gray-700 dark:text-gray-300";
       let detailsPart = "";
 
       if (displaySystem === 'metric') {
@@ -190,6 +192,16 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
 
       const isOriginalUnitPiece = PIECE_UNITS.includes(originalUnitForLogic);
       const isOriginalUnitMeasurement = MEASUREMENT_UNITS_FOR_LIGHTER_COLOR.includes(originalUnitForLogic);
+
+      if (isOriginalUnitPiece) {
+        // For quantities like "2" (pieces) - same as default important units
+        detailsClass = "text-gray-700 dark:text-gray-300";
+      } else if (isOriginalUnitMeasurement) {
+        // For tsp, cup, ml, g, oz - these should be less prominent
+        detailsClass = "text-gray-500 dark:text-gray-400"; 
+      }
+      // If it's a unit like "lbs" or "kg" (which isn't in MEASUREMENT_UNITS_FOR_LIGHTER_COLOR)
+      // and not a piece, it will use the default: "text-gray-700 dark:text-gray-300"
 
       if (aggItem.isSummable && currentQuantity > 0) {
         const roundedDisplayQty = (currentQuantity % 1 === 0) ? Math.round(currentQuantity) : parseFloat(currentQuantity.toFixed(1));
@@ -218,28 +230,23 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
           if (PIECE_UNITS.includes(orig.unit.toLowerCase())) return `${q}`; 
           return `${q} ${u}`;
         }).join('; ');
-      }
-      
-      if (isOriginalUnitPiece) {
-        detailsClass = "text-gray-700";
-      } else if (isOriginalUnitMeasurement) {
-        detailsClass = "text-gray-500";
+         // For non-summable, use the "less important" style as it's often a list of varied small units
+        detailsClass = "text-gray-500 dark:text-gray-400";
       }
       
       const uniqueKey = `${itemName}:${detailsPart}-${foundCategory}-${displaySystem}`;
       const originalItemsTooltip = aggItem.originalItems.map(oi => `${oi.quantity} ${oi.unit} ${oi.name}${oi.description ? ` (${oi.description})` : ''}`).join('\n');
       
       if (detailsPart.trim() !== "" || itemName.trim() !== "") {
-        grouped[foundCategory].push({ itemName, detailsPart, detailsClass, originalItemsTooltip, uniqueKey });
+        grouped[foundCategory].push({ itemName, itemNameClass, detailsPart, detailsClass, originalItemsTooltip, uniqueKey });
       }
     });
-    console.log("[GroceryList.tsx] Categorization complete."); // Added log
+    console.log("[GroceryList.tsx] Categorization complete."); 
     return grouped;
   }, [aggregatedIngredients, displaySystem]);
 
   useEffect(() => {
-    console.log("[GroceryList.tsx] useEffect for struckItems running."); // Added log
-    // ... (rest of useEffect logic)
+    console.log("[GroceryList.tsx] useEffect for struckItems running."); 
     setStruckItems(prevStruckItems => {
       const newPersistedStruckItems = new Set<string>();
       const currentUniqueKeys = Object.values(categorizedDisplayList).flat().map(item => item.uniqueKey);
@@ -264,16 +271,16 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
   };
 
   if (isLoading) { 
-    console.log("[GroceryList.tsx] Rendering loading skeleton."); // Added log
+    console.log("[GroceryList.tsx] Rendering loading skeleton."); 
     return <Card><CardHeader><CardTitle>Grocery List</CardTitle></CardHeader><CardContent><Skeleton className="h-40 w-full" /></CardContent></Card> 
   }
   if (plannedMealsError) { 
-    console.error("[GroceryList.tsx] Rendering error state due to plannedMealsError:", plannedMealsError); // Added log
+    console.error("[GroceryList.tsx] Rendering error state due to plannedMealsError:", plannedMealsError); 
     return <Card><CardHeader><CardTitle>Grocery List</CardTitle></CardHeader><CardContent><Alert variant="destructive"><AlertTitle>Error</AlertTitle><AlertDescription>Could not load grocery list: {plannedMealsError.message}</AlertDescription></Alert></CardContent></Card>
   }
   
   const isEmptyList = Object.values(categorizedDisplayList).every(list => list.length === 0);
-  console.log("[GroceryList.tsx] Rendering main content. Is empty list:", isEmptyList); // Added log
+  console.log("[GroceryList.tsx] Rendering main content. Is empty list:", isEmptyList); 
 
   return (
     <Card>
@@ -291,7 +298,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
       </CardHeader>
       <CardContent>
         {isEmptyList ? (
-          <p className="text-sm text-gray-600">No ingredients found for the planned meals this week.</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">No ingredients found for the planned meals this week.</p>
         ) : (
           categoryOrder.map(category => {
             const itemsInCategory = categorizedDisplayList[category];
@@ -299,7 +306,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
               const allItemsInCategoryStruck = itemsInCategory.every(item => struckItems.has(item.uniqueKey));
               return (
                 <div key={category} className="mb-4">
-                  <h3 className={`text-md font-semibold text-gray-800 border-b pb-1 mb-2 ${allItemsInCategoryStruck ? 'line-through text-gray-400' : ''}`}>
+                  <h3 className={`text-md font-semibold text-gray-800 dark:text-gray-200 border-b pb-1 mb-2 ${allItemsInCategoryStruck ? 'line-through text-gray-400 dark:text-gray-600' : ''}`}>
                     {category}
                   </h3>
                   <ul className="space-y-1 text-sm">
@@ -307,10 +314,10 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
                       <li
                         key={item.uniqueKey}
                         onClick={() => handleItemClick(item.uniqueKey)}
-                        className={`cursor-pointer p-1 rounded hover:bg-gray-100 ${struckItems.has(item.uniqueKey) ? 'line-through text-gray-400' : ''}`}
+                        className={`cursor-pointer p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${struckItems.has(item.uniqueKey) ? 'line-through text-gray-400 dark:text-gray-600' : ''}`}
                         title={item.originalItemsTooltip} 
                       >
-                        <span className="text-gray-700">{item.itemName}: </span>
+                        <span className={struckItems.has(item.uniqueKey) ? '' : item.itemNameClass}>{item.itemName}: </span>
                         {item.detailsPart && <span className={struckItems.has(item.uniqueKey) ? '' : item.detailsClass}>{item.detailsPart}</span>}
                       </li>
                     ))}
