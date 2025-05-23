@@ -11,7 +11,8 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import ProfilePage from "./pages/Profile";
 import MealsPage from "./pages/MealsPage";
 import DiscoverMealsPage from "./pages/DiscoverMealsPage";
-import BetaDisclaimerBanner from "./components/BetaDisclaimerBanner"; // Import the new banner
+import BetaDisclaimerBanner from "./components/BetaDisclaimerBanner";
+import FeedbackPage from "./pages/FeedbackPage"; // Import the new FeedbackPage
 
 const queryClient = new QueryClient();
 
@@ -21,7 +22,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <BetaDisclaimerBanner /> {/* Add the banner here */}
+        <BetaDisclaimerBanner />
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
@@ -57,6 +58,7 @@ const App = () => (
               </ProtectedRoute>
             }
           />
+          <Route path="/feedback" element={<FeedbackPage />} /> {/* Add feedback route */}
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
