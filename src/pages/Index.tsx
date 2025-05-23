@@ -14,7 +14,7 @@ const Index = () => {
             <a href="#testimonials" className="hover:underline">Testimonials</a>
             <a href="/auth" className="hover:underline">Login</a>
             <Button variant="default" size="sm" asChild>
-              <Link to="/auth">Sign Up</Link>
+              <Link to="/auth?mode=signup">Sign Up</Link>
             </Button>
           </nav>
         </div>
@@ -30,7 +30,7 @@ const Index = () => {
             Plan your week in minutes and get an instant grocery list. Less stress, more delicious meals.
           </p>
           <Button size="lg" className="bg-teal-600 hover:bg-teal-700 text-white" asChild>
-            <Link to="/auth">Start Planning for Free</Link>
+            <Link to="/auth?mode=signup">Start Planning for Free</Link>
           </Button>
         </div>
       </section>
@@ -80,7 +80,7 @@ const Index = () => {
                 <li>✓ Grocery list generation</li>
               </ul>
               <Button variant="outline" className="w-full" asChild>
-                <Link to="/auth">Sign Up for Free</Link>
+                <Link to="/auth?mode=signup">Sign Up for Free</Link>
               </Button>
             </div>
             {/* Premium Tier Card */}

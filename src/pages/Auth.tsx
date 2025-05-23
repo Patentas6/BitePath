@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react"; // Added useEffect
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom"; // Added useLocation
 import { supabase } from "@/lib/supabase"; 
 import { showError, showSuccess } from "@/utils/toast"; 
 
@@ -16,7 +16,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"; // Added CardDescription
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ArrowLeft } from "lucide-react";
 
 // Define validation schema for auth forms
@@ -31,6 +31,7 @@ const Auth = () => {
   const [isLogin, setIsLogin] = useState(true); 
   const [isLoading, setIsLoading] = useState(false); 
   const navigate = useNavigate(); 
+  const location = useLocation(); // Get location object
 
   const form = useForm<AuthFormValues>({
     resolver: zodResolver(authFormSchema),
@@ -39,6 +40,16 @@ const Auth = () => {
       password: "",
     },
   });
+
+  useEffect(() => {
+    const queryParams = new URLSearchParams(location.search);
+    if (queryParams.get('mode') === 'signup') {
+      setIsLogin(false);
+    } else {
+      setIsLogin(true); // Default to login if no mode or different mode
+    }
+    form.reset(); // Reset form when mode is determined or changes
+  }, [location.search, form]);
 
   const onSubmit = async (values: AuthFormValues) => {
     setIsLoading(true);
@@ -60,13 +71,6 @@ const Auth = () => {
       const { error: signUpError } = await supabase.auth.signUp({
         email,
         password,
-        // You can add options here if needed, like data for user_metadata
-        // options: {
-        //   data: {
-        //     first_name: 'Initial', // Example, ideally get this from form
-        //     last_name: 'User',    // Example
-        //   }
-        // }
       });
       error = signUpError;
       if (!error) {
@@ -83,15 +87,13 @@ const Auth = () => {
       if (isLogin) {
          navigate("/dashboard"); 
       }
-      // For sign up, user needs to confirm email, so no automatic redirect here
-      // unless you change your Supabase auth settings (e.g., disable email confirmation).
     }
   };
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="text-center"> {/* Centering header content */}
+        <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold">
             {isLogin ? "Login to Your Account" : "Join BitePath Today!"}
           </CardTitle>
@@ -130,7 +132,11 @@ const Auth = () => {
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button 
+                type="submit" 
+                className={`w-full ${!isLogin ? 'bg-teal-600 hover:bg-teal-700 text-white' : ''}`} 
+                disabled={isLoading}
+              >
                 {isLoading 
                   ? (isLogin ? "Logging In..." : "Creating Account...") 
                   : (isLogin ? "Login" : "Create Account")}
@@ -141,8 +147,9 @@ const Auth = () => {
             {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
             <button
               onClick={() => {
-                setIsLogin(!isLogin);
-                form.reset(); // Optionally reset form when toggling
+                // When toggling, navigate to update URL and trigger useEffect
+                const newMode = isLogin ? 'signup' : 'login';
+                navigate(`/auth${newMode === 'signup' ? '?mode=signup' : ''}`, { replace: true });
               }}
               className="text-blue-600 hover:underline"
               disabled={isLoading}
