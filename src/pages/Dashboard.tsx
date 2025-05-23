@@ -86,9 +86,21 @@ const Dashboard = () => {
     if (isUserProfileLoading && !userProfile) {
       return `Welcome, ${user.email ? user.email.split('@')[0] : 'User'}!`;
     }
-    if (userProfile?.first_name) {
-      return `Welcome, ${userProfile.first_name}!`;
+
+    if (userProfile) {
+      const firstName = userProfile.first_name;
+      const lastName = userProfile.last_name;
+
+      if (firstName && lastName) {
+        return `Welcome, ${firstName} ${lastName}!`;
+      } else if (firstName) {
+        return `Welcome, ${firstName}!`;
+      } else if (lastName) { // Though less common to only have last name
+        return `Welcome, ${lastName}!`;
+      }
     }
+    
+    // Fallback if profile is null after load, or no names are set
     return `Welcome, ${user.email ? user.email.split('@')[0] : 'User'}!`;
   };
 
@@ -104,7 +116,7 @@ const Dashboard = () => {
             BitePath
           </Link>
           <div className="flex items-center space-x-2">
-            <span className="text-sm text-gray-700 hidden md:inline">{getWelcomeMessage()}</span>
+            <span className="text-base text-gray-700 hidden md:inline">{getWelcomeMessage()}</span>
             <Button variant="outline" size="sm" asChild>
               <Link to="/discover-meals">
                 <Sparkles className="mr-2 h-4 w-4" /> Discover Meals
