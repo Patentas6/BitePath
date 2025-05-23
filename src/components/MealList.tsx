@@ -206,10 +206,10 @@ const MealList = () => {
                   </div>
                   <div className="flex space-x-2 flex-shrink-0">
                     <Button variant="outline" size="icon" onClick={() => handleEditClick(meal)} aria-label="Edit meal">
-                      <Edit3 className="h-4 w-4" />
+                      <Edit3 className="h-5 w-5" />
                     </Button>
                     <Button variant="destructive" size="icon" onClick={() => handleDeleteClick(meal)} aria-label="Delete meal">
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-5 w-5" />
                     </Button>
                   </div>
                 </div>
