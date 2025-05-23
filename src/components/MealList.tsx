@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Trash2, Edit3, Search, Inbox, Tag } from "lucide-react"; // Added Tag icon
+import { Trash2, Edit3, Search, ChefHat, Tag } from "lucide-react"; // Changed Inbox to ChefHat
 import EditMealDialog, { MealForEditing } from "./EditMealDialog";
 import {
   AlertDialog,
@@ -19,12 +19,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge"; // Import Badge
+import { Badge } from "@/components/ui/badge"; 
 
 
 interface Meal extends MealForEditing {
-  // id, name, ingredients, instructions, user_id are already in MealForEditing
-  meal_tags?: string[] | null; // Added meal_tags
+  meal_tags?: string[] | null; 
 }
 
 interface ParsedIngredient {
@@ -52,7 +51,7 @@ const MealList = () => {
 
       const { data, error } = await supabase
         .from("meals")
-        .select("id, name, ingredients, instructions, user_id, meal_tags") // Fetch meal_tags
+        .select("id, name, ingredients, instructions, user_id, meal_tags") 
         .eq("user_id", user.id)
         .order('created_at', { ascending: false });
 
@@ -86,12 +85,12 @@ const MealList = () => {
     },
   });
 
-  const handleEditClick = (meal: Meal) => { // Changed type to Meal to include tags
+  const handleEditClick = (meal: Meal) => { 
     setMealToEdit(meal);
     setIsEditDialogOpen(true);
   };
 
-  const handleDeleteClick = (meal: Meal) => { // Changed type to Meal
+  const handleDeleteClick = (meal: Meal) => { 
     setMealToDelete(meal);
     setIsDeleteDialogOpen(true);
   };
@@ -135,7 +134,7 @@ const MealList = () => {
 
   if (isLoading) {
     return (
-      <Card>
+      <Card className="hover:shadow-lg transition-shadow duration-200">
         <CardHeader><CardTitle>Your Meals</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <Skeleton className="h-10 w-full mb-4" />
@@ -150,7 +149,7 @@ const MealList = () => {
   if (error) {
     console.error("Error fetching meals:", error);
     return (
-      <Card>
+      <Card className="hover:shadow-lg transition-shadow duration-200">
         <CardHeader><CardTitle>Your Meals</CardTitle></CardHeader>
         <CardContent><p className="text-red-500">Error loading meals. Please try again later.</p></CardContent>
       </Card>
@@ -159,7 +158,7 @@ const MealList = () => {
 
   return (
     <>
-      <Card>
+      <Card className="hover:shadow-lg transition-shadow duration-200">
         <CardHeader>
           <CardTitle>Your Meals</CardTitle>
         </CardHeader>
@@ -176,27 +175,27 @@ const MealList = () => {
           </div>
 
           {meals && meals.length === 0 && (
-            <div className="text-center py-6">
-              <Inbox className="mx-auto h-12 w-12 text-gray-400 mb-3" />
-              <p className="text-gray-600">No meals added yet.</p>
-              <p className="text-sm text-gray-500">Add one using the form above or discover new ones!</p>
+            <div className="text-center py-6 text-muted-foreground">
+              <ChefHat className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500 mb-4" />
+              <p className="text-lg font-semibold mb-1">No Meals Yet!</p>
+              <p className="text-sm">Looks like your recipe book is empty. <br/>Add a meal using the form above or discover new ones!</p>
             </div>
           )}
 
           {meals && meals.length > 0 && filteredMeals.length === 0 && (
-            <div className="text-center py-6">
-              <Search className="mx-auto h-12 w-12 text-gray-400 mb-3" />
-              <p className="text-gray-600">No meals match your search "{searchTerm}".</p>
-              <p className="text-sm text-gray-500">Try a different search term or clear the search.</p>
+            <div className="text-center py-6 text-muted-foreground">
+              <Search className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500 mb-3" />
+              <p className="text-lg">No meals match your search "{searchTerm}".</p>
+              <p className="text-sm">Try a different search term or clear the search.</p>
             </div>
           )}
           
           {filteredMeals && filteredMeals.length > 0 && (
             filteredMeals.map((meal) => (
-              <div key={meal.id} className="border p-3 rounded-md shadow-sm bg-white">
+              <div key={meal.id} className="border p-3 rounded-md shadow-sm bg-card hover:shadow-md transition-shadow duration-150">
                 <div className="flex justify-between items-start">
                   <div className="flex-grow">
-                    <h3 className="text-lg font-semibold">{meal.name}</h3>
+                    <h3 className="text-lg font-semibold text-foreground">{meal.name}</h3>
                     {meal.meal_tags && meal.meal_tags.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1 mb-1">
                         {meal.meal_tags.map(tag => (
@@ -205,11 +204,11 @@ const MealList = () => {
                       </div>
                     )}
                     {meal.ingredients && (
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         Ingredients: {formatIngredientsDisplay(meal.ingredients)}
                       </p>
                     )}
-                    {meal.instructions && <p className="text-xs text-gray-500 mt-1">Instructions: {meal.instructions.substring(0,50)}{meal.instructions.length > 50 ? '...' : ''}</p>}
+                    {meal.instructions && <p className="text-xs text-muted-foreground mt-1">Instructions: {meal.instructions.substring(0,50)}{meal.instructions.length > 50 ? '...' : ''}</p>}
                   </div>
                   <div className="flex space-x-2 flex-shrink-0 ml-2">
                     <Button variant="outline" size="icon" onClick={() => handleEditClick(meal)} aria-label="Edit meal">

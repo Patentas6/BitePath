@@ -1,8 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { showError, showSuccess } from "@/utils/toast";
-import { format, addDays, isSameDay } from "date-fns";
+import { format, addDays, isSameDay, isToday } from "date-fns"; // Added isToday
 import { useMemo, useState } from "react";
+import { cn } from "@/lib/utils"; // Import cn
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -93,7 +94,7 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart,
 
   return (
     <>
-      <Card>
+      <Card className="hover:shadow-lg transition-shadow duration-200">
         <CardHeader>
           <CardTitle>Weekly Plan</CardTitle>
         </CardHeader>
@@ -105,7 +106,13 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart,
           </div>
           <div className="grid grid-cols-7 gap-2 text-center mb-2">
             {daysOfWeek.map(day => (
-              <div key={day.toISOString()} className="flex flex-col items-center">
+              <div 
+                key={day.toISOString()} 
+                className={cn(
+                  "flex flex-col items-center p-1 rounded-md",
+                  isToday(day) && "bg-primary/10 dark:bg-primary/20"
+                )}
+              >
                 <div className="font-semibold text-foreground">{format(day, 'EEE')}</div>
                 <div className="text-sm text-muted-foreground">{format(day, 'MMM dd')}</div>
               </div>

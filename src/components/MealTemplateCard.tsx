@@ -2,16 +2,16 @@ import React from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PlusCircle } from 'lucide-react';
-import { Badge } from "@/components/ui/badge"; // Import Badge
+import { Badge } from "@/components/ui/badge"; 
 
 export interface MealTemplate {
   id: string;
   name: string;
   ingredients?: string | null;
   instructions?: string | null;
-  category?: string | null; // This is different from meal_tags
+  category?: string | null; 
   image_url?: string | null;
-  meal_tags?: string[] | null; // Added meal_tags
+  meal_tags?: string[] | null; 
 }
 
 interface ParsedIngredient {
@@ -57,7 +57,7 @@ const MealTemplateCard: React.FC<MealTemplateCardProps> = ({ template, onAddToMy
   };
 
   return (
-    <Card className="flex flex-col">
+    <Card className="flex flex-col hover:shadow-lg transition-shadow duration-200">
       <CardHeader>
         {template.image_url && (
           <img 
@@ -82,13 +82,13 @@ const MealTemplateCard: React.FC<MealTemplateCardProps> = ({ template, onAddToMy
       <CardContent className="flex-grow">
         <div>
           <h4 className="font-semibold text-sm mb-1">Ingredients:</h4>
-          <p className="text-xs text-gray-600 mb-2 whitespace-pre-line">
+          <p className="text-xs text-gray-600 dark:text-gray-400 mb-2 whitespace-pre-line">
             {formatIngredientsForDisplay(template.ingredients)}
           </p>
         </div>
         <div>
           <h4 className="font-semibold text-sm mb-1">Instructions:</h4>
-          <p className="text-xs text-gray-600 whitespace-pre-line">
+          <p className="text-xs text-gray-600 dark:text-gray-400 whitespace-pre-line">
             {truncateText(template.instructions, 120)}
           </p>
         </div>
