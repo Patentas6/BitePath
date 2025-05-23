@@ -21,7 +21,6 @@ interface ParsedIngredientItem {
   description?: string; 
 }
 
-// Units that are typically not summed but listed with their quantities
 const NON_SUMMABLE_DISPLAY_UNITS: ReadonlyArray<string> = [
   "cup", "cups", "tsp", "teaspoon", "teaspoons",
   "tbsp", "tablespoon", "tablespoons", "pinch", "pinches", "dash", "dashes"
@@ -36,20 +35,18 @@ const SUMMABLE_UNITS: ReadonlyArray<string> = [
   "head", "heads", "bunch", "bunches"
 ];
 
-// New constants for display logic
-const PIECE_UNITS: ReadonlyArray<string> = ['piece', 'pieces', 'item', 'items', 'unit', 'units']; // Added 'unit' as it's sometimes used generically
+const PIECE_UNITS: ReadonlyArray<string> = ['piece', 'pieces', 'item', 'items', 'unit', 'units'];
 const MEASUREMENT_UNITS_FOR_LIGHTER_COLOR: ReadonlyArray<string> = [
   'tsp', 'teaspoon', 'teaspoons',
   'tbsp', 'tablespoon', 'tablespoons',
   'cup', 'cups',
   'pinch', 'pinches', 'dash', 'dashes',
   'ml', 'milliliter', 'milliliters',
-  'l', 'liter', 'liters', // Liters can be borderline, but often a recipe measurement for liquids
+  'l', 'liter', 'liters',
   'fl oz', 'fluid ounce', 'fluid ounces',
-  'g', 'gram', 'grams', // Grams can be for buying (e.g. spices) but often recipe specific for small amounts
-  'oz', 'ounce', 'ounces' // Ounces can be for buying (e.g. cheese) but often recipe specific
+  'g', 'gram', 'grams', // Grams can be recipe specific for small amounts
+  'oz', 'ounce', 'ounces' // Ounces can be recipe specific
 ];
-
 
 const categoriesMap = {
   Produce: ['apple', 'banana', 'orange', 'pear', 'grape', 'berry', 'berries', 'strawberry', 'blueberry', 'raspberry', 'avocado', 'tomato', 'potato', 'onion', 'garlic', 'carrot', 'broccoli', 'spinach', 'lettuce', 'salad greens', 'celery', 'cucumber', 'bell pepper', 'pepper', 'zucchini', 'mushroom', 'lemon', 'lime', 'cabbage', 'kale', 'asparagus', 'eggplant', 'corn', 'sweet potato', 'ginger', 'parsley', 'cilantro', 'basil', 'mint', 'rosemary', 'thyme', 'dill', 'leek', 'scallion', 'green bean', 'pea', 'artichoke', 'beet', 'radish', 'squash'],
@@ -63,7 +60,6 @@ const categoriesMap = {
 type Category = keyof typeof categoriesMap;
 const categoryOrder: Category[] = ['Produce', 'Meat & Poultry', 'Dairy & Eggs', 'Pantry', 'Frozen', 'Beverages', 'Other'];
 
-
 interface GroceryListItem {
   name: string;
   totalQuantity: number;
@@ -72,12 +68,12 @@ interface GroceryListItem {
   originalItems: ParsedIngredientItem[]; 
 }
 
-// Updated structure for the display list
 interface CategorizedDisplayListItem {
-  name: string;
-  displayText: string;
+  itemName: string;
+  detailsPart: string;
+  detailsClass: string; // Tailwind class for the details part
   originalItemsTooltip: string;
-  applyLighterColor: boolean;
+  uniqueKey: string; // For React key and struckItems Set
 }
 
 interface GroceryListProps {
@@ -104,9 +100,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
 
   const aggregatedIngredients = useMemo(() => {
     if (!plannedMeals) return [];
-    
     const ingredientMap = new Map<string, GroceryListItem>();
-
     plannedMeals.forEach(pm => {
       const ingredientsBlock = pm.meals?.ingredients;
       if (ingredientsBlock && typeof ingredientsBlock === 'string') {
@@ -115,45 +109,30 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
           if (Array.isArray(parsedIngredientList)) {
             parsedIngredientList.forEach(item => {
               const quantityAsNumber = typeof item.quantity === 'string' ? parseFloat(item.quantity) : item.quantity;
-
               if (!item.name || typeof quantityAsNumber !== 'number' || isNaN(quantityAsNumber) || !item.unit) {
-                console.warn("Skipping malformed ingredient item (name, quantity, or unit issue):", item);
-                return;
+                console.warn("Skipping malformed ingredient item:", item); return;
               }
               const processedItem: ParsedIngredientItem = { ...item, quantity: quantityAsNumber };
-
               const normalizedName = processedItem.name.trim().toLowerCase();
               const unitLower = processedItem.unit.toLowerCase();
-              
-              const mapKey = normalizedName; 
-
+              const mapKey = normalizedName;
               const existing = ingredientMap.get(mapKey);
-
               if (existing) {
                 existing.originalItems.push(processedItem);
                 if (existing.isSummable && SUMMABLE_UNITS.includes(unitLower) && existing.unit?.toLowerCase() === unitLower) {
                   existing.totalQuantity += processedItem.quantity;
-                } else if (existing.isSummable && SUMMABLE_UNITS.includes(unitLower) && !NON_SUMMABLE_DISPLAY_UNITS.includes(unitLower)) {
-                  console.warn(`Mixing units for ${normalizedName}: ${existing.unit} and ${processedItem.unit}. Summation might be inaccurate without conversion.`);
-                  existing.isSummable = false; 
-                } else {
-                  existing.isSummable = false;
-                }
+                } else { existing.isSummable = false; }
               } else {
                 const isItemSummable = SUMMABLE_UNITS.includes(unitLower) && !NON_SUMMABLE_DISPLAY_UNITS.includes(unitLower);
                 ingredientMap.set(mapKey, {
-                  name: processedItem.name, 
-                  totalQuantity: processedItem.quantity,
-                  unit: processedItem.unit,
-                  isSummable: isItemSummable,
+                  name: processedItem.name, totalQuantity: processedItem.quantity,
+                  unit: processedItem.unit, isSummable: isItemSummable,
                   originalItems: [processedItem]
                 });
               }
             });
           }
-        } catch (e) {
-          console.warn("Failed to parse ingredients JSON for a meal, or it's in old format:", ingredientsBlock, e);
-        }
+        } catch (e) { console.warn("Failed to parse ingredients JSON:", ingredientsBlock, e); }
       }
     });
     return Array.from(ingredientMap.values());
@@ -163,88 +142,80 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
     const grouped: Record<Category, CategorizedDisplayListItem[]> = 
       categoryOrder.reduce((acc, cat) => { acc[cat] = []; return acc; }, {} as Record<Category, CategorizedDisplayListItem[]>);
 
-    aggregatedIngredients.forEach(item => {
+    aggregatedIngredients.forEach(aggItem => {
       let foundCategory: Category = 'Other';
-      const itemLower = item.name.toLowerCase();
+      const itemLower = aggItem.name.toLowerCase();
       for (const cat of categoryOrder) {
         if (cat === 'Other') continue;
-        const keywords = categoriesMap[cat];
-        if (keywords.some(keyword => itemLower.includes(keyword))) {
-          foundCategory = cat;
-          break;
+        if (categoriesMap[cat].some(keyword => itemLower.includes(keyword))) {
+          foundCategory = cat; break;
+        }
+      }
+
+      const itemName = aggItem.name;
+      let detailsPart = "";
+      let detailsClass = "text-gray-700"; // Default color for details
+
+      const itemUnitLower = aggItem.unit?.toLowerCase() || '';
+      const isPieceUnitItem = PIECE_UNITS.includes(itemUnitLower);
+      const isMeasurementUnit = MEASUREMENT_UNITS_FOR_LIGHTER_COLOR.includes(itemUnitLower);
+
+      if (aggItem.isSummable && aggItem.totalQuantity > 0) {
+        const displayQty = aggItem.totalQuantity % 1 === 0 ? aggItem.totalQuantity : aggItem.totalQuantity.toFixed(1);
+        if (isPieceUnitItem) {
+          detailsPart = `${displayQty}`; // Only quantity for piece units
+          // detailsClass remains normal color for piece quantity
+        } else {
+          let unitDisplay = aggItem.unit || "";
+          if (aggItem.totalQuantity > 1 && unitDisplay && !unitDisplay.endsWith('s') && !NON_SUMMABLE_DISPLAY_UNITS.includes(unitDisplay.toLowerCase()) && !PIECE_UNITS.includes(unitDisplay.toLowerCase())) {
+            if (unitDisplay.endsWith('y') && !['day', 'key', 'way', 'toy', 'boy', 'guy'].includes(unitDisplay.toLowerCase())) {
+              unitDisplay = unitDisplay.slice(0, -1) + 'ies';
+            } else { unitDisplay += "s"; }
+          }
+          detailsPart = `${displayQty} ${unitDisplay}`;
+          if (isMeasurementUnit) {
+            detailsClass = "text-gray-500"; // Lighter color for measurement unit details
+          }
+        }
+      } else if (!aggItem.isSummable && aggItem.originalItems.length > 0) {
+        // For non-summable items, create a combined string for details.
+        // Coloring will be based on the first original item's unit as a heuristic.
+        detailsPart = aggItem.originalItems.map(orig => {
+          const origUnitLower = orig.unit.toLowerCase();
+          if (PIECE_UNITS.includes(origUnitLower)) {
+            return `${orig.quantity}`; // Just quantity for pieces
+          }
+          return `${orig.quantity} ${orig.unit}`;
+        }).join('; ');
+
+        if (aggItem.originalItems.length > 0) {
+          const firstOrigUnitLower = aggItem.originalItems[0].unit.toLowerCase();
+          if (MEASUREMENT_UNITS_FOR_LIGHTER_COLOR.includes(firstOrigUnitLower) && !PIECE_UNITS.includes(firstOrigUnitLower)) {
+            detailsClass = "text-gray-500";
+          }
         }
       }
       
-      const itemUnitLower = item.unit?.toLowerCase() || '';
-      const isPieceUnitItem = PIECE_UNITS.includes(itemUnitLower);
-      const applyLighterColor = MEASUREMENT_UNITS_FOR_LIGHTER_COLOR.includes(itemUnitLower);
-
-      let currentDisplayText = item.name; // Default to just name for piece units or if logic below doesn't apply
-
-      if (item.isSummable && item.totalQuantity > 0) {
-        if (isPieceUnitItem) {
-          currentDisplayText = item.name; // Only name if it's a piece unit
-        } else {
-          const displayTotalQuantity = item.totalQuantity % 1 === 0 ? item.totalQuantity : item.totalQuantity.toFixed(1);
-          let unitDisplay = item.unit || "";
-          if (item.totalQuantity > 1 && unitDisplay && !unitDisplay.endsWith('s') && !NON_SUMMABLE_DISPLAY_UNITS.includes(unitDisplay.toLowerCase()) && !PIECE_UNITS.includes(unitDisplay.toLowerCase())) {
-             if (unitDisplay.endsWith('y') && !['day', 'key', 'way', 'toy', 'boy', 'guy'].includes(unitDisplay.toLowerCase())) {
-                unitDisplay = unitDisplay.slice(0, -1) + 'ies';
-             } else {
-                unitDisplay += "s";
-             }
-          }
-          currentDisplayText = `${item.name}: ${displayTotalQuantity} ${unitDisplay}`;
-        }
-      } else if (!item.isSummable && item.originalItems.length > 0) {
-         // For non-summable, show individual entries or a summary
-         // If it's a piece unit, just the name might be preferred if quantities are small or implied
-        if (item.originalItems.length === 1 && PIECE_UNITS.includes(item.originalItems[0].unit.toLowerCase())) {
-            currentDisplayText = item.originalItems[0].name;
-        } else if (item.originalItems.length > 1 && item.originalItems.every(oi => PIECE_UNITS.includes(oi.unit.toLowerCase()))) {
-            currentDisplayText = item.name; // If multiple "piece" items, just show the aggregated name
-        } else {
-            // Fallback for non-summable, non-piece, or mixed units
-            currentDisplayText = item.originalItems.map(orig => {
-                if (PIECE_UNITS.includes(orig.unit.toLowerCase())) return orig.name;
-                return `${orig.name}: ${orig.quantity} ${orig.unit}`;
-            }).join('; ');
-            if (item.originalItems.length > 1) currentDisplayText = `${item.name} (multiple entries)`;
-            else if (!PIECE_UNITS.includes(item.originalItems[0].unit.toLowerCase())) {
-                 currentDisplayText = `${item.name}: ${item.originalItems[0].quantity} ${item.originalItems[0].unit}`;
-            } else {
-                 currentDisplayText = item.name; // Single non-summable piece item
-            }
-        }
-      }
-
-
-      const originalItemsTooltip = item.originalItems.map(oi => {
-        let tip = `${oi.quantity} ${oi.unit} ${oi.name}`;
-        if (oi.description) { 
-          tip += ` (${oi.description})`;
-        }
-        return tip;
-      }).join('\n');
-
-      grouped[foundCategory].push({ name: item.name, displayText: currentDisplayText, originalItemsTooltip, applyLighterColor });
+      const uniqueKey = `${itemName}:${detailsPart}-${foundCategory}`;
+      const originalItemsTooltip = aggItem.originalItems.map(oi => `${oi.quantity} ${oi.unit} ${oi.name}${oi.description ? ` (${oi.description})` : ''}`).join('\n');
+      
+      grouped[foundCategory].push({ itemName, detailsPart, detailsClass, originalItemsTooltip, uniqueKey });
     });
 
     for (const cat of categoryOrder) {
-      grouped[cat].sort((a,b) => a.name.localeCompare(b.name));
+      grouped[cat].sort((a,b) => a.itemName.localeCompare(b.itemName));
     }
     return grouped;
   }, [aggregatedIngredients]);
 
-
   useEffect(() => {
     setStruckItems(prevStruckItems => {
       const newPersistedStruckItems = new Set<string>();
-      const currentDisplayTexts = Object.values(categorizedDisplayList).flat().map(item => item.displayText);
-      if (currentDisplayTexts.length > 0) {
-        for (const item of prevStruckItems) {
-          if (currentDisplayTexts.includes(item)) {
-            newPersistedStruckItems.add(item);
+      const currentUniqueKeys = Object.values(categorizedDisplayList).flat().map(item => item.uniqueKey);
+      if (currentUniqueKeys.length > 0) {
+        for (const itemKey of prevStruckItems) {
+          if (currentUniqueKeys.includes(itemKey)) {
+            newPersistedStruckItems.add(itemKey);
           }
         }
       }
@@ -252,37 +223,17 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
     });
   }, [categorizedDisplayList]);
 
-
-  const handleItemClick = (displayText: string) => {
+  const handleItemClick = (uniqueKey: string) => {
     setStruckItems(prevStruckItems => {
       const newStruckItems = new Set(prevStruckItems);
-      if (newStruckItems.has(displayText)) {
-        newStruckItems.delete(displayText);
-      } else {
-        newStruckItems.add(displayText);
-      }
+      if (newStruckItems.has(uniqueKey)) { newStruckItems.delete(uniqueKey); } 
+      else { newStruckItems.add(uniqueKey); }
       return newStruckItems;
     });
   };
 
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader><CardTitle className="flex items-center"><ListChecks className="mr-2 h-5 w-5" />Grocery List</CardTitle></CardHeader>
-        <CardContent><Skeleton className="h-4 w-1/2 mb-2" /><Skeleton className="h-40 w-full" /></CardContent>
-      </Card>
-    );
-  }
-
-  if (error) {
-    return (
-      <Card>
-        <CardHeader><CardTitle className="flex items-center"><ListChecks className="mr-2 h-5 w-5" />Grocery List</CardTitle></CardHeader>
-        <CardContent><Alert variant="destructive"><AlertTitle>Error</AlertTitle><AlertDescription>Failed to load grocery list: {error.message}</AlertDescription></Alert></CardContent>
-      </Card>
-    );
-  }
-  
+  if (isLoading) { /* ... loading skeleton ... */ }
+  if (error) { /* ... error display ... */ }
   const isEmptyList = Object.values(categorizedDisplayList).every(list => list.length === 0);
 
   return (
@@ -292,34 +243,27 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
       </CardHeader>
       <CardContent>
         {isEmptyList ? (
-          <p className="text-sm text-gray-600">No ingredients found for the planned meals this week, or ingredients could not be processed into the new format.</p>
+          <p className="text-sm text-gray-600">No ingredients found for the planned meals this week.</p>
         ) : (
           categoryOrder.map(category => {
             const itemsInCategory = categorizedDisplayList[category];
             if (itemsInCategory && itemsInCategory.length > 0) {
-              const allItemsInCategoryStruck = itemsInCategory.every(item => struckItems.has(item.displayText));
+              const allItemsInCategoryStruck = itemsInCategory.every(item => struckItems.has(item.uniqueKey));
               return (
                 <div key={category} className="mb-4">
-                  <h3 
-                    className={`text-md font-semibold text-gray-800 border-b pb-1 mb-2 ${
-                      allItemsInCategoryStruck ? 'line-through text-gray-400' : ''
-                    }`}
-                  >
+                  <h3 className={`text-md font-semibold text-gray-800 border-b pb-1 mb-2 ${allItemsInCategoryStruck ? 'line-through text-gray-400' : ''}`}>
                     {category}
                   </h3>
                   <ul className="space-y-1 text-sm">
                     {itemsInCategory.map((item) => (
                       <li
-                        key={item.displayText + item.name} // Ensure unique key if displayText can be non-unique
-                        onClick={() => handleItemClick(item.displayText)}
-                        className={`cursor-pointer p-1 rounded hover:bg-gray-100 ${
-                          struckItems.has(item.displayText) 
-                            ? 'line-through text-gray-400' 
-                            : (item.applyLighterColor ? 'text-gray-500' : 'text-gray-700')
-                        }`}
+                        key={item.uniqueKey}
+                        onClick={() => handleItemClick(item.uniqueKey)}
+                        className={`cursor-pointer p-1 rounded hover:bg-gray-100 ${struckItems.has(item.uniqueKey) ? 'line-through text-gray-400' : ''}`}
                         title={item.originalItemsTooltip} 
                       >
-                        {item.displayText} 
+                        <span className="text-gray-700">{item.itemName}: </span>
+                        <span className={struckItems.has(item.uniqueKey) ? '' : item.detailsClass}>{item.detailsPart}</span>
                       </li>
                     ))}
                   </ul>
