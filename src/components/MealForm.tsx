@@ -185,7 +185,7 @@ const MealForm = () => {
               <FormLabel>Ingredients</FormLabel>
               <div className="space-y-4 mt-2">
                 {fields.map((field, index) => (
-                  <Card key={field.id} className="p-3 bg-slate-50">
+                  <Card key={field.id} className="p-3 bg-muted"> {/* Changed bg-slate-50 to bg-muted */}
                     <div className="grid grid-cols-1 md:grid-cols-10 gap-2 items-end">
                       <FormField
                         control={form.control}

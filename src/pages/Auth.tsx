@@ -77,7 +77,21 @@ const Auth = () => {
         <CardContent>
           <SupabaseAuthUI
             supabaseClient={supabase}
-            appearance={{ theme: ThemeSupa }}
+            appearance={{
+              theme: ThemeSupa,
+              variables: {
+                default: { // These variables apply to the 'default' (light) theme of ThemeSupa
+                  colors: {
+                    inputBackground: 'hsl(0 0% 100%)', // white
+                    inputText: 'hsl(0 0% 0%)',         // black
+                    inputLabelText: 'hsl(0 0% 20%)',   // dark gray for labels
+                    inputPlaceholder: 'hsl(0 0% 40%)', // medium gray for placeholders
+                    // You can add more overrides here if needed, e.g., for borders
+                    // inputBorder: 'hsl(0 0% 80%)', 
+                  },
+                },
+              },
+            }}
             providers={['google']}
             redirectTo={`${window.location.origin}/dashboard`}
             localization={{
@@ -89,7 +103,7 @@ const Auth = () => {
             }}
             view={isLogin ? 'sign_in' : 'sign_up'}
             showLinks={false} // Keep this false to use custom toggle below
-            theme="light" // Supabase UI theme, not app theme
+            theme="light" // This tells SupabaseAuthUI to use its 'light' appearance set
           />
           <div className="mt-6 text-center text-sm">
             {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
