@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { format } from "date-fns";
+import { format, startOfWeek } from "date-fns"; // Added startOfWeek
 import { showError, showSuccess } from "@/utils/toast";
 import { MEAL_TAG_OPTIONS, MealTag } from "@/lib/constants"; 
 
@@ -67,15 +67,13 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
     enabled: !!userId && open,
   });
 
-  // Effect to reset states when dialog opens
   useEffect(() => {
     if (open) {
-      // Always start with no tags selected to show all meals initially
       setSelectedTags([]); 
       setSearchTerm(""); 
       setSelectedMealId(undefined); 
     }
-  }, [open]); // Removed mealType dependency to ensure it always resets to all meals
+  }, [open]);
 
 
   const filteredMeals = useMemo(() => {
@@ -126,12 +124,23 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
     },
     onSuccess: () => {
       showSuccess("Meal plan updated!");
-      if (planDate) {
-        // More specific invalidation if possible, e.g., by week/month
-        queryClient.invalidateQueries({ queryKey: ["mealPlans", userId, format(planDate, 'yyyy-MM-dd').substring(0, 7)] }); 
+      // Invalidate meal plans query
+      if (planDate && userId) {
+        queryClient.invalidateQueries({ queryKey: ["mealPlans", userId, format(startOfWeek(planDate, { weekStartsOn: 1 }), 'yyyy-MM-dd')] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["mealPlans"] }); // Broader fallback for meal plans
       }
-      queryClient.invalidateQueries({ queryKey: ["mealPlans"] }); // General invalidation
-      queryClient.invalidateQueries({ queryKey: ["groceryList"] });
+      
+      // Invalidate grocery list query more specifically
+      if (planDate && userId) {
+        const weekStartForGroceryList = startOfWeek(planDate, { weekStartsOn: 1 });
+        queryClient.invalidateQueries({ 
+            queryKey: ["groceryListSource", userId, format(weekStartForGroceryList, 'yyyy-MM-dd')] 
+        });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["groceryListSource"] }); // Broader fallback for grocery list
+      }
+
       onOpenChange(false);
     },
     onError: (error) => {

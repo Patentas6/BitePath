@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { format, endOfWeek, isBefore, startOfToday, parseISO } from "date-fns"; // Added isBefore, startOfToday, parseISO
+import { format, endOfWeek, isBefore, startOfToday, parseISO } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -10,7 +10,7 @@ import { ListChecks, RefreshCw, ShoppingCart } from "lucide-react";
 import { convertToPreferredSystem } from "@/utils/conversionUtils";
 
 interface PlannedMealWithIngredients {
-  plan_date: string; // Ensure plan_date is available for filtering
+  plan_date: string;
   meals: {
     name: string;
     ingredients: string | null; 
@@ -91,13 +91,15 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
   const [displaySystem, setDisplaySystem] = useState<'imperial' | 'metric'>('imperial');
   const today = startOfToday();
 
+  console.log(`[GroceryList] Rendering. Week start: ${format(currentWeekStart, 'yyyy-MM-dd')}, Today: ${format(today, 'yyyy-MM-dd')}`);
+
   const { data: plannedMealsData, isLoading, error: plannedMealsError } = useQuery<PlannedMealWithIngredients[]>({ 
-    queryKey: ["groceryListSource", userId, format(currentWeekStart, 'yyyy-MM-dd')], // Changed key to avoid conflict if data structure changes
+    queryKey: ["groceryListSource", userId, format(currentWeekStart, 'yyyy-MM-dd')],
     queryFn: async () => {
       if (!userId) return [];
       const startDateStr = format(currentWeekStart, 'yyyy-MM-dd');
       const endDateStr = format(weekEnd, 'yyyy-MM-dd');
-      // Select plan_date along with meals
+      console.log(`[GroceryList] Fetching meals for grocery list from ${startDateStr} to ${endDateStr}`);
       const { data, error } = await supabase
         .from("meal_plans")
         .select("plan_date, meals ( name, ingredients )")
@@ -105,25 +107,32 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
         .gte("plan_date", startDateStr)
         .lte("plan_date", endDateStr);
       if (error) throw error;
+      console.log(`[GroceryList] Fetched ${data?.length || 0} planned meals raw.`);
       return data || [];
     },
     enabled: !!userId,
   });
 
   const aggregatedIngredients = useMemo(() => {
+    console.log('[GroceryList] Starting aggregation. Raw plannedMealsData:', plannedMealsData);
     if (!plannedMealsData) return [];
 
     const futurePlannedMeals = plannedMealsData.filter(pm => {
-      // Ensure pm.plan_date is a valid date string for parseISO
-      if (!pm.plan_date || typeof pm.plan_date !== 'string') return false;
+      if (!pm.plan_date || typeof pm.plan_date !== 'string') {
+        console.warn('[GroceryList] Invalid plan_date in pm:', pm);
+        return false;
+      }
       try {
-        const planDate = parseISO(pm.plan_date); // plan_date is YYYY-MM-DD
-        return !isBefore(planDate, today);
+        const planDate = parseISO(pm.plan_date);
+        const isFutureOrToday = !isBefore(planDate, today);
+        // console.log(`[GroceryList] Meal on ${pm.plan_date} (parsed: ${format(planDate, 'yyyy-MM-dd')}). Is future/today: ${isFutureOrToday}`);
+        return isFutureOrToday;
       } catch (e) {
-        console.warn("Invalid date format for plan_date:", pm.plan_date);
+        console.warn(`[GroceryList] Invalid date format for plan_date: ${pm.plan_date}`, e);
         return false;
       }
     });
+    console.log(`[GroceryList] Filtered to ${futurePlannedMeals.length} future/today meals.`);
 
     const ingredientMap = new Map<string, GroceryListItem>();
     futurePlannedMeals.forEach(pm => {
@@ -158,8 +167,9 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
         } catch (e) { console.warn("[GroceryList.tsx] Failed to parse ingredients JSON:", ingredientsBlock, e); }
       }
     });
+    console.log('[GroceryList] Aggregation complete. Resulting map size:', ingredientMap.size);
     return Array.from(ingredientMap.values());
-  }, [plannedMealsData, today]); // Add today to dependency array
+  }, [plannedMealsData, today]);
 
   const categorizedDisplayList = useMemo(() => {
     const grouped: Record<Category, CategorizedDisplayListItem[]> = 
