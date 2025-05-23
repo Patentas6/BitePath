@@ -5,7 +5,9 @@ import { format, endOfWeek } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ListChecks } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ListChecks, RefreshCw } from "lucide-react"; // Added RefreshCw for toggle
+import { convertToPreferredSystem } from "@/utils/conversionUtils";
 
 interface PlannedMealWithIngredients {
   meals: {
@@ -43,9 +45,9 @@ const MEASUREMENT_UNITS_FOR_LIGHTER_COLOR: ReadonlyArray<string> = [
   'pinch', 'pinches', 'dash', 'dashes',
   'ml', 'milliliter', 'milliliters',
   'l', 'liter', 'liters',
-  'fl oz', 'fluid ounce', 'fluid ounces',
-  'g', 'gram', 'grams', // Grams can be recipe specific for small amounts
-  'oz', 'ounce', 'ounces' // Ounces can be recipe specific
+  'fl oz', 'fluid ounce', 'fluid ounces', 'fl-oz',
+  'g', 'gram', 'grams', 
+  'oz', 'ounce', 'ounces' 
 ];
 
 const categoriesMap = {
@@ -71,9 +73,9 @@ interface GroceryListItem {
 interface CategorizedDisplayListItem {
   itemName: string;
   detailsPart: string;
-  detailsClass: string; // Tailwind class for the details part
+  detailsClass: string; 
   originalItemsTooltip: string;
-  uniqueKey: string; // For React key and struckItems Set
+  uniqueKey: string; 
 }
 
 interface GroceryListProps {
@@ -84,6 +86,7 @@ interface GroceryListProps {
 const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) => {
   const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
   const [struckItems, setStruckItems] = useState<Set<string>>(new Set());
+  const [displaySystem, setDisplaySystem] = useState<'imperial' | 'metric'>('imperial');
 
   const { data: plannedMeals, isLoading, error } = useQuery<PlannedMealWithIngredients[]>({
     queryKey: ["groceryList", userId, format(currentWeekStart, 'yyyy-MM-dd')],
@@ -99,6 +102,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
   });
 
   const aggregatedIngredients = useMemo(() => {
+    // ... (aggregation logic remains the same as before)
     if (!plannedMeals) return [];
     const ingredientMap = new Map<string, GroceryListItem>();
     plannedMeals.forEach(pm => {
@@ -156,57 +160,85 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
       let detailsPart = "";
       let detailsClass = "text-gray-700"; // Default color for details
 
-      const itemUnitLower = aggItem.unit?.toLowerCase() || '';
-      const isPieceUnitItem = PIECE_UNITS.includes(itemUnitLower);
-      const isMeasurementUnit = MEASUREMENT_UNITS_FOR_LIGHTER_COLOR.includes(itemUnitLower);
+      // Determine styling based on the original unit
+      const originalUnitForLogic = aggItem.unit?.toLowerCase() || '';
+      const isOriginalUnitPiece = PIECE_UNITS.includes(originalUnitForLogic);
+      const isOriginalUnitMeasurement = MEASUREMENT_UNITS_FOR_LIGHTER_COLOR.includes(originalUnitForLogic);
 
-      if (aggItem.isSummable && aggItem.totalQuantity > 0) {
-        const displayQty = aggItem.totalQuantity % 1 === 0 ? aggItem.totalQuantity : aggItem.totalQuantity.toFixed(1);
-        if (isPieceUnitItem) {
-          detailsPart = `${displayQty}`; // Only quantity for piece units
-          // detailsClass remains normal color for piece quantity
-        } else {
-          let unitDisplay = aggItem.unit || "";
-          if (aggItem.totalQuantity > 1 && unitDisplay && !unitDisplay.endsWith('s') && !NON_SUMMABLE_DISPLAY_UNITS.includes(unitDisplay.toLowerCase()) && !PIECE_UNITS.includes(unitDisplay.toLowerCase())) {
-            if (unitDisplay.endsWith('y') && !['day', 'key', 'way', 'toy', 'boy', 'guy'].includes(unitDisplay.toLowerCase())) {
-              unitDisplay = unitDisplay.slice(0, -1) + 'ies';
-            } else { unitDisplay += "s"; }
-          }
-          detailsPart = `${displayQty} ${unitDisplay}`;
-          if (isMeasurementUnit) {
-            detailsClass = "text-gray-500"; // Lighter color for measurement unit details
-          }
-        }
-      } else if (!aggItem.isSummable && aggItem.originalItems.length > 0) {
-        // For non-summable items, create a combined string for details.
-        // Coloring will be based on the first original item's unit as a heuristic.
-        detailsPart = aggItem.originalItems.map(orig => {
-          const origUnitLower = orig.unit.toLowerCase();
-          if (PIECE_UNITS.includes(origUnitLower)) {
-            return `${orig.quantity}`; // Just quantity for pieces
-          }
-          return `${orig.quantity} ${orig.unit}`;
-        }).join('; ');
+      let displayQuantity = aggItem.totalQuantity;
+      let displayUnit = aggItem.unit || "";
 
-        if (aggItem.originalItems.length > 0) {
-          const firstOrigUnitLower = aggItem.originalItems[0].unit.toLowerCase();
-          if (MEASUREMENT_UNITS_FOR_LIGHTER_COLOR.includes(firstOrigUnitLower) && !PIECE_UNITS.includes(firstOrigUnitLower)) {
+      if (displaySystem === 'metric') {
+        if (aggItem.isSummable) {
+          const converted = convertToPreferredSystem(aggItem.totalQuantity, aggItem.unit || "", 'metric');
+          if (converted) {
+            displayQuantity = converted.quantity;
+            displayUnit = converted.unit;
+          }
+        } else if (aggItem.originalItems.length > 0) {
+          // For non-summable, convert each original item and join for display (simplified)
+          detailsPart = aggItem.originalItems.map(orig => {
+            const convertedPart = convertToPreferredSystem(orig.quantity, orig.unit, 'metric');
+            const currentPartUnit = convertedPart ? convertedPart.unit : orig.unit;
+            const currentPartQty = convertedPart ? convertedPart.quantity : orig.quantity;
+            if (PIECE_UNITS.includes(currentPartUnit.toLowerCase())) return `${currentPartQty}`;
+            return `${currentPartQty} ${currentPartUnit}`;
+          }).join('; ');
+          // For non-summable, the detailsClass is based on the first original item's nature
+          if (aggItem.originalItems.length > 0 && MEASUREMENT_UNITS_FOR_LIGHTER_COLOR.includes(aggItem.originalItems[0].unit.toLowerCase())) {
             detailsClass = "text-gray-500";
           }
         }
       }
       
-      const uniqueKey = `${itemName}:${detailsPart}-${foundCategory}`;
+      // Construct detailsPart if not already set by non-summable metric conversion
+      if (detailsPart === "") { // i.e. for summable items, or imperial non-summable
+        if (aggItem.isSummable && displayQuantity > 0) {
+          const roundedDisplayQty = (displayQuantity % 1 === 0) ? Math.round(displayQuantity) : parseFloat(displayQuantity.toFixed(1));
+          if (isOriginalUnitPiece) { // Use original unit nature for "piece" display rule
+            detailsPart = `${roundedDisplayQty}`;
+          } else {
+            let unitStr = displayUnit;
+            // Basic pluralization for displayUnit if it's not metric L/ml/g/kg (which are often singular)
+            if (roundedDisplayQty > 1 && !['L', 'ml', 'g', 'kg'].includes(unitStr) && !unitStr.endsWith('s') && unitStr.length > 0) {
+                 if (unitStr.endsWith('y') && !['day', 'key', 'way', 'toy', 'boy', 'guy'].includes(unitStr.toLowerCase())) {
+                    unitStr = unitStr.slice(0, -1) + 'ies';
+                 } else {
+                    unitStr += "s";
+                 }
+            }
+            detailsPart = `${roundedDisplayQty} ${unitStr}`;
+          }
+        } else if (!aggItem.isSummable && aggItem.originalItems.length > 0) {
+           // Non-summable, imperial display
+           detailsPart = aggItem.originalItems.map(orig => {
+            if (PIECE_UNITS.includes(orig.unit.toLowerCase())) return `${orig.quantity}`;
+            return `${orig.quantity} ${orig.unit}`;
+          }).join('; ');
+        }
+      }
+      
+      // Determine detailsClass based on original unit's nature, unless already set for non-summable metric
+      if (detailsClass === "text-gray-700" && isOriginalUnitMeasurement && !isOriginalUnitPiece) {
+         detailsClass = "text-gray-500";
+      }
+      if (isOriginalUnitPiece) { // Quantities for pieces are normal color
+        detailsClass = "text-gray-700";
+      }
+      
+      const uniqueKey = `${itemName}:${detailsPart}-${foundCategory}-${displaySystem}`;
       const originalItemsTooltip = aggItem.originalItems.map(oi => `${oi.quantity} ${oi.unit} ${oi.name}${oi.description ? ` (${oi.description})` : ''}`).join('\n');
       
-      grouped[foundCategory].push({ itemName, detailsPart, detailsClass, originalItemsTooltip, uniqueKey });
+      if (detailsPart !== "") { // Only add if there's something to display in details
+        grouped[foundCategory].push({ itemName, detailsPart, detailsClass, originalItemsTooltip, uniqueKey });
+      }
     });
 
     for (const cat of categoryOrder) {
       grouped[cat].sort((a,b) => a.itemName.localeCompare(b.itemName));
     }
     return grouped;
-  }, [aggregatedIngredients]);
+  }, [aggregatedIngredients, displaySystem]);
 
   useEffect(() => {
     setStruckItems(prevStruckItems => {
@@ -238,8 +270,17 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row justify-between items-center">
         <CardTitle className="flex items-center"><ListChecks className="mr-2 h-5 w-5" />Grocery List for {format(currentWeekStart, 'MMM dd')} - {format(weekEnd, 'MMM dd')}</CardTitle>
+        <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setDisplaySystem(prev => prev === 'imperial' ? 'metric' : 'imperial')}
+            className="ml-auto"
+        >
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Switch to {displaySystem === 'imperial' ? 'Metric' : 'Imperial'}
+        </Button>
       </CardHeader>
       <CardContent>
         {isEmptyList ? (
@@ -263,7 +304,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
                         title={item.originalItemsTooltip} 
                       >
                         <span className="text-gray-700">{item.itemName}: </span>
-                        <span className={struckItems.has(item.uniqueKey) ? '' : item.detailsClass}>{item.detailsPart}</span>
+                        {item.detailsPart && <span className={struckItems.has(item.uniqueKey) ? '' : item.detailsClass}>{item.detailsPart}</span>}
                       </li>
                     ))}
                   </ul>
