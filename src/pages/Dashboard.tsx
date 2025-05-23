@@ -107,7 +107,7 @@ const Dashboard = () => {
             <span className="text-sm text-gray-700 hidden md:inline">{getWelcomeMessage()}</span>
             <Button variant="outline" size="sm" asChild>
               <Link to="/discover-meals">
-                <Sparkles className="mr-2 h-4 w-4" /> Discover
+                <Sparkles className="mr-2 h-4 w-4" /> Discover Meals
               </Link>
             </Button>
             <Button variant="outline" size="sm" asChild>

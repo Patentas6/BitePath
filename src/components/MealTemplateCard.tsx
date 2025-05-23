@@ -2,21 +2,23 @@ import React from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PlusCircle } from 'lucide-react';
+import { Badge } from "@/components/ui/badge"; // Import Badge
 
 export interface MealTemplate {
   id: string;
   name: string;
   ingredients?: string | null;
   instructions?: string | null;
-  category?: string | null;
+  category?: string | null; // This is different from meal_tags
   image_url?: string | null;
+  meal_tags?: string[] | null; // Added meal_tags
 }
 
 interface ParsedIngredient {
   name: string;
-  // quantity and unit are not strictly needed for this display card, but good for structure
   quantity?: number | string; 
   unit?: string;
+  description?: string;
 }
 
 interface MealTemplateCardProps {
@@ -35,7 +37,7 @@ const MealTemplateCard: React.FC<MealTemplateCardProps> = ({ template, onAddToMy
         const names = parsedIngredients.map(ing => ing.name).filter(Boolean);
         if (names.length === 0) return 'Ingredients listed (check format).';
         
-        let displayText = names.slice(0, 5).join(', '); // Show up to 5 ingredient names
+        let displayText = names.slice(0, 5).join(', ');
         if (names.length > 5) {
           displayText += ', ...';
         }
@@ -43,7 +45,6 @@ const MealTemplateCard: React.FC<MealTemplateCardProps> = ({ template, onAddToMy
       }
       return 'No ingredients listed or format error.';
     } catch (e) {
-      // If JSON.parse fails, it's likely plain text. Truncate.
       if (ingredientsString.length <= maxLength) return ingredientsString;
       return ingredientsString.substring(0, maxLength) + '...';
     }
@@ -63,12 +64,19 @@ const MealTemplateCard: React.FC<MealTemplateCardProps> = ({ template, onAddToMy
             src={template.image_url} 
             alt={template.name} 
             className="w-full h-40 object-cover rounded-t-md mb-4" 
-            onError={(e) => (e.currentTarget.style.display = 'none')} // Hide if image fails to load
+            onError={(e) => (e.currentTarget.style.display = 'none')}
           />
         )}
         <CardTitle>{template.name}</CardTitle>
         {template.category && (
           <CardDescription className="text-sm text-muted-foreground">{template.category}</CardDescription>
+        )}
+        {template.meal_tags && template.meal_tags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-2">
+            {template.meal_tags.map(tag => (
+              <Badge key={tag} variant="outline">{tag}</Badge>
+            ))}
+          </div>
         )}
       </CardHeader>
       <CardContent className="flex-grow">

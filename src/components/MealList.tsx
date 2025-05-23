@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react"; // Import useState and useMemo
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { showError, showSuccess } from "@/utils/toast";
@@ -6,8 +6,8 @@ import { showError, showSuccess } from "@/utils/toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input"; // Import Input
-import { Trash2, Edit3, Search, Inbox } from "lucide-react"; // Import Search and Inbox icons
+import { Input } from "@/components/ui/input";
+import { Trash2, Edit3, Search, Inbox, Tag } from "lucide-react"; // Added Tag icon
 import EditMealDialog, { MealForEditing } from "./EditMealDialog";
 import {
   AlertDialog,
@@ -19,16 +19,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge"; // Import Badge
 
 
 interface Meal extends MealForEditing {
-  // id, name, ingredients, instructions are already in MealForEditing
+  // id, name, ingredients, instructions, user_id are already in MealForEditing
+  meal_tags?: string[] | null; // Added meal_tags
 }
 
 interface ParsedIngredient {
   name: string;
   quantity: number | string;
   unit: string;
+  description?: string;
 }
 
 
@@ -49,9 +52,9 @@ const MealList = () => {
 
       const { data, error } = await supabase
         .from("meals")
-        .select("id, name, ingredients, instructions, user_id")
+        .select("id, name, ingredients, instructions, user_id, meal_tags") // Fetch meal_tags
         .eq("user_id", user.id)
-        .order('created_at', { ascending: false }); // Order by creation date
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       return data || [];
@@ -83,12 +86,12 @@ const MealList = () => {
     },
   });
 
-  const handleEditClick = (meal: MealForEditing) => {
+  const handleEditClick = (meal: Meal) => { // Changed type to Meal to include tags
     setMealToEdit(meal);
     setIsEditDialogOpen(true);
   };
 
-  const handleDeleteClick = (meal: MealForEditing) => {
+  const handleDeleteClick = (meal: Meal) => { // Changed type to Meal
     setMealToDelete(meal);
     setIsDeleteDialogOpen(true);
   };
@@ -116,17 +119,15 @@ const MealList = () => {
         const names = parsedIngredients.map(ing => ing.name).filter(Boolean);
         if (names.length === 0) return 'Ingredients listed (check format).';
         
-        let displayText = names.slice(0, 4).join(', '); // Show up to 4 ingredient names
+        let displayText = names.slice(0, 4).join(', ');
         if (names.length > 4) {
           displayText += ', ...';
         }
         return displayText;
       }
-      // If JSON is valid but not an array or is an empty array
       return 'No ingredients listed or format error.'; 
     } catch (e) {
-      // If JSON.parse fails, it's likely old plain text. Display as is, truncated.
-      const maxLength = 60; // Slightly longer truncation for plain text
+      const maxLength = 60;
       return ingredientsString.substring(0, maxLength) + (ingredientsString.length > maxLength ? '...' : '');
     }
   };
@@ -137,7 +138,7 @@ const MealList = () => {
       <Card>
         <CardHeader><CardTitle>Your Meals</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-          <Skeleton className="h-10 w-full mb-4" /> {/* Skeleton for search input */}
+          <Skeleton className="h-10 w-full mb-4" />
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-10 w-full" />
@@ -148,7 +149,6 @@ const MealList = () => {
 
   if (error) {
     console.error("Error fetching meals:", error);
-    // showError(`Failed to load meals: ${error.message}`); // This might be too noisy if shown persistently
     return (
       <Card>
         <CardHeader><CardTitle>Your Meals</CardTitle></CardHeader>
@@ -179,7 +179,7 @@ const MealList = () => {
             <div className="text-center py-6">
               <Inbox className="mx-auto h-12 w-12 text-gray-400 mb-3" />
               <p className="text-gray-600">No meals added yet.</p>
-              <p className="text-sm text-gray-500">Add one using the form on the left!</p>
+              <p className="text-sm text-gray-500">Add one using the form above or discover new ones!</p>
             </div>
           )}
 
@@ -195,8 +195,15 @@ const MealList = () => {
             filteredMeals.map((meal) => (
               <div key={meal.id} className="border p-3 rounded-md shadow-sm bg-white">
                 <div className="flex justify-between items-start">
-                  <div>
+                  <div className="flex-grow">
                     <h3 className="text-lg font-semibold">{meal.name}</h3>
+                    {meal.meal_tags && meal.meal_tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1 mb-1">
+                        {meal.meal_tags.map(tag => (
+                          <Badge key={tag} variant="secondary">{tag}</Badge>
+                        ))}
+                      </div>
+                    )}
                     {meal.ingredients && (
                       <p className="text-xs text-gray-500 mt-1">
                         Ingredients: {formatIngredientsDisplay(meal.ingredients)}
@@ -204,7 +211,7 @@ const MealList = () => {
                     )}
                     {meal.instructions && <p className="text-xs text-gray-500 mt-1">Instructions: {meal.instructions.substring(0,50)}{meal.instructions.length > 50 ? '...' : ''}</p>}
                   </div>
-                  <div className="flex space-x-2 flex-shrink-0">
+                  <div className="flex space-x-2 flex-shrink-0 ml-2">
                     <Button variant="outline" size="icon" onClick={() => handleEditClick(meal)} aria-label="Edit meal">
                       <Edit3 className="h-5 w-5" />
                     </Button>

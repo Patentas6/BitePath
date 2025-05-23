@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { format } from "date-fns";
 import { showError, showSuccess } from "@/utils/toast";
+import { MEAL_TAG_OPTIONS, MealTag } from "@/lib/constants"; // Import tags
 
 import { Button } from "@/components/ui/button";
 import {
@@ -21,18 +22,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input"; // Import Input
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge"; // Import Badge
+import { Search, X } from "lucide-react";
 
 interface Meal {
   id: string;
   name: string;
+  meal_tags?: string[] | null; // Added meal_tags
 }
 
 interface AddMealToPlanDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   planDate: Date | null;
-  mealType: string | null;
+  mealType: string | null; // This is the slot type (Breakfast, Lunch, Dinner)
   userId: string | null;
 }
 
@@ -40,19 +45,21 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
   open,
   onOpenChange,
   planDate,
-  mealType,
+  mealType, // This is the slot type from the planner
   userId,
 }) => {
   const [selectedMealId, setSelectedMealId] = useState<string | undefined>(undefined);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedTags, setSelectedTags] = useState<MealTag[]>([]);
   const queryClient = useQueryClient();
 
   const { data: meals, isLoading: isLoadingMeals, error: mealsError } = useQuery<Meal[]>({
-    queryKey: ["userMeals", userId],
+    queryKey: ["userMealsWithTags", userId], // Changed queryKey to reflect tags
     queryFn: async () => {
       if (!userId) throw new Error("User ID is required to fetch meals.");
       const { data, error } = await supabase
         .from("meals")
-        .select("id, name")
+        .select("id, name, meal_tags") // Fetch meal_tags
         .eq("user_id", userId);
       if (error) throw error;
       return data || [];
@@ -60,17 +67,38 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
     enabled: !!userId && open,
   });
 
+  // Suggest initial tag filter based on the mealType of the slot
   useEffect(() => {
-    if (open) {
-      setSelectedMealId(undefined);
+    if (open && mealType && MEAL_TAG_OPTIONS.includes(mealType as MealTag)) {
+      setSelectedTags([mealType as MealTag]);
+    } else if (open) {
+      setSelectedTags([]); // Default to no tags selected if mealType is not a valid tag
     }
-  }, [open, planDate, mealType]);
+    setSearchTerm(""); // Reset search term when dialog opens
+    setSelectedMealId(undefined); // Reset selected meal
+  }, [open, mealType]);
+
+
+  const filteredMeals = useMemo(() => {
+    if (!meals) return [];
+    return meals.filter(meal => {
+      const nameMatch = meal.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const tagsMatch = selectedTags.length === 0 || 
+                        (meal.meal_tags && selectedTags.every(tag => meal.meal_tags!.includes(tag)));
+      return nameMatch && tagsMatch;
+    });
+  }, [meals, searchTerm, selectedTags]);
+
+  const toggleTagFilter = (tag: MealTag) => {
+    setSelectedTags(prev => 
+      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+    );
+  };
 
   const addMealToPlanMutation = useMutation({
     mutationFn: async ({ meal_id, plan_date_str, meal_type_str }: { meal_id: string; plan_date_str: string; meal_type_str: string }) => {
       if (!userId) throw new Error("User not authenticated.");
 
-      // Step 1: Delete any existing meal plan for this user, date, and meal type
       const { error: deleteError } = await supabase
         .from("meal_plans")
         .delete()
@@ -81,12 +109,9 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
         });
 
       if (deleteError) {
-        // Log the error but proceed to insert, as the main goal is to set the new meal.
-        // Or, you could throw deleteError here if you want to be stricter.
         console.error("Error deleting existing meal plan, attempting to insert new one anyway:", deleteError);
       }
 
-      // Step 2: Insert the new meal plan
       const { data, error: insertError } = await supabase
         .from("meal_plans")
         .insert([{
@@ -95,24 +120,18 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
           plan_date: plan_date_str,
           meal_type: meal_type_str,
         }])
-        .select(); // Ensure .select() is here if you need the inserted data back
+        .select(); 
 
       if (insertError) throw insertError;
       return data;
     },
     onSuccess: () => {
-      showSuccess("Meal plan updated!"); // Changed message
-      // Invalidate queries to refetch data for WeeklyPlanner and GroceryList
-      // The queryKey for mealPlans in WeeklyPlanner includes the week's start date.
-      // We need to ensure this specific week is invalidated.
-      // A more general invalidation like queryClient.invalidateQueries({ queryKey: ["mealPlans"] })
-      // will also work and might be simpler if specific week invalidation is tricky.
+      showSuccess("Meal plan updated!");
       if (planDate) {
-         // This targets the specific week's data if your query keys are structured like ['mealPlans', userId, 'YYYY-MM-DD']
-        queryClient.invalidateQueries({ queryKey: ["mealPlans", userId, format(planDate, 'yyyy-MM-dd').substring(0, 7)] }); // Invalidate by month for safety
+        queryClient.invalidateQueries({ queryKey: ["mealPlans", userId, format(planDate, 'yyyy-MM-dd').substring(0, 7)] });
       }
-      queryClient.invalidateQueries({ queryKey: ["mealPlans"] }); // General invalidation
-      queryClient.invalidateQueries({ queryKey: ["groceryList"] }); // Invalidate grocery list too
+      queryClient.invalidateQueries({ queryKey: ["mealPlans"] });
+      queryClient.invalidateQueries({ queryKey: ["groceryList"] });
       onOpenChange(false);
     },
     onError: (error) => {
@@ -134,36 +153,82 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-md"> {/* Adjusted width */}
         <DialogHeader>
-          <DialogTitle>Add / Change Meal in Plan</DialogTitle>
+          <DialogTitle>Add / Change Meal for {mealType}</DialogTitle>
           <DialogDescription>
             Select a meal for {mealType} on {format(planDate, "EEEE, MMM dd, yyyy")}.
           </DialogDescription>
         </DialogHeader>
+        
+        {/* Search and Filter Controls */}
         <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="meal-select" className="text-right">
-              Meal
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input 
+              placeholder="Search meal by name..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9"
+            />
+            {searchTerm && (
+              <Button variant="ghost" size="sm" className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0" onClick={() => setSearchTerm('')}>
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+          
+          <div>
+            <Label className="text-sm font-medium">Filter by tags:</Label>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {MEAL_TAG_OPTIONS.map(tag => (
+                <Button
+                  key={tag}
+                  variant={selectedTags.includes(tag) ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => toggleTagFilter(tag)}
+                  className="text-xs px-2 py-1 h-auto"
+                >
+                  {tag}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          {/* Meal Selection */}
+          <div className="grid grid-cols-1 items-center gap-4">
+            <Label htmlFor="meal-select" className="text-sm font-medium">
+              Available Meals ({filteredMeals?.length || 0})
             </Label>
             {isLoadingMeals ? (
-              <Skeleton className="h-10 col-span-3" />
+              <Skeleton className="h-10 w-full" />
             ) : mealsError ? (
               <p className="col-span-3 text-red-500 text-sm">Error loading meals.</p>
             ) : (
               <Select value={selectedMealId} onValueChange={setSelectedMealId}>
-                <SelectTrigger id="meal-select" className="col-span-3">
+                <SelectTrigger id="meal-select" className="w-full">
                   <SelectValue placeholder="Select a meal" />
                 </SelectTrigger>
-                <SelectContent>
-                  {meals && meals.length > 0 ? (
-                    meals.map((meal) => (
+                <SelectContent className="max-h-60 overflow-y-auto">
+                  {filteredMeals && filteredMeals.length > 0 ? (
+                    filteredMeals.map((meal) => (
                       <SelectItem key={meal.id} value={meal.id}>
-                        {meal.name}
+                        <div className="flex flex-col">
+                          <span>{meal.name}</span>
+                          {meal.meal_tags && meal.meal_tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {meal.meal_tags.map(tag => (
+                                <Badge key={tag} variant="secondary" className="text-xs px-1 py-0">{tag}</Badge>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </SelectItem>
                     ))
                   ) : (
-                    <p className="p-2 text-sm text-gray-500">No meals found. Add some meals first!</p>
+                    <p className="p-2 text-sm text-gray-500 text-center">
+                      {meals && meals.length > 0 ? "No meals match your filters." : "No meals found. Add some first!"}
+                    </p>
                   )}
                 </SelectContent>
               </Select>
