@@ -1,8 +1,9 @@
 import React from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, CheckCircle2 } from 'lucide-react'; // Added CheckCircle2
 import { Badge } from "@/components/ui/badge"; 
+import { cn } from '@/lib/utils';
 
 export interface MealTemplate {
   id: string;
@@ -25,9 +26,10 @@ interface MealTemplateCardProps {
   template: MealTemplate;
   onAddToMyMeals: (template: MealTemplate) => void;
   isAdding: boolean;
+  isAlreadyAdded: boolean; // New prop
 }
 
-const MealTemplateCard: React.FC<MealTemplateCardProps> = ({ template, onAddToMyMeals, isAdding }) => {
+const MealTemplateCard: React.FC<MealTemplateCardProps> = ({ template, onAddToMyMeals, isAdding, isAlreadyAdded }) => {
   
   const formatIngredientsForDisplay = (ingredientsString: string | null | undefined, maxLength: number = 100): string => {
     if (!ingredientsString) return 'Not specified';
@@ -57,7 +59,10 @@ const MealTemplateCard: React.FC<MealTemplateCardProps> = ({ template, onAddToMy
   };
 
   return (
-    <Card className="flex flex-col hover:shadow-lg transition-shadow duration-200">
+    <Card className={cn(
+      "flex flex-col hover:shadow-lg transition-shadow duration-200",
+      isAlreadyAdded && "opacity-70" // Fade if already added
+    )}>
       <CardHeader>
         {template.image_url && (
           <img 
@@ -97,10 +102,15 @@ const MealTemplateCard: React.FC<MealTemplateCardProps> = ({ template, onAddToMy
         <Button 
           onClick={() => onAddToMyMeals(template)} 
           className="w-full"
-          disabled={isAdding}
+          disabled={isAdding || isAlreadyAdded}
+          variant={isAlreadyAdded ? "secondary" : "default"}
         >
-          <PlusCircle className="mr-2 h-4 w-4" />
-          {isAdding ? 'Adding...' : 'Add to My Meals'}
+          {isAlreadyAdded ? (
+            <CheckCircle2 className="mr-2 h-4 w-4" />
+          ) : (
+            <PlusCircle className="mr-2 h-4 w-4" />
+          )}
+          {isAdding ? 'Adding...' : isAlreadyAdded ? 'Added to My Meals' : 'Add to My Meals'}
         </Button>
       </CardFooter>
     </Card>

@@ -1,15 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { format, endOfWeek } from "date-fns";
+import { format, endOfWeek, isBefore, startOfToday, parseISO } from "date-fns"; // Added isBefore, startOfToday, parseISO
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { ListChecks, RefreshCw, ShoppingCart } from "lucide-react"; // Added ShoppingCart
+import { ListChecks, RefreshCw, ShoppingCart } from "lucide-react";
 import { convertToPreferredSystem } from "@/utils/conversionUtils";
 
 interface PlannedMealWithIngredients {
+  plan_date: string; // Ensure plan_date is available for filtering
   meals: {
     name: string;
     ingredients: string | null; 
@@ -88,14 +89,21 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
   const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
   const [struckItems, setStruckItems] = useState<Set<string>>(new Set());
   const [displaySystem, setDisplaySystem] = useState<'imperial' | 'metric'>('imperial');
+  const today = startOfToday();
 
-  const { data: plannedMeals, isLoading, error: plannedMealsError } = useQuery<PlannedMealWithIngredients[]>({ 
-    queryKey: ["groceryList", userId, format(currentWeekStart, 'yyyy-MM-dd'), displaySystem],
+  const { data: plannedMealsData, isLoading, error: plannedMealsError } = useQuery<PlannedMealWithIngredients[]>({ 
+    queryKey: ["groceryListSource", userId, format(currentWeekStart, 'yyyy-MM-dd')], // Changed key to avoid conflict if data structure changes
     queryFn: async () => {
       if (!userId) return [];
       const startDateStr = format(currentWeekStart, 'yyyy-MM-dd');
       const endDateStr = format(weekEnd, 'yyyy-MM-dd');
-      const { data, error } = await supabase.from("meal_plans").select("meals ( name, ingredients )").eq("user_id", userId).gte("plan_date", startDateStr).lte("plan_date", endDateStr);
+      // Select plan_date along with meals
+      const { data, error } = await supabase
+        .from("meal_plans")
+        .select("plan_date, meals ( name, ingredients )")
+        .eq("user_id", userId)
+        .gte("plan_date", startDateStr)
+        .lte("plan_date", endDateStr);
       if (error) throw error;
       return data || [];
     },
@@ -103,9 +111,22 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
   });
 
   const aggregatedIngredients = useMemo(() => {
-    if (!plannedMeals) return [];
+    if (!plannedMealsData) return [];
+
+    const futurePlannedMeals = plannedMealsData.filter(pm => {
+      // Ensure pm.plan_date is a valid date string for parseISO
+      if (!pm.plan_date || typeof pm.plan_date !== 'string') return false;
+      try {
+        const planDate = parseISO(pm.plan_date); // plan_date is YYYY-MM-DD
+        return !isBefore(planDate, today);
+      } catch (e) {
+        console.warn("Invalid date format for plan_date:", pm.plan_date);
+        return false;
+      }
+    });
+
     const ingredientMap = new Map<string, GroceryListItem>();
-    plannedMeals.forEach(pm => {
+    futurePlannedMeals.forEach(pm => {
       const ingredientsBlock = pm.meals?.ingredients;
       if (ingredientsBlock && typeof ingredientsBlock === 'string') {
         try {
@@ -138,7 +159,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
       }
     });
     return Array.from(ingredientMap.values());
-  }, [plannedMeals]);
+  }, [plannedMealsData, today]); // Add today to dependency array
 
   const categorizedDisplayList = useMemo(() => {
     const grouped: Record<Category, CategorizedDisplayListItem[]> = 
@@ -271,7 +292,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
           <div className="text-center py-6 text-muted-foreground">
             <ShoppingCart className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500 mb-4" />
             <p className="text-lg font-semibold mb-1">Your List is Empty</p>
-            <p className="text-sm">Plan some meals for this week to see ingredients here.</p>
+            <p className="text-sm">Plan some meals from today onwards for this week to see ingredients here.</p>
           </div>
         ) : (
           categoryOrder.map(category => {

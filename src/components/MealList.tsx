@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Trash2, Edit3, Search, ChefHat, Tag } from "lucide-react"; // Changed Inbox to ChefHat
+import { Trash2, Edit3, Search, ChefHat } from "lucide-react"; // Kept ChefHat
 import EditMealDialog, { MealForEditing } from "./EditMealDialog";
 import {
   AlertDialog,
@@ -135,7 +135,7 @@ const MealList = () => {
   if (isLoading) {
     return (
       <Card className="hover:shadow-lg transition-shadow duration-200">
-        <CardHeader><CardTitle>Your Meals</CardTitle></CardHeader>
+        <CardHeader><CardTitle>My Meals</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <Skeleton className="h-10 w-full mb-4" />
           <Skeleton className="h-10 w-full" />
@@ -150,7 +150,7 @@ const MealList = () => {
     console.error("Error fetching meals:", error);
     return (
       <Card className="hover:shadow-lg transition-shadow duration-200">
-        <CardHeader><CardTitle>Your Meals</CardTitle></CardHeader>
+        <CardHeader><CardTitle>My Meals</CardTitle></CardHeader>
         <CardContent><p className="text-red-500">Error loading meals. Please try again later.</p></CardContent>
       </Card>
     );
@@ -160,14 +160,14 @@ const MealList = () => {
     <>
       <Card className="hover:shadow-lg transition-shadow duration-200">
         <CardHeader>
-          <CardTitle>Your Meals</CardTitle>
+          <CardTitle>My Meals</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
             <Input
               type="text"
-              placeholder="Search your meals..."
+              placeholder="Search my meals..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10 w-full"

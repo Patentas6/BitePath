@@ -1,9 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { showError, showSuccess } from "@/utils/toast";
-import { format, addDays, isSameDay, isToday } from "date-fns"; // Added isToday
+import { format, addDays, isSameDay, isToday, isPast, startOfToday, parseISO } from "date-fns"; // Added isPast, startOfToday, parseISO
 import { useMemo, useState } from "react";
-import { cn } from "@/lib/utils"; // Import cn
+import { cn } from "@/lib/utils"; 
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -14,7 +14,7 @@ import AddMealToPlanDialog from "./AddMealToPlanDialog";
 interface MealPlan {
   id: string;
   meal_id: string;
-  plan_date: string;
+  plan_date: string; // Keep as string from DB (YYYY-MM-DD)
   meal_type?: string;
   meals: {
     name: string;
@@ -35,6 +35,7 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart,
   const [selectedMealTypeForDialog, setSelectedMealTypeForDialog] = useState<string | null>(null);
 
   const queryClient = useQueryClient();
+  const today = startOfToday();
 
   const { data: mealPlans, isLoading, error, refetch: refetchMealPlans } = useQuery<MealPlan[]>({
     queryKey: ["mealPlans", userId, format(currentWeekStart, 'yyyy-MM-dd')], 
@@ -84,6 +85,7 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart,
   }, [currentWeekStart]);
 
   const handleMealSlotClick = (day: Date, mealType: string, plannedMeal: MealPlan | undefined) => {
+    if (isPast(day) && !isToday(day)) return; // Prevent opening dialog for past days (excluding today)
     setSelectedDateForDialog(day);
     setSelectedMealTypeForDialog(mealType);
     setIsDialogOpen(true);
@@ -119,36 +121,55 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart,
             ))}
           </div>
           <div className="grid grid-cols-7 gap-2">
-            {daysOfWeek.map(day => (
-              <div key={day.toISOString() + "-meals"} className="flex flex-col space-y-2">
-                {mealTypes.map(mealType => {
-                  const plannedMeal = mealPlans?.find(plan => isSameDay(new Date(plan.plan_date), day) && plan.meal_type === mealType);
-                  return (
-                    <div 
-                      key={mealType} 
-                      className="border rounded-md p-2 text-xs h-24 flex flex-col justify-between overflow-hidden cursor-pointer hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors relative"
-                      onClick={() => handleMealSlotClick(day, mealType, plannedMeal)}
-                    >
-                      <div className="font-medium text-gray-600 dark:text-gray-400 self-start">{mealType}</div>
-                      {plannedMeal ? (
-                        <>
-                          <div className="text-sm font-medium text-foreground truncate self-start flex-grow mt-1">{plannedMeal.meals?.name || 'Unknown Meal'}</div>
-                          <button 
-                            onClick={(e) => handleRemoveMeal(plannedMeal.id, e)} 
-                            className="absolute top-1 right-1 p-0.5 rounded-full text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors"
-                            aria-label="Remove meal"
-                          >
-                            <XCircle size={16} />
-                          </button>
-                        </>
-                      ) : (
-                        <div className="text-xs text-gray-400 dark:text-gray-500 italic self-start mt-1 flex-grow flex items-center justify-start">Click to add</div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
+            {daysOfWeek.map(day => {
+              const isDayPast = isPast(day) && !isToday(day);
+              return (
+                <div key={day.toISOString() + "-meals"} className={cn("flex flex-col space-y-2", isDayPast && "opacity-60")}>
+                  {mealTypes.map(mealType => {
+                    const plannedMeal = mealPlans?.find(plan => 
+                      isSameDay(parseISO(plan.plan_date), day) && plan.meal_type === mealType
+                    );
+                    return (
+                      <div 
+                        key={mealType} 
+                        className={cn(
+                          "border rounded-md p-2 text-xs h-24 flex flex-col justify-between overflow-hidden relative transition-colors",
+                          isDayPast ? "cursor-default bg-gray-50 dark:bg-gray-800/30" : "cursor-pointer hover:bg-gray-100 dark:hover:bg-slate-800"
+                        )}
+                        onClick={() => !isDayPast && handleMealSlotClick(day, mealType, plannedMeal)}
+                      >
+                        <div className={cn(
+                          "font-medium self-start",
+                          isDayPast ? "text-gray-500 dark:text-gray-500" : "text-gray-600 dark:text-gray-400"
+                        )}>{mealType}</div>
+                        {plannedMeal ? (
+                          <>
+                            <div className={cn(
+                              "text-sm font-medium truncate self-start flex-grow mt-1",
+                              isDayPast ? "line-through text-gray-500 dark:text-gray-500" : "text-foreground"
+                            )}>{plannedMeal.meals?.name || 'Unknown Meal'}</div>
+                            {!isDayPast && (
+                              <button 
+                                onClick={(e) => handleRemoveMeal(plannedMeal.id, e)} 
+                                className="absolute top-1 right-1 p-0.5 rounded-full text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors"
+                                aria-label="Remove meal"
+                              >
+                                <XCircle size={16} />
+                              </button>
+                            )}
+                          </>
+                        ) : (
+                          <div className={cn(
+                            "text-xs italic self-start mt-1 flex-grow flex items-center justify-start",
+                            isDayPast ? "text-gray-400 dark:text-gray-600" : "text-gray-400 dark:text-gray-500"
+                          )}>{isDayPast ? '-' : 'Click to add'}</div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
           </div>
         </CardContent>
       </Card>

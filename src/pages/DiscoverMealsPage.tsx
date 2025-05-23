@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import MealTemplateCard, { MealTemplate } from '@/components/MealTemplateCard';
@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from '@/components/ui/skeleton';
 import { showError, showSuccess } from '@/utils/toast';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Search, Sparkles, SearchX } from 'lucide-react'; // Added SearchX
+import { ArrowLeft, Search, Sparkles, SearchX } from 'lucide-react';
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
 import { ThemeToggleButton } from "@/components/ThemeToggleButton"; 
 
@@ -26,7 +26,7 @@ const DiscoverMealsPage = () => {
     fetchUser();
   }, []);
 
-  const { data: mealTemplates, isLoading, error: queryError } = useQuery<MealTemplate[]>({
+  const { data: mealTemplates, isLoading: isLoadingTemplates, error: queryError } = useQuery<MealTemplate[]>({
     queryKey: ['mealTemplates'],
     queryFn: async () => {
       const { data, error } = await supabase.from('meal_templates').select('*');
@@ -34,6 +34,22 @@ const DiscoverMealsPage = () => {
       return data || []; 
     },
   });
+
+  const { data: userMealNamesData, isLoading: isLoadingUserMealNames } = useQuery<{ name: string }[]>({
+    queryKey: ['userMealNames', userId],
+    queryFn: async () => {
+      if (!userId) return [];
+      const { data, error } = await supabase.from('meals').select('name').eq('user_id', userId);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!userId,
+  });
+
+  const userMealNamesSet = useMemo(() => {
+    if (!userMealNamesData) return new Set<string>();
+    return new Set(userMealNamesData.map(meal => meal.name));
+  }, [userMealNamesData]);
 
   const { data: categories, isLoading: isLoadingCategories } = useQuery<string[]>({
     queryKey: ['mealTemplateCategories', mealTemplates],
@@ -48,14 +64,37 @@ const DiscoverMealsPage = () => {
   const addMealMutation = useMutation({
     mutationFn: async (template: MealTemplate) => {
       if (!userId) throw new Error("User not logged in.");
+      if (userMealNamesSet.has(template.name)) {
+        // This check is mostly a safeguard; UI should prevent this.
+        showError(`"${template.name}" is already in your meals.`);
+        return; // Or throw an error to be caught by onError
+      }
       const { error } = await supabase.from('meals').insert([{ user_id: userId, name: template.name, ingredients: template.ingredients, instructions: template.instructions, meal_tags: template.meal_tags }]);
       if (error) throw error;
     },
-    onSuccess: (data, vars) => { showSuccess(`"${vars.name}" added to your meals!`); queryClient.invalidateQueries({ queryKey: ['meals'] }); },
-    onError: (err, vars) => { showError(`Failed to add "${vars.name}": ${(err as Error).message}`); },
+    onSuccess: (data, vars) => { 
+      if (vars) { // Check if vars is defined (it should be if mutationFn didn't return early)
+        showSuccess(`"${vars.name}" added to your meals!`); 
+        queryClient.invalidateQueries({ queryKey: ['meals'] }); 
+        queryClient.invalidateQueries({ queryKey: ['userMealNames', userId] }); // Re-fetch user meal names
+      }
+    },
+    onError: (err, vars) => { 
+      if (vars) {
+        showError(`Failed to add "${vars.name}": ${(err as Error).message}`); 
+      } else {
+        showError(`Failed to add meal: ${(err as Error).message}`);
+      }
+    },
   });
 
-  const handleAddToMyMeals = (template: MealTemplate) => addMealMutation.mutate(template);
+  const handleAddToMyMeals = (template: MealTemplate) => {
+    if (!userMealNamesSet.has(template.name)) {
+      addMealMutation.mutate(template);
+    } else {
+      showError(`"${template.name}" is already in your meals.`);
+    }
+  };
 
   const filteredTemplates = mealTemplates?.filter(template => {
     const nameMatch = template.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -64,7 +103,7 @@ const DiscoverMealsPage = () => {
   });
 
   let content;
-  if (isLoading) {
+  if (isLoadingTemplates || (userId && isLoadingUserMealNames)) {
     content = (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {Array.from({ length: 3 }).map((_, i) => (
@@ -86,7 +125,8 @@ const DiscoverMealsPage = () => {
             key={t.id} 
             template={t} 
             onAddToMyMeals={handleAddToMyMeals} 
-            isAdding={addMealMutation.isPending && addMealMutation.variables?.id === t.id} 
+            isAdding={addMealMutation.isPending && addMealMutation.variables?.id === t.id}
+            isAlreadyAdded={userMealNamesSet.has(t.name)} 
           />
         )}
       </div>
