@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useNavigate, Link } from "react-router-dom"; // Import Link
+import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase"; 
 import { showError, showSuccess } from "@/utils/toast"; 
 
@@ -16,8 +16,8 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft } from "lucide-react"; // Icon for back button
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"; // Added CardDescription
+import { ArrowLeft } from "lucide-react";
 
 // Define validation schema for auth forms
 const authFormSchema = z.object({
@@ -60,6 +60,13 @@ const Auth = () => {
       const { error: signUpError } = await supabase.auth.signUp({
         email,
         password,
+        // You can add options here if needed, like data for user_metadata
+        // options: {
+        //   data: {
+        //     first_name: 'Initial', // Example, ideally get this from form
+        //     last_name: 'User',    // Example
+        //   }
+        // }
       });
       error = signUpError;
       if (!error) {
@@ -76,16 +83,23 @@ const Auth = () => {
       if (isLogin) {
          navigate("/dashboard"); 
       }
+      // For sign up, user needs to confirm email, so no automatic redirect here
+      // unless you change your Supabase auth settings (e.g., disable email confirmation).
     }
   };
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-4">
       <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="text-center">
-            {isLogin ? "Login" : "Sign Up"}
+        <CardHeader className="text-center"> {/* Centering header content */}
+          <CardTitle className="text-2xl font-bold">
+            {isLogin ? "Login to Your Account" : "Join BitePath Today!"}
           </CardTitle>
+          {!isLogin && (
+            <CardDescription className="pt-2">
+              Create your account to start planning meals and simplifying your week.
+            </CardDescription>
+          )}
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -117,14 +131,19 @@ const Auth = () => {
                 )}
               />
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? (isLogin ? "Logging In..." : "Signing Up...") : (isLogin ? "Login" : "Sign Up")}
+                {isLoading 
+                  ? (isLogin ? "Logging In..." : "Creating Account...") 
+                  : (isLogin ? "Login" : "Create Account")}
               </Button>
             </form>
           </Form>
           <div className="mt-6 text-center text-sm">
             {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
             <button
-              onClick={() => setIsLogin(!isLogin)}
+              onClick={() => {
+                setIsLogin(!isLogin);
+                form.reset(); // Optionally reset form when toggling
+              }}
               className="text-blue-600 hover:underline"
               disabled={isLoading}
             >
