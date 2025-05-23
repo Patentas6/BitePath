@@ -7,7 +7,7 @@ import WeeklyPlanner from "@/components/WeeklyPlanner";
 import GroceryList from "@/components/GroceryList";
 import type { User } from "@supabase/supabase-js";
 import { startOfWeek, addDays } from "date-fns";
-import { UserCircle, BookOpenText, Sparkles } from "lucide-react"; // Added Sparkles icon
+import { UserCircle, BookOpenText, Sparkles, Utensils } from "lucide-react"; // Added Utensils
 
 interface UserProfile {
   first_name: string | null;
@@ -60,7 +60,7 @@ const Dashboard = () => {
       console.log('Dashboard: Profile data fetched from Supabase:', data);
       if (error) {
         console.error('Dashboard: Error fetching profile data:', error);
-        if (error.code !== 'PGRST116') { // PGRST116: row not found, not a critical error here
+        if (error.code !== 'PGRST116') { 
           throw error; 
         }
       }
@@ -81,15 +81,10 @@ const Dashboard = () => {
   };
 
   const getWelcomeMessage = () => {
-    if (!user) return "Loading user session...";
-
-    console.log('Dashboard: getWelcomeMessage called. isUserProfileLoading:', isUserProfileLoading, 'userProfile:', userProfile);
+    if (!user) return "Loading..."; // Simplified loading message
 
     if (isUserProfileLoading && !userProfile) {
-      return `Welcome, ${user.email ? user.email.split('@')[0] : 'User'}! (Loading name...)`;
-    }
-    if (userProfile?.first_name && userProfile?.last_name) {
-      return `Welcome, ${userProfile.first_name} ${userProfile.last_name}!`;
+      return `Welcome, ${user.email ? user.email.split('@')[0] : 'User'}!`;
     }
     if (userProfile?.first_name) {
       return `Welcome, ${userProfile.first_name}!`;
@@ -105,11 +100,15 @@ const Dashboard = () => {
     <div className="min-h-screen bg-gray-100 p-4">
       <div className="container mx-auto space-y-6">
         <header className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold">{getWelcomeMessage()}</h1>
+          <Link to="/dashboard" className="flex items-center text-2xl font-bold text-gray-800 hover:text-teal-600 transition-colors">
+            <Utensils className="h-7 w-7 mr-2 text-teal-600" />
+            BitePath
+          </Link>
           <div className="flex items-center space-x-2">
+            <span className="text-sm text-gray-700 hidden md:inline">{getWelcomeMessage()}</span>
             <Button variant="outline" size="sm" asChild>
               <Link to="/discover-meals">
-                <Sparkles className="mr-2 h-4 w-4" /> Discover Meals
+                <Sparkles className="mr-2 h-4 w-4" /> Discover
               </Link>
             </Button>
             <Button variant="outline" size="sm" asChild>
@@ -122,7 +121,7 @@ const Dashboard = () => {
                 <UserCircle className="mr-2 h-4 w-4" /> Profile
               </Link>
             </Button>
-            <Button onClick={handleLogout} variant="outline" size="sm">Logout</Button>
+            <Button onClick={handleLogout} variant="destructive" size="sm">Logout</Button>
           </div>
         </header>
         

@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Utensils } from "lucide-react"; // Added Utensils for a generic logo icon
 import { Auth as SupabaseAuthUI } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 
@@ -89,18 +89,15 @@ const Auth = () => {
         password,
       });
       error = signInError;
-      // Success navigation is handled by onAuthStateChange
     } else {
       console.log("Attempting sign up...");
       const { error: signUpError } = await supabase.auth.signUp({
         email,
         password,
-        // Supabase handles email confirmation for password sign-ups by default
       });
       error = signUpError;
       if (!error) {
         showSuccess("Sign up successful! Please check your email to confirm.");
-        // User stays on page to see message, or you can redirect to a "check email" page
       }
     }
 
@@ -113,8 +110,14 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-4 relative">
+      <div className="absolute top-4 left-4 md:top-6 md:left-6">
+        <Link to="/" className="flex items-center text-2xl font-bold text-gray-800 hover:text-teal-600 transition-colors">
+          <Utensils className="h-7 w-7 mr-2 text-teal-600" />
+          BitePath
+        </Link>
+      </div>
+      <Card className="w-full max-w-md mt-16 md:mt-0"> {/* Added margin-top for spacing from logo on mobile */}
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold">
             {isLogin ? "Login to Your Account" : "Join BitePath Today!"}
@@ -129,8 +132,8 @@ const Auth = () => {
           <SupabaseAuthUI
             supabaseClient={supabase}
             appearance={{ theme: ThemeSupa }}
-            providers={['google']} // <-- Added Google here
-            redirectTo={window.location.origin + "/dashboard"} // Redirect after successful SSO
+            providers={['google']}
+            redirectTo={window.location.origin + "/dashboard"}
             localization={{
               variables: {
                 sign_in: {
@@ -155,13 +158,9 @@ const Auth = () => {
               },
             }}
             view={isLogin ? 'sign_in' : 'sign_up'}
-            showLinks={false} // We handle the toggle link manually
-            theme="light" // Or "dark" if you have a dark theme
+            showLinks={false}
+            theme="light"
           />
-
-          {/* Manual Email/Password form for more control if needed, or can be removed if AuthUI is sufficient */}
-          {/* For now, let's keep the AuthUI as the primary method and hide the manual form if SSO is the focus */}
-          {/* If you want to keep both, you'd structure this differently */}
           
           <div className="mt-6 text-center text-sm">
             {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
