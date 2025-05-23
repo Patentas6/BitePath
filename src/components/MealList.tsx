@@ -25,6 +25,12 @@ interface Meal extends MealForEditing {
   // id, name, ingredients, instructions are already in MealForEditing
 }
 
+interface ParsedIngredient {
+  name: string;
+  quantity: number | string;
+  unit: string;
+}
+
 
 const MealList = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -102,6 +108,29 @@ const MealList = () => {
     );
   }, [meals, searchTerm]);
 
+  const formatIngredientsDisplay = (ingredientsString: string | null | undefined): string => {
+    if (!ingredientsString) return 'No ingredients listed.';
+    try {
+      const parsedIngredients: ParsedIngredient[] = JSON.parse(ingredientsString);
+      if (Array.isArray(parsedIngredients) && parsedIngredients.length > 0) {
+        const names = parsedIngredients.map(ing => ing.name).filter(Boolean);
+        if (names.length === 0) return 'Ingredients listed (check format).';
+        
+        let displayText = names.slice(0, 4).join(', '); // Show up to 4 ingredient names
+        if (names.length > 4) {
+          displayText += ', ...';
+        }
+        return displayText;
+      }
+      // If JSON is valid but not an array or is an empty array
+      return 'No ingredients listed or format error.'; 
+    } catch (e) {
+      // If JSON.parse fails, it's likely old plain text. Display as is, truncated.
+      const maxLength = 60; // Slightly longer truncation for plain text
+      return ingredientsString.substring(0, maxLength) + (ingredientsString.length > maxLength ? '...' : '');
+    }
+  };
+
 
   if (isLoading) {
     return (
@@ -168,7 +197,11 @@ const MealList = () => {
                 <div className="flex justify-between items-start">
                   <div>
                     <h3 className="text-lg font-semibold">{meal.name}</h3>
-                    {meal.ingredients && <p className="text-xs text-gray-500 mt-1">Ingredients: {meal.ingredients.substring(0,50)}{meal.ingredients.length > 50 ? '...' : ''}</p>}
+                    {meal.ingredients && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Ingredients: {formatIngredientsDisplay(meal.ingredients)}
+                      </p>
+                    )}
                     {meal.instructions && <p className="text-xs text-gray-500 mt-1">Instructions: {meal.instructions.substring(0,50)}{meal.instructions.length > 50 ? '...' : ''}</p>}
                   </div>
                   <div className="flex space-x-2 flex-shrink-0">
