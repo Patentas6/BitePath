@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { format } from "date-fns";
 import { showError, showSuccess } from "@/utils/toast";
-import { MEAL_TAG_OPTIONS, MealTag } from "@/lib/constants"; // Import tags
+import { MEAL_TAG_OPTIONS, MealTag } from "@/lib/constants"; 
 
 import { Button } from "@/components/ui/button";
 import {
@@ -22,22 +22,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input"; // Import Input
+import { Input } from "@/components/ui/input"; 
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge"; // Import Badge
+import { Badge } from "@/components/ui/badge"; 
 import { Search, X } from "lucide-react";
 
 interface Meal {
   id: string;
   name: string;
-  meal_tags?: string[] | null; // Added meal_tags
+  meal_tags?: string[] | null; 
 }
 
 interface AddMealToPlanDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   planDate: Date | null;
-  mealType: string | null; // This is the slot type (Breakfast, Lunch, Dinner)
+  mealType: string | null; 
   userId: string | null;
 }
 
@@ -45,7 +45,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
   open,
   onOpenChange,
   planDate,
-  mealType, // This is the slot type from the planner
+  mealType, 
   userId,
 }) => {
   const [selectedMealId, setSelectedMealId] = useState<string | undefined>(undefined);
@@ -54,12 +54,12 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
   const queryClient = useQueryClient();
 
   const { data: meals, isLoading: isLoadingMeals, error: mealsError } = useQuery<Meal[]>({
-    queryKey: ["userMealsWithTags", userId], // Changed queryKey to reflect tags
+    queryKey: ["userMealsWithTags", userId], 
     queryFn: async () => {
       if (!userId) throw new Error("User ID is required to fetch meals.");
       const { data, error } = await supabase
         .from("meals")
-        .select("id, name, meal_tags") // Fetch meal_tags
+        .select("id, name, meal_tags") 
         .eq("user_id", userId);
       if (error) throw error;
       return data || [];
@@ -67,16 +67,15 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
     enabled: !!userId && open,
   });
 
-  // Suggest initial tag filter based on the mealType of the slot
+  // Effect to reset states when dialog opens
   useEffect(() => {
-    if (open && mealType && MEAL_TAG_OPTIONS.includes(mealType as MealTag)) {
-      setSelectedTags([mealType as MealTag]);
-    } else if (open) {
-      setSelectedTags([]); // Default to no tags selected if mealType is not a valid tag
+    if (open) {
+      // Always start with no tags selected to show all meals initially
+      setSelectedTags([]); 
+      setSearchTerm(""); 
+      setSelectedMealId(undefined); 
     }
-    setSearchTerm(""); // Reset search term when dialog opens
-    setSelectedMealId(undefined); // Reset selected meal
-  }, [open, mealType]);
+  }, [open]); // Removed mealType dependency to ensure it always resets to all meals
 
 
   const filteredMeals = useMemo(() => {
@@ -128,9 +127,10 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
     onSuccess: () => {
       showSuccess("Meal plan updated!");
       if (planDate) {
-        queryClient.invalidateQueries({ queryKey: ["mealPlans", userId, format(planDate, 'yyyy-MM-dd').substring(0, 7)] });
+        // More specific invalidation if possible, e.g., by week/month
+        queryClient.invalidateQueries({ queryKey: ["mealPlans", userId, format(planDate, 'yyyy-MM-dd').substring(0, 7)] }); 
       }
-      queryClient.invalidateQueries({ queryKey: ["mealPlans"] });
+      queryClient.invalidateQueries({ queryKey: ["mealPlans"] }); // General invalidation
       queryClient.invalidateQueries({ queryKey: ["groceryList"] });
       onOpenChange(false);
     },
@@ -153,7 +153,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md"> {/* Adjusted width */}
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Add / Change Meal for {mealType}</DialogTitle>
           <DialogDescription>
@@ -161,7 +161,6 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
           </DialogDescription>
         </DialogHeader>
         
-        {/* Search and Filter Controls */}
         <div className="grid gap-4 py-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -195,7 +194,6 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
             </div>
           </div>
 
-          {/* Meal Selection */}
           <div className="grid grid-cols-1 items-center gap-4">
             <Label htmlFor="meal-select" className="text-sm font-medium">
               Available Meals ({filteredMeals?.length || 0})
