@@ -3,10 +3,9 @@ import convert from 'convert-units';
 export interface ConvertedIngredient {
   quantity: number;
   unit: string;
-  originalUnit: string; // Keep track of the original unit for logic if needed
+  originalUnit: string; 
 }
 
-// Helper to find the best metric unit (e.g., ml to L, g to kg)
 const getBestMetricUnit = (value: number, baseUnit: 'ml' | 'g'): { value: number, unit: string } => {
   if (baseUnit === 'ml') {
     return value >= 1000 ? { value: value / 1000, unit: 'L' } : { value, unit: 'ml' };
@@ -14,50 +13,66 @@ const getBestMetricUnit = (value: number, baseUnit: 'ml' | 'g'): { value: number
   if (baseUnit === 'g') {
     return value >= 1000 ? { value: value / 1000, unit: 'kg' } : { value, unit: 'g' };
   }
-  // Should not be reached if baseUnit is 'ml' or 'g'
   return { value, unit: baseUnit };
 };
+
+// Units to explicitly NOT convert from their common form to ml/L when target is metric
+const RETAIN_AS_IS_UNITS: ReadonlyArray<string> = [
+  'cup', 'cups', 
+  'tsp', 'teaspoon', 'teaspoons',
+  'tbsp', 'tablespoon', 'tablespoons'
+];
 
 export const convertToPreferredSystem = (
   quantity: number,
   unit: string,
-  targetSystem: 'imperial' | 'metric' // For now, 'metric' is the main target for conversion
+  targetSystem: 'imperial' | 'metric'
 ): ConvertedIngredient | null => {
   
-  // If the target is imperial, and we assume units are stored in a way that's already imperial-like,
-  // or they are units like 'piece' that don't convert, return original.
   if (targetSystem === 'imperial') {
     return { quantity, unit, originalUnit: unit };
   }
 
   // Target is Metric
+  let normalizedUnit = unit.toLowerCase().trim();
+
+  // Check if the unit should be retained as is
+  if (RETAIN_AS_IS_UNITS.includes(normalizedUnit)) {
+    return { quantity, unit, originalUnit: unit };
+  }
+
   try {
-    // Normalize common abbreviations that convert-units might not recognize directly or has specific versions for
-    let normalizedUnit = unit.toLowerCase();
+    // Normalize other common abbreviations for convert-units
     if (normalizedUnit === 'fl oz' || normalizedUnit === 'fluid oz') normalizedUnit = 'fl-oz';
-    if (normalizedUnit === 'oz' && (unit.toLowerCase().includes('ounce'))) normalizedUnit = 'oz'; // Assuming weight oz if just 'oz'
-    // 'cup' to 'cup', 'tsp' to 'tsp', 'tbsp' to 'tbsp', 'lb' to 'lb' are usually fine.
+    if (normalizedUnit === 'oz' && unit.toLowerCase().includes('ounce')) normalizedUnit = 'oz'; // Distinguish from fl-oz if possible
+    if (normalizedUnit === 'lb' || normalizedUnit === 'lbs') normalizedUnit = 'lb';
     
     const possibilities = convert().from(normalizedUnit).possibilities();
-    let metricBaseTarget: 'ml' | 'g' | null = null;
+    let metricBaseTarget: 'g' | 'ml' | null = null;
 
-    if (possibilities.includes('ml') || possibilities.includes('l')) metricBaseTarget = 'ml';
-    else if (possibilities.includes('g') || possibilities.includes('kg')) metricBaseTarget = 'g';
+    // Prioritize mass conversion for units like 'lb' or 'oz' (if they are mass)
+    if (possibilities.includes('g') || possibilities.includes('kg')) {
+      metricBaseTarget = 'g';
+    } 
+    // Then volume for other units, if not already handled by RETAIN_AS_IS_UNITS
+    else if (possibilities.includes('ml') || possibilities.includes('l')) {
+      metricBaseTarget = 'ml';
+    }
 
     if (metricBaseTarget) {
       const valueInBaseMetric = convert(quantity).from(normalizedUnit).to(metricBaseTarget);
       const bestFit = getBestMetricUnit(valueInBaseMetric, metricBaseTarget);
-      // Round to 1 decimal place, or 0 if it's a whole number after rounding
+      
       const finalQuantity = parseFloat(bestFit.value.toFixed(1));
       const roundedQuantity = (finalQuantity % 1 === 0) ? Math.round(finalQuantity) : finalQuantity;
 
       return { quantity: roundedQuantity, unit: bestFit.unit, originalUnit: unit };
     }
     
-    // If no direct path to 'ml'/'l' or 'g'/'kg', return original
+    // If no direct path to 'ml'/'l' or 'g'/'kg' (and not in RETAIN_AS_IS_UNITS), return original
     return { quantity, unit, originalUnit: unit };
   } catch (e) {
-    // If 'convert-units' throws an error (e.g., unknown unit), return original
+    // If 'convert-units' throws an error, return original
     // console.warn(`Conversion failed for ${quantity} ${unit}: ${(e as Error).message}`);
     return { quantity, unit, originalUnit: unit };
   }
