@@ -12,6 +12,13 @@ export interface MealTemplate {
   image_url?: string | null;
 }
 
+interface ParsedIngredient {
+  name: string;
+  // quantity and unit are not strictly needed for this display card, but good for structure
+  quantity?: number | string; 
+  unit?: string;
+}
+
 interface MealTemplateCardProps {
   template: MealTemplate;
   onAddToMyMeals: (template: MealTemplate) => void;
@@ -19,6 +26,29 @@ interface MealTemplateCardProps {
 }
 
 const MealTemplateCard: React.FC<MealTemplateCardProps> = ({ template, onAddToMyMeals, isAdding }) => {
+  
+  const formatIngredientsForDisplay = (ingredientsString: string | null | undefined, maxLength: number = 100): string => {
+    if (!ingredientsString) return 'Not specified';
+    try {
+      const parsedIngredients: ParsedIngredient[] = JSON.parse(ingredientsString);
+      if (Array.isArray(parsedIngredients) && parsedIngredients.length > 0) {
+        const names = parsedIngredients.map(ing => ing.name).filter(Boolean);
+        if (names.length === 0) return 'Ingredients listed (check format).';
+        
+        let displayText = names.slice(0, 5).join(', '); // Show up to 5 ingredient names
+        if (names.length > 5) {
+          displayText += ', ...';
+        }
+        return displayText;
+      }
+      return 'No ingredients listed or format error.';
+    } catch (e) {
+      // If JSON.parse fails, it's likely plain text. Truncate.
+      if (ingredientsString.length <= maxLength) return ingredientsString;
+      return ingredientsString.substring(0, maxLength) + '...';
+    }
+  };
+
   const truncateText = (text: string | null | undefined, maxLength: number) => {
     if (!text) return 'Not specified';
     if (text.length <= maxLength) return text;
@@ -45,7 +75,7 @@ const MealTemplateCard: React.FC<MealTemplateCardProps> = ({ template, onAddToMy
         <div>
           <h4 className="font-semibold text-sm mb-1">Ingredients:</h4>
           <p className="text-xs text-gray-600 mb-2 whitespace-pre-line">
-            {truncateText(template.ingredients, 100)}
+            {formatIngredientsForDisplay(template.ingredients)}
           </p>
         </div>
         <div>
