@@ -11,6 +11,7 @@ import { ArrowLeft } from "lucide-react";
 import { Auth as SupabaseAuthUI } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
+import { useTheme } from "next-themes"; // Import useTheme
 
 const authFormSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
@@ -24,6 +25,7 @@ const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const { theme: appTheme } = useTheme(); // Get the current app theme ('light' or 'dark')
 
   const form = useForm<AuthFormValues>({
     resolver: zodResolver(authFormSchema),
@@ -61,17 +63,8 @@ const Auth = () => {
         </Link>
         <ThemeToggleButton />
       </div>
-      <Card 
-        className="w-full max-w-md mt-16 md:mt-0"
-        style={{
-          // Force light card theme variables for this specific card,
-          // ensuring SupabaseAuthUI (theme="light") has a light background.
-          // @ts-ignore 
-          '--card': 'hsl(0 0% 100%)', /* card background: white */
-          // @ts-ignore 
-          '--card-foreground': 'hsl(222.2 84% 4.9%)' /* card text: dark blue/black */
-        } as React.CSSProperties}
-      >
+      {/* Card will now follow app theme naturally */}
+      <Card className="w-full max-w-md mt-16 md:mt-0">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold">
             {isLogin ? "Login to Your Account" : "Join BitePath Today!"}
@@ -85,16 +78,29 @@ const Auth = () => {
         <CardContent>
           <SupabaseAuthUI
             supabaseClient={supabase}
+            // Dynamically set SupabaseAuthUI theme based on app's theme
+            theme={appTheme === 'dark' ? 'dark' : 'light'}
             appearance={{
-              theme: ThemeSupa,
+              theme: ThemeSupa, // Base UI kit
               variables: {
-                default: { // These variables apply to the 'default' (light) theme of ThemeSupa
+                default: { // For 'light' mode of SupabaseAuthUI
                   colors: {
-                    inputBackground: 'hsl(0 0% 100%)',   // White input background
-                    inputText: 'hsl(0 0% 0%)',           // Black input text (on white input bg)
-                    inputLabelText: 'hsl(0 0% 20%)',      // Dark gray label text (on white card bg)
-                    inputPlaceholder: 'hsl(0 0% 40%)', // Medium gray placeholder (on white input bg)
-                    // anchorTextColor: 'hsl(var(--primary))', // Optional: if links inside SupabaseUI need styling
+                    brand: 'hsl(var(--primary))',
+                    brandAccent: 'hsl(var(--primary-foreground))',
+                    inputBackground: 'hsl(var(--input))',      // App's light input background
+                    inputText: 'hsl(var(--foreground))',       // App's dark text for light mode
+                    inputLabelText: 'hsl(var(--foreground))',  // App's dark text for labels in light mode
+                    inputPlaceholder: 'hsl(var(--muted-foreground))',
+                  },
+                },
+                dark: { // For 'dark' mode of SupabaseAuthUI
+                  colors: {
+                    brand: 'hsl(var(--primary))',
+                    brandAccent: 'hsl(var(--primary-foreground))',
+                    inputBackground: 'hsl(var(--input))',      // App's dark input background
+                    inputText: 'hsl(var(--foreground))',       // App's light text for dark mode
+                    inputLabelText: 'hsl(var(--foreground))',  // App's light text for labels in dark mode
+                    inputPlaceholder: 'hsl(var(--muted-foreground))',
                   },
                 },
               },
@@ -109,14 +115,13 @@ const Auth = () => {
               },
             }}
             view={isLogin ? 'sign_in' : 'sign_up'}
-            showLinks={false} // Keep this false to use custom toggle below
-            theme="light" // This tells SupabaseAuthUI to use its 'light' appearance set
+            showLinks={false}
           />
           <div className="mt-6 text-center text-sm">
             {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
             <button
               onClick={() => navigate(`/auth${isLogin ? '?mode=signup' : ''}`, { replace: true })}
-              className="text-blue-600 hover:underline" // Standard link color, should be visible on light card
+              className="text-blue-600 hover:underline"
               disabled={isLoading}
             >
               {isLogin ? "Sign Up" : "Login"}
