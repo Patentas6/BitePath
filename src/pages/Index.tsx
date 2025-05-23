@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { ThemeToggleButton } from "@/components/ThemeToggleButton"; // Import
+import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 
 const Index = () => {
   return (
@@ -8,14 +8,19 @@ const Index = () => {
       <header className="w-full p-4 bg-white dark:bg-gray-800 shadow-sm">
         <div className="container mx-auto flex justify-between items-center">
           <div className="flex items-center space-x-3"> {/* Group logo and button */}
-            <div className="text-lg font-bold">BitePath</div>
+            <Link 
+              to="/" 
+              className="text-2xl font-bold text-gray-800 dark:text-gray-100 hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
+            >
+              BitePath
+            </Link>
             <ThemeToggleButton />
           </div>
           <nav className="space-x-4">
             <a href="#features" className="hover:underline">Features</a>
             <a href="#pricing" className="hover:underline">Pricing</a>
             <a href="#testimonials" className="hover:underline">Testimonials</a>
-            <a href="/auth" className="hover:underline">Login</a>
+            <Link to="/auth" className="hover:underline">Login</Link> {/* Changed to Link */}
             <Button variant="default" size="sm" asChild>
               <Link to="/auth?mode=signup">Sign Up</Link>
             </Button>
