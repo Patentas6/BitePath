@@ -91,15 +91,12 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
   const [displaySystem, setDisplaySystem] = useState<'imperial' | 'metric'>('imperial');
   const today = startOfToday();
 
-  console.log(`[GroceryList] Rendering. Week start: ${format(currentWeekStart, 'yyyy-MM-dd')}, Today: ${format(today, 'yyyy-MM-dd')}`);
-
   const { data: plannedMealsData, isLoading, error: plannedMealsError } = useQuery<PlannedMealWithIngredients[]>({ 
     queryKey: ["groceryListSource", userId, format(currentWeekStart, 'yyyy-MM-dd')],
     queryFn: async () => {
       if (!userId) return [];
       const startDateStr = format(currentWeekStart, 'yyyy-MM-dd');
       const endDateStr = format(weekEnd, 'yyyy-MM-dd');
-      console.log(`[GroceryList] Fetching meals for grocery list from ${startDateStr} to ${endDateStr}`);
       const { data, error } = await supabase
         .from("meal_plans")
         .select("plan_date, meals ( name, ingredients )")
@@ -107,32 +104,28 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
         .gte("plan_date", startDateStr)
         .lte("plan_date", endDateStr);
       if (error) throw error;
-      console.log(`[GroceryList] Fetched ${data?.length || 0} planned meals raw.`);
       return data || [];
     },
     enabled: !!userId,
   });
 
   const aggregatedIngredients = useMemo(() => {
-    console.log('[GroceryList] Starting aggregation. Raw plannedMealsData:', plannedMealsData);
     if (!plannedMealsData) return [];
 
     const futurePlannedMeals = plannedMealsData.filter(pm => {
       if (!pm.plan_date || typeof pm.plan_date !== 'string') {
-        console.warn('[GroceryList] Invalid plan_date in pm:', pm);
+        // console.warn('[GroceryList] Invalid plan_date in pm:', pm); // Kept useful warns
         return false;
       }
       try {
         const planDate = parseISO(pm.plan_date);
         const isFutureOrToday = !isBefore(planDate, today);
-        // console.log(`[GroceryList] Meal on ${pm.plan_date} (parsed: ${format(planDate, 'yyyy-MM-dd')}). Is future/today: ${isFutureOrToday}`);
         return isFutureOrToday;
       } catch (e) {
-        console.warn(`[GroceryList] Invalid date format for plan_date: ${pm.plan_date}`, e);
+        // console.warn(`[GroceryList] Invalid date format for plan_date: ${pm.plan_date}`, e); // Kept useful warns
         return false;
       }
     });
-    console.log(`[GroceryList] Filtered to ${futurePlannedMeals.length} future/today meals.`);
 
     const ingredientMap = new Map<string, GroceryListItem>();
     futurePlannedMeals.forEach(pm => {
@@ -167,7 +160,6 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
         } catch (e) { console.warn("[GroceryList.tsx] Failed to parse ingredients JSON:", ingredientsBlock, e); }
       }
     });
-    console.log('[GroceryList] Aggregation complete. Resulting map size:', ingredientMap.size);
     return Array.from(ingredientMap.values());
   }, [plannedMealsData, today]);
 

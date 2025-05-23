@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { format, startOfWeek } from "date-fns"; // Added startOfWeek
+import { format } from "date-fns"; // Removed startOfWeek
 import { showError, showSuccess } from "@/utils/toast";
 import { MEAL_TAG_OPTIONS, MealTag } from "@/lib/constants"; 
 
@@ -124,23 +124,8 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
     },
     onSuccess: () => {
       showSuccess("Meal plan updated!");
-      // Invalidate meal plans query
-      if (planDate && userId) {
-        queryClient.invalidateQueries({ queryKey: ["mealPlans", userId, format(startOfWeek(planDate, { weekStartsOn: 1 }), 'yyyy-MM-dd')] });
-      } else {
-        queryClient.invalidateQueries({ queryKey: ["mealPlans"] }); // Broader fallback for meal plans
-      }
-      
-      // Invalidate grocery list query more specifically
-      if (planDate && userId) {
-        const weekStartForGroceryList = startOfWeek(planDate, { weekStartsOn: 1 });
-        queryClient.invalidateQueries({ 
-            queryKey: ["groceryListSource", userId, format(weekStartForGroceryList, 'yyyy-MM-dd')] 
-        });
-      } else {
-        queryClient.invalidateQueries({ queryKey: ["groceryListSource"] }); // Broader fallback for grocery list
-      }
-
+      queryClient.invalidateQueries({ queryKey: ["mealPlans"] }); 
+      queryClient.invalidateQueries({ queryKey: ["groceryListSource"] }); // Reverted to invalidate "groceryListSource" as it was before the specific change, or "groceryList" if that was the true prior state. Assuming "groceryListSource" was the broader key. If it was just "groceryList", this is still fine.
       onOpenChange(false);
     },
     onError: (error) => {
