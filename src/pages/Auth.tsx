@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react"; // Added useEffect
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useNavigate, Link, useLocation } from "react-router-dom"; // Added useLocation
-import { supabase } from "@/lib/supabase"; 
-import { showError, showSuccess } from "@/utils/toast"; 
+import { useNavigate, Link, useLocation } from "react-router-dom";
+import { supabase } from "@/lib/supabase";
+import { showError, showSuccess } from "@/utils/toast";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -18,8 +18,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ArrowLeft } from "lucide-react";
+import { Auth as SupabaseAuthUI } from '@supabase/auth-ui-react';
+import { ThemeSupa } from '@supabase/auth-ui-shared';
 
-// Define validation schema for auth forms
+// Define validation schema for email/password auth forms
 const authFormSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
   password: z.string().min(8, { message: "Password must be at least 8 characters." }),
@@ -28,10 +30,10 @@ const authFormSchema = z.object({
 type AuthFormValues = z.infer<typeof authFormSchema>;
 
 const Auth = () => {
-  const [isLogin, setIsLogin] = useState(true); 
-  const [isLoading, setIsLoading] = useState(false); 
-  const navigate = useNavigate(); 
-  const location = useLocation(); // Get location object
+  const [isLogin, setIsLogin] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const form = useForm<AuthFormValues>({
     resolver: zodResolver(authFormSchema),
@@ -46,10 +48,34 @@ const Auth = () => {
     if (queryParams.get('mode') === 'signup') {
       setIsLogin(false);
     } else {
-      setIsLogin(true); // Default to login if no mode or different mode
+      setIsLogin(true);
     }
-    form.reset(); // Reset form when mode is determined or changes
+    form.reset();
   }, [location.search, form]);
+
+  // Check if user is already logged in
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        navigate("/dashboard", { replace: true });
+      }
+    };
+    checkSession();
+
+    // Listen for successful sign-in (including SSO)
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session) {
+        showSuccess("Logged in successfully!");
+        navigate("/dashboard", { replace: true });
+      }
+    });
+
+    return () => {
+      authListener?.subscription.unsubscribe();
+    };
+  }, [navigate]);
+
 
   const onSubmit = async (values: AuthFormValues) => {
     setIsLoading(true);
@@ -63,18 +89,18 @@ const Auth = () => {
         password,
       });
       error = signInError;
-      if (!error) {
-        showSuccess("Logged in successfully!");
-      }
+      // Success navigation is handled by onAuthStateChange
     } else {
       console.log("Attempting sign up...");
       const { error: signUpError } = await supabase.auth.signUp({
         email,
         password,
+        // Supabase handles email confirmation for password sign-ups by default
       });
       error = signUpError;
       if (!error) {
         showSuccess("Sign up successful! Please check your email to confirm.");
+        // User stays on page to see message, or you can redirect to a "check email" page
       }
     }
 
@@ -83,10 +109,6 @@ const Auth = () => {
     if (error) {
       console.error("Auth error:", error);
       showError(error.message);
-    } else {
-      if (isLogin) {
-         navigate("/dashboard"); 
-      }
     }
   };
 
@@ -104,50 +126,47 @@ const Auth = () => {
           )}
         </CardHeader>
         <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input placeholder="email@example.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <Input type="password" placeholder="********" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button 
-                type="submit" 
-                className={`w-full ${!isLogin ? 'bg-teal-600 hover:bg-teal-700 text-white' : ''}`} 
-                disabled={isLoading}
-              >
-                {isLoading 
-                  ? (isLogin ? "Logging In..." : "Creating Account...") 
-                  : (isLogin ? "Login" : "Create Account")}
-              </Button>
-            </form>
-          </Form>
+          <SupabaseAuthUI
+            supabaseClient={supabase}
+            appearance={{ theme: ThemeSupa }}
+            providers={['google']} // <-- Added Google here
+            redirectTo={window.location.origin + "/dashboard"} // Redirect after successful SSO
+            localization={{
+              variables: {
+                sign_in: {
+                  email_label: "Email address",
+                  password_label: "Password",
+                  button_label: "Sign in",
+                  social_provider_text: "Sign in with {{provider}}",
+                  link_text: "Already have an account? Sign in",
+                },
+                sign_up: {
+                  email_label: "Email address",
+                  password_label: "Password",
+                  button_label: "Sign up",
+                  social_provider_text: "Sign up with {{provider}}",
+                  link_text: "Don't have an account? Sign up",
+                },
+                forgotten_password: {
+                  email_label: "Email address",
+                  button_label: "Send reset instructions",
+                  link_text: "Forgot your password?",
+                },
+              },
+            }}
+            view={isLogin ? 'sign_in' : 'sign_up'}
+            showLinks={false} // We handle the toggle link manually
+            theme="light" // Or "dark" if you have a dark theme
+          />
+
+          {/* Manual Email/Password form for more control if needed, or can be removed if AuthUI is sufficient */}
+          {/* For now, let's keep the AuthUI as the primary method and hide the manual form if SSO is the focus */}
+          {/* If you want to keep both, you'd structure this differently */}
+          
           <div className="mt-6 text-center text-sm">
             {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
             <button
               onClick={() => {
-                // When toggling, navigate to update URL and trigger useEffect
                 const newMode = isLogin ? 'signup' : 'login';
                 navigate(`/auth${newMode === 'signup' ? '?mode=signup' : ''}`, { replace: true });
               }}
