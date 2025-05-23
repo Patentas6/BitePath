@@ -4,19 +4,23 @@ import * as z from 'zod';
 import { supabase } from '@/lib/supabase';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useState } from 'react';
 
+const scaleOptions = Array.from({ length: 11 }, (_, i) => i.toString()); // 0-10
+
 const feedbackFormSchema = z.object({
-  name: z.string().optional(),
-  email: z.string().email({ message: "Please enter a valid email." }).optional().or(z.literal('')),
-  feedbackType: z.enum(['bug', 'suggestion', 'general', 'other'], {
-    required_error: "Please select a feedback type.",
-  }),
-  message: z.string().min(10, { message: "Feedback message must be at least 10 characters." }),
+  q_wishlist: z.string().optional(),
+  q_do_differently: z.string().optional(),
+  q_remove_feature: z.string().optional(),
+  s_pain_grocery: z.string().optional(),
+  s_pain_planning: z.string().optional(),
+  s_app_solves_pain: z.string().optional(),
+  q_favorite_feature: z.string().optional(),
+  q_confusing_feature: z.string().optional(),
+  additional_message: z.string().optional(),
 });
 
 type FeedbackFormValues = z.infer<typeof feedbackFormSchema>;
@@ -26,10 +30,15 @@ const FeedbackForm = () => {
   const form = useForm<FeedbackFormValues>({
     resolver: zodResolver(feedbackFormSchema),
     defaultValues: {
-      name: '',
-      email: '',
-      feedbackType: undefined,
-      message: '',
+      q_wishlist: '',
+      q_do_differently: '',
+      q_remove_feature: '',
+      s_pain_grocery: undefined,
+      s_pain_planning: undefined,
+      s_app_solves_pain: undefined,
+      q_favorite_feature: '',
+      q_confusing_feature: '',
+      additional_message: '',
     },
   });
 
@@ -37,9 +46,14 @@ const FeedbackForm = () => {
     setIsSubmitting(true);
     const loadingToastId = showLoading("Submitting feedback...");
 
+    // Filter out empty optional string fields to keep payload clean
+    const payload = Object.fromEntries(
+      Object.entries(values).filter(([_, v]) => v !== '' && v !== undefined)
+    );
+
     try {
       const { data, error } = await supabase.functions.invoke('send-feedback', {
-        body: values,
+        body: payload, // Send the cleaned payload
       });
 
       dismissToast(loadingToastId);
@@ -65,15 +79,15 @@ const FeedbackForm = () => {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
         <FormField
           control={form.control}
-          name="name"
+          name="q_wishlist"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Name (Optional)</FormLabel>
+              <FormLabel>What features or capabilities do you wish BitePath had that it currently doesn't?</FormLabel>
               <FormControl>
-                <Input placeholder="Your Name" {...field} />
+                <Textarea placeholder="e.g., nutritional information, recipe import from URL..." {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -81,12 +95,12 @@ const FeedbackForm = () => {
         />
         <FormField
           control={form.control}
-          name="email"
+          name="q_do_differently"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Email (Optional)</FormLabel>
+              <FormLabel>Is there anything about how BitePath currently works that you think should be done differently?</FormLabel>
               <FormControl>
-                <Input type="email" placeholder="your.email@example.com" {...field} />
+                <Textarea placeholder="e.g., the way grocery lists are organized, how meals are added..." {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -94,35 +108,98 @@ const FeedbackForm = () => {
         />
         <FormField
           control={form.control}
-          name="feedbackType"
+          name="q_remove_feature"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Feedback Type</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a type..." />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="bug">Bug Report</SelectItem>
-                  <SelectItem value="suggestion">Suggestion</SelectItem>
-                  <SelectItem value="general">General Feedback</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
+              <FormLabel>Are there any features or aspects of BitePath that you think are unnecessary or should be removed?</FormLabel>
+              <FormControl>
+                <Textarea placeholder="Your thoughts on simplifying the app..." {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="space-y-4 p-4 border rounded-md">
+          <h3 className="text-md font-semibold mb-3">Pain Points & Solutions (0 = Not at all, 10 = Extremely)</h3>
+          <FormField
+            control={form.control}
+            name="s_pain_grocery"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>How much of a pain do you typically find grocery listing?</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl><SelectTrigger><SelectValue placeholder="Select a score 0-10" /></SelectTrigger></FormControl>
+                  <SelectContent>{scaleOptions.map(opt => <SelectItem key={`pg-${opt}`} value={opt}>{opt}</SelectItem>)}</SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="s_pain_planning"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>How much of a pain do you typically find weekly meal planning?</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl><SelectTrigger><SelectValue placeholder="Select a score 0-10" /></SelectTrigger></FormControl>
+                  <SelectContent>{scaleOptions.map(opt => <SelectItem key={`pp-${opt}`} value={opt}>{opt}</SelectItem>)}</SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="s_app_solves_pain"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>How well does BitePath currently help solve these pains for you?</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl><SelectTrigger><SelectValue placeholder="Select a score 0-10" /></SelectTrigger></FormControl>
+                  <SelectContent>{scaleOptions.map(opt => <SelectItem key={`sp-${opt}`} value={opt}>{opt}</SelectItem>)}</SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <FormField
+          control={form.control}
+          name="q_favorite_feature"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>What is your favorite feature or aspect of BitePath so far?</FormLabel>
+              <FormControl>
+                <Textarea placeholder="What do you love?" {...field} />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
         <FormField
           control={form.control}
-          name="message"
+          name="q_confusing_feature"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Message</FormLabel>
+              <FormLabel>Was there anything you found confusing or difficult to use while using BitePath?</FormLabel>
               <FormControl>
-                <Textarea placeholder="Tell us what you think..." rows={5} {...field} />
+                <Textarea placeholder="e.g., a particular button, a step in a process..." {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="additional_message"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Do you have any other comments, ideas, or feedback you'd like to share?</FormLabel>
+              <FormControl>
+                <Textarea placeholder="Anything else on your mind..." {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
