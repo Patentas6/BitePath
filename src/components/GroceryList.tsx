@@ -10,284 +10,32 @@ import { ListChecks } from "lucide-react";
 interface PlannedMealWithIngredients {
   meals: {
     name: string;
-    ingredients: string | null;
+    ingredients: string | null; // This will be a JSON string
   } | null;
 }
 
-interface GroceryListProps {
-  userId: string;
-  currentWeekStart: Date;
+interface ParsedIngredientItem {
+  name: string;
+  quantity: number;
+  unit: string;
 }
 
-// --- Start of new parsing logic ---
-
-interface ParsedIngredient {
-  normalizedName: string;
-  quantity: number | null;
-  unit: string | null;
-  isCountable: boolean;
-  originalLine: string;
-}
-
-const UNITS_AND_ADJECTIVES: ReadonlyArray<string> = [
-  'tablespoons', 'tablespoon', 'tbsp', 'teaspoons', 'teaspoon', 'tsp',
-  'fluid ounces', 'fluid ounce', 'fl oz', 'ounces', 'ounce', 'oz', 
-  'pounds', 'pound', 'lbs', 'lb', 'kilograms', 'kilogram', 'kg',
-  'grams', 'gram', 'g', 'milliliters', 'milliliter', 'ml', 'liters', 'liter', 'l',
-  'cups', 'cup', 'c', 'pints', 'pint', 'pt', 'quarts', 'quart', 'qt',
-  'gallons', 'gallon', 'gal', 'cloves', 'clove', 'pinches', 'pinch',
-  'dashes', 'dash', 'cans', 'can', 'packages', 'package', 'pkg',
-  'bunches', 'bunch', 'heads', 'head', 'stalks', 'stalk', 'sprigs', 'sprig',
-  'slices', 'slice', 'pieces', 'piece', 'sticks', 'stick', 'bottles', 'bottle',
-  'boxes', 'box', 'bags', 'bag', 'containers', 'container', 'bars', 'bar',
-  'loaves', 'loaf', 'bulbs', 'bulb', 'ears', 'ear', 'sheets', 'sheet', 'leaves', 'leaf',
-  'large', 'medium', 'small', 'fresh', 'dried', 'ground', 'boneless',
-  'skinless', 'whole', 'diced', 'sliced', 'chopped', 'minced', 'grated',
-  'pounded', 'melted', 'softened', 'beaten', 'crushed', 'toasted',
-  'cooked', 'uncooked', 'ripe', 'firm', 'raw', 'peeled', 'cored', 'seeded',
-  'rinsed', 'drained', 'divided'
+// Constants for unit categorization (can be refined)
+const SUMMABLE_UNITS: ReadonlyArray<string> = [
+  "g", "gram", "grams", "kg", "kgs", "kilogram", "kilograms",
+  "lb", "lbs", "pound", "pounds", "oz", "ounce", "ounces",
+  "ml", "milliliter", "milliliters", "l", "liter", "liters",
+  "piece", "pieces", "can", "cans", "bottle", "bottles", "package", "packages",
+  "slice", "slices", "item", "items", "clove", "cloves", "sprig", "sprigs",
+  "head", "heads", "bunch", "bunches"
 ];
 
-const TRAILING_QUALIFIERS_PATTERNS: ReadonlyArray<RegExp> = [
-  /,?\s*to taste/i, /,?\s*for garnish/i, /,?\s*optional/i, /,?\s*as needed/i,
-  /,?\s*for serving/i, /,?\s*if desired/i, /,?\s*if using/i, /,?\s*or more to taste/i,
-  /,?\s*or as needed/i
+// Units that are typically not summed but listed with their quantities
+const NON_SUMMABLE_DISPLAY_UNITS: ReadonlyArray<string> = [
+  "cup", "cups", "tsp", "teaspoon", "teaspoons",
+  "tbsp", "tablespoon", "tablespoons", "pinch", "pinches", "dash", "dashes"
 ];
 
-const COUNTABLE_UNITS_KEYWORDS: ReadonlyArray<string> = [ 
-  'egg', 'eggs', 'clove', 'cloves', 'can', 'cans', 'bottle', 'bottles', 'head', 'heads',
-  'bunch', 'bunches', 'stalk', 'stalks', 'sprig', 'sprigs', 'slice', 'slices',
-  'piece', 'pieces', 'fillet', 'fillets', 'breast', 'breasts', 'thigh', 'thighs',
-  'link', 'links', 'sheet', 'sheets', 'bar', 'bars', 'loaf', 'loaves', 'bulb', 'bulbs', 'ear', 'ears'
-];
-
-const IMPLICITLY_COUNTABLE_INGREDIENTS_ENDINGS: ReadonlyArray<string> = [ 
-  'apple', 'apples', 'potato', 'potatoes', 'onion', 'onions', 'carrot', 'carrots', 'tomato', 'tomatoes',
-  'lemon', 'lemons', 'lime', 'limes', 'banana', 'bananas', 'pepper', 'peppers', 
-  'zucchini', 'zucchinis', 'cucumber', 'cucumbers', 'mushroom', 'mushrooms', 
-  'radish', 'radishes', 'beet', 'beets', 'orange', 'oranges', 'pear', 'pears', 'peach', 'peaches', 'plum', 'plums'
-];
-
-const SUMMABLE_WEIGHT_MASS_UNITS: ReadonlyArray<string> = [
-  "g", "gram", "grams", 
-  "kg", "kgs", "kilogram", "kilograms", 
-  "lb", "lbs", "pound", "pounds",
-  "oz", "ounce", "ounces" 
-];
-
-const DISPLAY_NAME_ONLY_UNITS: ReadonlyArray<string> = [
-  "cup", "cups", 
-  "tsp", "teaspoon", "teaspoons", 
-  "tbsp", "tablespoon", "tablespoons",
-  "ml", "milliliter", "milliliters", 
-  "l", "liter", "liters",
-  "fl oz", "fluid ounce", "fluid ounces", 
-  "pinch", "pinches", "dash", "dashes"
-];
-
-const ALL_KNOWN_UNIT_STRINGS = [...new Set([...SUMMABLE_WEIGHT_MASS_UNITS, ...DISPLAY_NAME_ONLY_UNITS, ...COUNTABLE_UNITS_KEYWORDS])].sort((a, b) => b.length - a.length);
-
-
-function smartParseFloat(numStr: string | undefined): number | null {
-  if (!numStr) return null;
-  const standardizedNumStr = numStr.replace(',', '.'); // Replace comma with period
-  if (standardizedNumStr.includes('/')) {
-    const parts = standardizedNumStr.split('/');
-    if (parts.length === 2) {
-      const num = parseFloat(parts[0]);
-      const den = parseFloat(parts[1]);
-      if (!isNaN(num) && !isNaN(den) && den !== 0) return num / den;
-    }
-    return null;
-  }
-  const val = parseFloat(standardizedNumStr);
-  return isNaN(val) ? null : val;
-}
-
-function parseIngredientLine(line: string): ParsedIngredient {
-  const originalLine = line;
-  let ingredientPart = line.toLowerCase();
-  let quantity: number | null = null;
-  let extractedUnit: string | null = null;
-
-  ingredientPart = ingredientPart.replace(/\s*\([^)]*\)\s*/g, ' ').trim(); 
-
-  const rangeRegex = /^\s*(\d+(?:[\.\/]\d+)?)\s*-\s*(\d+(?:[\.\/]\d+)?)\s*/;
-  const rangeMatch = ingredientPart.match(rangeRegex);
-  let match; 
-
-  if (rangeMatch) {
-    const num1Str = rangeMatch[1]?.replace(',', '.'); // Pre-replace for safety before smartParseFloat
-    const num2Str = rangeMatch[2]?.replace(',', '.'); // Pre-replace for safety
-    const num1 = smartParseFloat(num1Str); // smartParseFloat will also handle (now redundant but safe)
-    const num2 = smartParseFloat(num2Str);
-    if (num1 !== null && num2 !== null) {
-      quantity = Math.max(num1, num2); 
-      ingredientPart = ingredientPart.substring(rangeMatch[0].length); 
-      const unitAfterRangeRegex = /^\s*([a-zA-Z]+(?:\s+[a-zA-Z]+){0,2})?\s*(.*)/;
-      const unitMatch = ingredientPart.match(unitAfterRangeRegex);
-      if (unitMatch) {
-          const potentialUnit = unitMatch[1]?.trim();
-          const potentialUnitLC = potentialUnit?.toLowerCase();
-          if (potentialUnitLC && (potentialUnitLC === 'lbs' || potentialUnitLC === 'lb' || potentialUnitLC === 'g' || potentialUnitLC === 'gram' || potentialUnitLC === 'grams' || potentialUnitLC === 'kg' || potentialUnitLC === 'kilogram' || potentialUnitLC === 'kilograms' || potentialUnitLC === 'oz' || potentialUnitLC === 'ounce' || potentialUnitLC === 'ounces')) {
-              extractedUnit = potentialUnitLC;
-              ingredientPart = unitMatch[2]?.trim() || "";
-          } else if (potentialUnit && ALL_KNOWN_UNIT_STRINGS.includes(potentialUnit)) {
-              extractedUnit = potentialUnit;
-              ingredientPart = unitMatch[2]?.trim() || "";
-          } else {
-              ingredientPart = unitMatch[0]?.trim(); 
-          }
-      }
-    }
-  } else {
-    const singleNumRegex = /^\s*(\d+(?:[\,\.\/]\d+)?)\s*([a-zA-Z]+(?:\s+[a-zA-Z]+){0,2})?\s*(.*)/;
-    match = ingredientPart.match(singleNumRegex);
-    if (match) {
-      const numStr = match[1]; 
-      const potentialUnit = match[2]?.trim();
-      const remainingName = match[3]?.trim();
-      const tempQty = smartParseFloat(numStr); 
-      if (tempQty !== null) {
-        const potentialUnitLC = potentialUnit?.toLowerCase();
-        if (potentialUnitLC && (potentialUnitLC === 'lbs' || potentialUnitLC === 'lb' || potentialUnitLC === 'g' || potentialUnitLC === 'gram' || potentialUnitLC === 'grams' || potentialUnitLC === 'kg' || potentialUnitLC === 'kilogram' || potentialUnitLC === 'kilograms' || potentialUnitLC === 'oz' || potentialUnitLC === 'ounce' || potentialUnitLC === 'ounces')) {
-            quantity = tempQty;
-            extractedUnit = potentialUnitLC; 
-            ingredientPart = remainingName || "";
-        } else if (potentialUnit && ALL_KNOWN_UNIT_STRINGS.includes(potentialUnit)) { 
-          quantity = tempQty;
-          extractedUnit = potentialUnit;
-          ingredientPart = remainingName || "";
-        } else {
-          quantity = tempQty;
-          ingredientPart = potentialUnit ? `${potentialUnit} ${remainingName || ""}`.trim() : remainingName || "";
-        }
-      }
-    }
-  }
-
-  if (extractedUnit === null && quantity !== null && ingredientPart.length > 0) {
-    for (const unitStr of ALL_KNOWN_UNIT_STRINGS) { 
-      if (ingredientPart.endsWith(" " + unitStr)) {
-        const newNamePart = ingredientPart.substring(0, ingredientPart.length - (unitStr.length + 1)).trim();
-        if (newNamePart.length > 0 || (newNamePart.length === 0 && quantity !== null)) { 
-          extractedUnit = unitStr;
-          ingredientPart = newNamePart;
-          break;
-        }
-      } else if (ingredientPart === unitStr) { 
-        extractedUnit = unitStr;
-        ingredientPart = ""; 
-        break;
-      }
-    }
-  }
-
-  if (quantity === null) { 
-    const trailingRegex = /^(.*?)\s+(\d+(?:[\,\.\/]\d+)?)\s*([a-zA-Z]+(?:\s+[a-zA-Z]+){0,2})?\s*$/; 
-    match = ingredientPart.match(trailingRegex);
-    if (match) {
-      const numStr = match[2]; 
-      const potentialUnit = match[3]?.trim();
-      const namePart = match[1]?.trim();
-      const tempQty = smartParseFloat(numStr); 
-      if (tempQty !== null) {
-        const potentialUnitLC = potentialUnit?.toLowerCase();
-        if (potentialUnitLC && (potentialUnitLC === 'lbs' || potentialUnitLC === 'lb' || potentialUnitLC === 'g' || potentialUnitLC === 'gram' || potentialUnitLC === 'grams' || potentialUnitLC === 'kg' || potentialUnitLC === 'kilogram' || potentialUnitLC === 'kilograms' || potentialUnitLC === 'oz' || potentialUnitLC === 'ounce' || potentialUnitLC === 'ounces')) {
-            quantity = tempQty;
-            extractedUnit = potentialUnitLC;
-            ingredientPart = namePart || "";
-        } else if (potentialUnit && ALL_KNOWN_UNIT_STRINGS.includes(potentialUnit)) {
-            quantity = tempQty;
-            extractedUnit = potentialUnit;
-            ingredientPart = namePart || "";
-        } else if (!potentialUnit) { 
-            quantity = tempQty;
-            ingredientPart = namePart || "";
-        } else { 
-            ingredientPart = `${namePart} ${numStr} ${potentialUnit}`.trim();
-        }
-      }
-    }
-  }
-  
-  ingredientPart = ingredientPart.replace(/^a\s+/, '').trim();
-  for (const pattern of TRAILING_QUALIFIERS_PATTERNS) {
-    ingredientPart = ingredientPart.replace(pattern, '').trim();
-  }
-
-  let currentName = ingredientPart;
-  let changed;
-  do {
-    changed = false;
-    for (const adj of UNITS_AND_ADJECTIVES) {
-        if (extractedUnit && extractedUnit.includes(adj) && extractedUnit.includes(" ")) continue;
-        if (currentName.startsWith(adj + " ")) {
-            if (extractedUnit && adj.toLowerCase() === extractedUnit.toLowerCase()) continue;
-            currentName = currentName.substring(adj.length + 1).trim();
-            changed = true;
-            break;
-        }
-        if (currentName.endsWith(" " + adj)) {
-            if (extractedUnit && adj.toLowerCase() === extractedUnit.toLowerCase()) continue;
-            currentName = currentName.substring(0, currentName.length - (adj.length + 1)).trim();
-            changed = true;
-            break;
-        }
-    }
-  } while (changed);
-  
-  let normalizedName = currentName.trim();
-  normalizedName = normalizedName.replace(/^[,;\s]+|[,;\s]+$/g, '').trim(); 
-
-  const commonIrregularPlurals: {[key: string]: string} = { 'potatoes': 'potato', 'tomatoes': 'tomato', 'leaves': 'leaf', 'loaves': 'loaf', 'knives': 'knife', 'lives': 'life', 'shelves': 'shelf', 'wolves': 'wolf', 'elves': 'elf' };
-  if (commonIrregularPlurals[normalizedName]) {
-      normalizedName = commonIrregularPlurals[normalizedName];
-  } else if (normalizedName.endsWith('ies') && normalizedName.length > 3) {
-      normalizedName = normalizedName.slice(0, -3) + 'y';
-  } else if (normalizedName.endsWith('s') && !normalizedName.endsWith('ss') && !['gas', 'bus', 'lens', 'series', 'species', 'molasses', 'hummus', 'cress'].includes(normalizedName) && normalizedName.length > 1) {
-      if (!ALL_KNOWN_UNIT_STRINGS.includes(normalizedName.toLowerCase())) { 
-        normalizedName = normalizedName.slice(0, -1);
-      }
-  }
-
-  if (normalizedName.length > 0) {
-    normalizedName = normalizedName.charAt(0).toUpperCase() + normalizedName.slice(1);
-  } else if (originalLine.length > 0) { 
-    normalizedName = originalLine.trim().replace(/^[,;\s]+|[,;\s]+$/g, '').trim();
-    if (normalizedName.length > 0) {
-      normalizedName = normalizedName.charAt(0).toUpperCase() + normalizedName.slice(1);
-    } else {
-      normalizedName = "Unknown ingredient";
-    }
-  } else {
-    normalizedName = "Unknown ingredient";
-  }
-  
-  let isCountable = false;
-  if (quantity !== null) {
-    const unitLC = (extractedUnit || "").toLowerCase();
-    const nameLC = normalizedName.toLowerCase();
-
-    if (SUMMABLE_WEIGHT_MASS_UNITS.includes(unitLC)) {
-      isCountable = true;
-    } else if (DISPLAY_NAME_ONLY_UNITS.includes(unitLC)) {
-      isCountable = false; 
-    } else {
-      if (nameLC === "black pepper" || nameLC === "white pepper" || nameLC === "cayenne pepper" || nameLC === "ground pepper" || nameLC === "chilli powder" || nameLC === "curry powder" || nameLC === "paprika" || nameLC === "salt") {
-        isCountable = false; 
-      } else if (COUNTABLE_UNITS_KEYWORDS.some(kw => unitLC.includes(kw) || nameLC.includes(kw))) { 
-        isCountable = true;
-      } else if (IMPLICITLY_COUNTABLE_INGREDIENTS_ENDINGS.some(ending => nameLC.endsWith(ending))) {
-        isCountable = true;
-      }
-    }
-  }
-
-  return { normalizedName, quantity, unit: extractedUnit, isCountable, originalLine };
-}
-
-// --- End of new parsing logic ---
 
 const categoriesMap = {
   Produce: ['apple', 'banana', 'orange', 'pear', 'grape', 'berry', 'berries', 'strawberry', 'blueberry', 'raspberry', 'avocado', 'tomato', 'potato', 'onion', 'garlic', 'carrot', 'broccoli', 'spinach', 'lettuce', 'salad greens', 'celery', 'cucumber', 'bell pepper', 'pepper', 'zucchini', 'mushroom', 'lemon', 'lime', 'cabbage', 'kale', 'asparagus', 'eggplant', 'corn', 'sweet potato', 'ginger', 'parsley', 'cilantro', 'basil', 'mint', 'rosemary', 'thyme', 'dill', 'leek', 'scallion', 'green bean', 'pea', 'artichoke', 'beet', 'radish', 'squash'],
@@ -301,6 +49,14 @@ const categoriesMap = {
 type Category = keyof typeof categoriesMap;
 const categoryOrder: Category[] = ['Produce', 'Meat & Poultry', 'Dairy & Eggs', 'Pantry', 'Frozen', 'Beverages', 'Other'];
 
+
+interface GroceryListItem {
+  name: string;
+  totalQuantity: number;
+  unit: string | null; // Unit might be null if not summable or not consistently defined
+  isSummable: boolean; // Indicates if totalQuantity represents a sum
+  originalItems: ParsedIngredientItem[]; // To store original parsed items for tooltip or detailed view
+}
 
 const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) => {
   const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
@@ -322,58 +78,67 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
   const aggregatedIngredients = useMemo(() => {
     if (!plannedMeals) return [];
     
-    const ingredientMap = new Map<string, { name: string; totalQuantity: number; unit: string | null; isCountable: boolean; originalLines: string[] }>();
+    const ingredientMap = new Map<string, GroceryListItem>();
 
     plannedMeals.forEach(pm => {
       const ingredientsBlock = pm.meals?.ingredients;
-      if (ingredientsBlock) {
-        ingredientsBlock.split('\n').forEach(line => {
-          const trimmedLine = line.trim();
-          if (trimmedLine.length === 0) return;
-          
-          const parsed = parseIngredientLine(trimmedLine);
-          if (parsed.normalizedName === "Unknown ingredient" || parsed.normalizedName.length === 0) return;
-          
-          const existing = ingredientMap.get(parsed.normalizedName);
-          if (existing) {
-            if (parsed.unit && DISPLAY_NAME_ONLY_UNITS.includes(parsed.unit.toLowerCase())) {
-              existing.isCountable = false; 
-              existing.totalQuantity = 0;
-            } else if (parsed.isCountable && !existing.isCountable) {
-              if (!(parsed.unit && DISPLAY_NAME_ONLY_UNITS.includes(parsed.unit.toLowerCase()))){
-                 existing.isCountable = true;
-                 existing.totalQuantity = parsed.quantity !== null ? parsed.quantity : 0; 
+      if (ingredientsBlock && typeof ingredientsBlock === 'string') {
+        try {
+          const parsedIngredientList: ParsedIngredientItem[] = JSON.parse(ingredientsBlock);
+          if (Array.isArray(parsedIngredientList)) {
+            parsedIngredientList.forEach(item => {
+              if (!item.name || typeof item.quantity !== 'number' || !item.unit) {
+                console.warn("Skipping malformed ingredient item:", item);
+                return;
               }
-            } else if (parsed.isCountable && existing.isCountable && parsed.quantity !== null) {
-              existing.totalQuantity += parsed.quantity; 
-            }
-            
-            if (parsed.unit) {
-              if (SUMMABLE_WEIGHT_MASS_UNITS.includes(parsed.unit.toLowerCase())) {
-                existing.unit = parsed.unit;
-              } else if (!existing.unit && !DISPLAY_NAME_ONLY_UNITS.includes(parsed.unit.toLowerCase())) {
-                existing.unit = parsed.unit;
+
+              const normalizedName = item.name.trim().toLowerCase();
+              const unitLower = item.unit.toLowerCase();
+              
+              // Use a composite key if units are not meant to be mixed (e.g. "flour, 1 cup" and "flour, 200g")
+              // For simplicity here, we'll use normalizedName as key and handle unit logic below.
+              const mapKey = normalizedName;
+
+              const existing = ingredientMap.get(mapKey);
+
+              if (existing) {
+                existing.originalItems.push(item);
+                if (existing.isSummable && SUMMABLE_UNITS.includes(unitLower) && existing.unit?.toLowerCase() === unitLower) {
+                  existing.totalQuantity += item.quantity;
+                } else if (existing.isSummable && SUMMABLE_UNITS.includes(unitLower) && !NON_SUMMABLE_DISPLAY_UNITS.includes(unitLower)) {
+                  // If units are different but both summable (e.g. g and kg), this needs conversion logic (not implemented here)
+                  // For now, if units differ, we might list them separately or just add to originalItems
+                  // This part can be enhanced for unit conversion.
+                  // As a simple approach, if units differ, we might make it non-summable for display.
+                  console.warn(`Mixing units for ${normalizedName}: ${existing.unit} and ${item.unit}. Summation might be inaccurate without conversion.`);
+                  existing.isSummable = false; // Mark as non-summable if units are mixed without conversion
+                } else {
+                  // If existing is not summable, or new item's unit is not summable with existing
+                  existing.isSummable = false;
+                }
+              } else {
+                const isItemSummable = SUMMABLE_UNITS.includes(unitLower);
+                ingredientMap.set(mapKey, {
+                  name: item.name, // Keep original casing for display name
+                  totalQuantity: item.quantity,
+                  unit: item.unit,
+                  isSummable: isItemSummable,
+                  originalItems: [item]
+                });
               }
-            }
-            existing.originalLines.push(trimmedLine);
-          } else { 
-            ingredientMap.set(parsed.normalizedName, {
-              name: parsed.normalizedName,
-              totalQuantity: (parsed.isCountable && parsed.quantity !== null) ? parsed.quantity : 0,
-              unit: (parsed.unit && DISPLAY_NAME_ONLY_UNITS.includes(parsed.unit.toLowerCase())) ? null : parsed.unit, 
-              isCountable: parsed.isCountable,
-              originalLines: [trimmedLine]
             });
           }
-        });
+        } catch (e) {
+          console.warn("Failed to parse ingredients JSON for a meal, or it's in old format:", ingredientsBlock, e);
+        }
       }
     });
     return Array.from(ingredientMap.values());
   }, [plannedMeals]);
 
   const categorizedDisplayList = useMemo(() => {
-    const grouped: Record<Category, Array<{ name: string; displayText: string; originalLines: string[] }>> = 
-      categoryOrder.reduce((acc, cat) => { acc[cat] = []; return acc; }, {} as Record<Category, Array<{ name: string; displayText: string; originalLines: string[] }>>);
+    const grouped: Record<Category, Array<{ name: string; displayText: string; originalItemsTooltip: string }>> = 
+      categoryOrder.reduce((acc, cat) => { acc[cat] = []; return acc; }, {} as Record<Category, Array<{ name: string; displayText: string; originalItemsTooltip: string }>>);
 
     aggregatedIngredients.forEach(item => {
       let foundCategory: Category = 'Other';
@@ -388,34 +153,30 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
       }
       
       let displayText = item.name;
-      if (item.isCountable && item.totalQuantity > 0) {
+      if (item.isSummable && item.totalQuantity > 0) {
         const displayTotalQuantity = item.totalQuantity % 1 === 0 ? item.totalQuantity : item.totalQuantity.toFixed(1);
-        let unitSuffix = "";
-        let baseName = item.name;
-
-        if (item.unit) {
-          let currentUnit = item.unit;
-          if (item.totalQuantity > 1 && !currentUnit.endsWith('s') && currentUnit.length > 0) {
-             if (currentUnit.endsWith('y') && !['day', 'key', 'way', 'toy', 'boy', 'guy'].includes(currentUnit.toLowerCase())) {
-                currentUnit = currentUnit.slice(0, -1) + 'ies';
-             } else {
-                currentUnit += 's';
-             }
-          }
-          unitSuffix = " " + currentUnit;
-        } else { 
-          if (item.totalQuantity > 1 && !baseName.endsWith('s') && !baseName.endsWith('es')) {
-             if (baseName.endsWith('y') && !['day', 'key', 'way', 'toy', 'boy', 'guy'].includes(baseName.toLowerCase())) {
-                baseName = baseName.slice(0,-1) + "ies";
-             } else {
-                baseName += "s";
-             }
-          }
+        let unitDisplay = item.unit || "";
+        if (item.totalQuantity > 1 && unitDisplay && !unitDisplay.endsWith('s') && !NON_SUMMABLE_DISPLAY_UNITS.includes(unitDisplay.toLowerCase())) {
+           // Basic pluralization, can be improved
+           if (unitDisplay.endsWith('y') && !['day', 'key', 'way', 'toy', 'boy', 'guy'].includes(unitDisplay.toLowerCase())) {
+              unitDisplay = unitDisplay.slice(0, -1) + 'ies';
+           } else {
+              unitDisplay += "s";
+           }
         }
-        displayText = `${baseName}: ${displayTotalQuantity}${unitSuffix}`;
+        displayText = `${item.name}: ${displayTotalQuantity} ${unitDisplay}`;
+      } else if (!item.isSummable && item.originalItems.length > 0) {
+        // For non-summable items, list them or show the first one
+        displayText = item.originalItems.map(orig => `${item.name}: ${orig.quantity} ${orig.unit}`).join('; ');
+         if (item.originalItems.length > 1) displayText = `${item.name} (multiple entries)`; // Simpler display for multiple non-summable
+         else displayText = `${item.name}: ${item.originalItems[0].quantity} ${item.originalItems[0].unit}`;
+
       }
 
-      grouped[foundCategory].push({ name: item.name, displayText, originalLines: item.originalLines });
+
+      const originalItemsTooltip = item.originalItems.map(oi => `${oi.quantity} ${oi.unit} ${oi.name}`).join('\n');
+
+      grouped[foundCategory].push({ name: item.name, displayText, originalItemsTooltip });
     });
 
     for (const cat of categoryOrder) {
@@ -480,7 +241,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
       </CardHeader>
       <CardContent>
         {isEmptyList ? (
-          <p className="text-sm text-gray-600">No ingredients found for the planned meals this week, or ingredients could not be processed.</p>
+          <p className="text-sm text-gray-600">No ingredients found for the planned meals this week, or ingredients could not be processed into the new format.</p>
         ) : (
           categoryOrder.map(category => {
             const itemsInCategory = categorizedDisplayList[category];
@@ -503,7 +264,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
                         className={`cursor-pointer p-1 rounded hover:bg-gray-100 ${
                           struckItems.has(item.displayText) ? 'line-through text-gray-400' : 'text-gray-700'
                         }`}
-                        title={item.originalLines.join('\n')}
+                        title={item.originalItemsTooltip}
                       >
                         {item.displayText}
                       </li>
