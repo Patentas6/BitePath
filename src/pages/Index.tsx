@@ -22,8 +22,15 @@ const Index = () => {
             <a href="#pricing" className="hover:underline">Pricing</a>
             <a href="#testimonials" className="hover:underline">Testimonials</a>
             <Link to="/auth" className="hover:underline">Login</Link>
-            {/* Modified this button for testing direct alpha */}
-            <Button size="sm" className="bg-[#2CFF05]/75 text-primary-foreground hover:bg-[#2CFF05]/85" asChild>
+            {/* Test with inline style for 10% opacity */}
+            <Button 
+              size="sm" 
+              style={{ 
+                backgroundColor: 'hsla(110, 100%, 51%, 0.10)', 
+                color: '#070500' /* Explicit black text */
+              }} 
+              asChild
+            >
               <Link to="/auth?mode=signup"><span>Sign Up</span></Link>
             </Button>
           </nav>
