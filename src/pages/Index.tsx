@@ -22,13 +22,9 @@ const Index = () => {
             <a href="#pricing" className="hover:underline">Pricing</a>
             <a href="#testimonials" className="hover:underline">Testimonials</a>
             <Link to="/auth" className="hover:underline">Login</Link>
-            {/* Test with inline style for 10% opacity */}
             <Button 
               size="sm" 
-              style={{ 
-                backgroundColor: 'hsla(110, 100%, 51%, 0.10)', 
-                color: '#070500' /* Explicit black text */
-              }} 
+              variant="default" // Reverted to default variant
               asChild
             >
               <Link to="/auth?mode=signup"><span>Sign Up</span></Link>

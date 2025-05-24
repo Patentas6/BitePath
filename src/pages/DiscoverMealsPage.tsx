@@ -104,7 +104,6 @@ const DiscoverMealsPage = () => {
   let content;
   if (isLoadingTemplates || (userId && isLoadingUserMealNames)) {
     content = (
-      // Changed to grid-cols-2 md:grid-cols-3 and reduced gap
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {Array.from({ length: 3 }).map((_, i) => (
           <Card key={i} className="hover:shadow-lg transition-shadow duration-200">
@@ -119,7 +118,6 @@ const DiscoverMealsPage = () => {
     content = <p className="text-center text-red-500 dark:text-red-400">Error loading meal templates. Please try again later.</p>;
   } else if (filteredTemplates && filteredTemplates.length > 0) {
     content = (
-      // Changed to grid-cols-2 md:grid-cols-3 and reduced gap
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {filteredTemplates.map(t => 
           <MealTemplateCard 
@@ -182,7 +180,7 @@ const DiscoverMealsPage = () => {
               </div>
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                 <SelectTrigger 
-                  className="w-full sm:w-[200px] bg-primary/75 text-primary-foreground hover:bg-primary/85 focus:ring-ring focus:ring-offset-background"
+                  className="w-full sm:w-[200px] bg-[hsl(var(--primary-60))] text-primary-foreground hover:bg-[hsla(110,100%,51%,0.70)] focus:ring-ring focus:ring-offset-background"
                 >
                   <SelectValue placeholder="Filter by category" />
                 </SelectTrigger>

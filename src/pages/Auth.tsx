@@ -80,17 +80,17 @@ const Auth = () => {
             appearance={{
               theme: ThemeSupa,
               variables: {
-                default: { // For 'light' mode of SupabaseAuthUI (when app is in light mode)
+                default: { 
                   colors: {
-                    brand: 'hsla(110, 100%, 51%, 0.75)', // Updated to 75% opaque green
-                    brandAccent: '#070500', // Black text
+                    brand: 'hsla(110, 100%, 51%, 0.60)', // Updated to 60% opaque green
+                    brandAccent: '#070500', 
                     inputBackground: 'hsl(var(--input))',
                     inputText: 'hsl(var(--foreground))',
                     inputLabelText: 'hsl(var(--foreground))',
                     inputPlaceholder: 'hsl(var(--muted-foreground))',
                   },
                 },
-                dark: { // For 'dark' mode of SupabaseAuthUI (when app is in dark mode)
+                dark: { 
                   colors: {
                     brand: 'hsl(var(--primary))', 
                     brandAccent: 'hsl(var(--primary-foreground))', 

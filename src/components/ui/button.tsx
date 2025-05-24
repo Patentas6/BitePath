@@ -9,7 +9,7 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary/75 text-primary-foreground hover:bg-primary/85", // Applied 75% opacity, adjusted hover
+        default: "bg-[hsl(var(--primary-60))] text-primary-foreground hover:bg-[hsla(110,100%,51%,0.70)]", // Use CSS var for 60% bg, direct hsla for 70% hover
         destructive:
           "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         outline:
