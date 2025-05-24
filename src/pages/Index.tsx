@@ -5,14 +5,15 @@ import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 const Index = () => {
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="w-full p-4 bg-card shadow-sm"> {/* Changed header to use bg-card for potential contrast */}
+      <header className="w-full p-4 bg-card shadow-sm">
         <div className="container mx-auto flex justify-between items-center">
-          <div className="flex items-center space-x-3"> {/* Group logo and button */}
+          <div className="flex items-center space-x-3">
             <Link 
               to="/" 
-              className="text-2xl font-bold hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
+              className="text-2xl font-bold group"
             >
-              BitePath
+              <span className="text-accent transition-opacity duration-150 ease-in-out group-hover:opacity-80">Bite</span>
+              <span className="text-primary transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
             </Link>
             <ThemeToggleButton />
           </div>
@@ -20,7 +21,7 @@ const Index = () => {
             <a href="#features" className="hover:underline">Features</a>
             <a href="#pricing" className="hover:underline">Pricing</a>
             <a href="#testimonials" className="hover:underline">Testimonials</a>
-            <Link to="/auth" className="hover:underline">Login</Link> {/* Changed to Link */}
+            <Link to="/auth" className="hover:underline">Login</Link>
             <Button variant="default" size="sm" asChild>
               <Link to="/auth?mode=signup">Sign Up</Link>
             </Button>
@@ -44,7 +45,7 @@ const Index = () => {
       </section>
 
       {/* Features Section Placeholder */}
-      <section id="features" className="w-full py-16 bg-card text-center"> {/* Changed to bg-card */}
+      <section id="features" className="w-full py-16 bg-card text-center">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold mb-8">Core Features</h2>
           <div className="grid md:grid-cols-3 gap-8">
@@ -65,7 +66,7 @@ const Index = () => {
       </section>
 
       {/* Testimonials Section Placeholder */}
-      <section id="testimonials" className="w-full py-16 bg-background text-center"> {/* Changed to bg-background */}
+      <section id="testimonials" className="w-full py-16 bg-background text-center">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold mb-8">What Our Users Say</h2>
           <p className="text-muted-foreground">Testimonials coming soon!</p>
@@ -73,7 +74,7 @@ const Index = () => {
       </section>
 
       {/* Pricing Section Placeholder */}
-      <section id="pricing" className="w-full py-16 bg-card text-center"> {/* Changed to bg-card */}
+      <section id="pricing" className="w-full py-16 bg-card text-center">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold mb-8">Simple Pricing</h2>
           <div className="grid md:grid-cols-2 gap-8 max-w-lg mx-auto">
@@ -98,7 +99,7 @@ const Index = () => {
                 <li>✓ Advanced grocery list</li>
                 <li>✓ Priority support</li>
               </ul>
-              <Button className="w-full">Go Premium</Button> {/* This will be green by default */}
+              <Button className="w-full">Go Premium</Button>
             </div>
           </div>
         </div>

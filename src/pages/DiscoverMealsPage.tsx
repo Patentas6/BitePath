@@ -65,18 +65,17 @@ const DiscoverMealsPage = () => {
     mutationFn: async (template: MealTemplate) => {
       if (!userId) throw new Error("User not logged in.");
       if (userMealNamesSet.has(template.name)) {
-        // This check is mostly a safeguard; UI should prevent this.
         showError(`"${template.name}" is already in your meals.`);
-        return; // Or throw an error to be caught by onError
+        return; 
       }
       const { error } = await supabase.from('meals').insert([{ user_id: userId, name: template.name, ingredients: template.ingredients, instructions: template.instructions, meal_tags: template.meal_tags }]);
       if (error) throw error;
     },
     onSuccess: (data, vars) => { 
-      if (vars) { // Check if vars is defined (it should be if mutationFn didn't return early)
+      if (vars) { 
         showSuccess(`"${vars.name}" added to your meals!`); 
         queryClient.invalidateQueries({ queryKey: ['meals'] }); 
-        queryClient.invalidateQueries({ queryKey: ['userMealNames', userId] }); // Re-fetch user meal names
+        queryClient.invalidateQueries({ queryKey: ['userMealNames', userId] }); 
       }
     },
     onError: (err, vars) => { 
@@ -148,8 +147,9 @@ const DiscoverMealsPage = () => {
       <div className="container mx-auto space-y-6">
         <header className="flex justify-between items-center mb-6">
           <div className="flex items-center space-x-3">
-            <Link to="/dashboard" className="text-2xl font-bold hover:text-teal-600 dark:hover:text-teal-400 transition-colors">
-              BitePath
+            <Link to="/dashboard" className="text-2xl font-bold group">
+              <span className="text-accent transition-opacity duration-150 ease-in-out group-hover:opacity-80">Bite</span>
+              <span className="text-primary transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
             </Link>
             <ThemeToggleButton />
           </div>
@@ -157,7 +157,7 @@ const DiscoverMealsPage = () => {
             <Sparkles className="h-8 w-8 mr-3 text-teal-600 hidden sm:block" />
             <h1 className="text-xl sm:text-3xl font-bold">Discover Meal Templates</h1>
           </div>
-          <Button variant="outline" asChild> {/* Keeping this outline as it's a back button */}
+          <Button variant="outline" asChild>
             <Link to="/dashboard">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Dashboard

@@ -54,10 +54,11 @@ const Auth = () => {
   }, [navigate]);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-900 p-4 relative">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground p-4 relative">
       <div className="absolute top-4 left-4 md:top-6 md:left-6 flex items-center space-x-3">
-        <Link to="/" className="text-2xl font-bold text-gray-800 dark:text-gray-100 hover:text-teal-600 dark:hover:text-teal-400 transition-colors">
-          BitePath
+        <Link to="/" className="text-2xl font-bold group">
+          <span className="text-accent transition-opacity duration-150 ease-in-out group-hover:opacity-80">Bite</span>
+          <span className="text-primary transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
         </Link>
         <ThemeToggleButton />
       </div>
@@ -81,8 +82,8 @@ const Auth = () => {
               variables: {
                 default: { // For 'light' mode of SupabaseAuthUI (when app is in light mode)
                   colors: {
-                    brand: 'hsl(var(--primary))', // App's light mode primary (dark bg)
-                    brandAccent: 'hsl(var(--primary-foreground))', // App's light mode primary text (light text)
+                    brand: 'hsl(var(--primary))', 
+                    brandAccent: 'hsl(var(--primary-foreground))', 
                     inputBackground: 'hsl(var(--input))',
                     inputText: 'hsl(var(--foreground))',
                     inputLabelText: 'hsl(var(--foreground))',
@@ -91,11 +92,8 @@ const Auth = () => {
                 },
                 dark: { // For 'dark' mode of SupabaseAuthUI (when app is in dark mode)
                   colors: {
-                    // Force button to look like light mode primary button
-                    brand: 'hsl(222.2 47.4% 11.2%)', // Explicit dark background (from light mode --primary)
-                    brandAccent: 'hsl(210 40% 98%)',    // Explicit light text (from light mode --primary-foreground)
-                    
-                    // Keep input fields themed for app's dark mode
+                    brand: 'hsl(var(--primary))', // Use dark mode's primary
+                    brandAccent: 'hsl(var(--primary-foreground))', // Use dark mode's primary-foreground
                     inputBackground: 'hsl(var(--input))',
                     inputText: 'hsl(var(--foreground))',
                     inputLabelText: 'hsl(var(--foreground))',
@@ -120,7 +118,7 @@ const Auth = () => {
             {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
             <button
               onClick={() => navigate(`/auth${isLogin ? '?mode=signup' : ''}`, { replace: true })}
-              className="text-blue-600 hover:underline"
+              className="text-blue-600 hover:underline" // Standard blue link for this toggle
               disabled={isLoading}
             >
               {isLogin ? "Sign Up" : "Login"}

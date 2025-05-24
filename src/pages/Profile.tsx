@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription as ShadcnCard
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { useNavigate, Link } from "react-router-dom";
 import type { User } from "@supabase/supabase-js";
-import { ThemeToggleButton } from "@/components/ThemeToggleButton"; // Import
+import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 
 const profileFormSchema = z.object({
   first_name: z.string().min(1, "First name is required.").max(50, "First name cannot exceed 50 characters."),
@@ -26,14 +26,12 @@ interface ProfileData {
 }
 
 const ProfilePage = () => {
-  console.log("[PROFILE_PAGE_RENDER] Component rendering or re-rendering.");
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    // Session and auth listener logic omitted for brevity
     const getSessionAndUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) { setUser(session.user); setUserId(session.user.id); } 
@@ -55,7 +53,6 @@ const ProfilePage = () => {
   const { data: profile, isLoading: isLoadingProfile, error: profileError } = useQuery<ProfileData | null>({
     queryKey: ["userProfile", userId],
     queryFn: async () => {
-      // Query function logic omitted for brevity
       if (!userId) return null;
       const { data, error } = await supabase.from("profiles").select("id, first_name, last_name").eq("id", userId).single();
       if (error && error.code !== 'PGRST116') throw error;
@@ -65,14 +62,12 @@ const ProfilePage = () => {
   });
   
   useEffect(() => {
-    // Form reset logic omitted for brevity
     if (profile) form.reset({ first_name: profile.first_name || "", last_name: profile.last_name || "" });
     else if (!isLoadingProfile && userId) form.reset({ first_name: "", last_name: "" });
   }, [profile, isLoadingProfile, userId, form]);
 
   const updateProfileMutation = useMutation({
     mutationFn: async (values: ProfileFormValues) => {
-      // Mutation logic omitted for brevity
       if (!userId) throw new Error("User not authenticated.");
       const { data, error } = await supabase.from("profiles").upsert({ id: userId, ...values }).select();
       if (error) throw error;
@@ -85,18 +80,18 @@ const ProfilePage = () => {
   const onSubmit = (values: ProfileFormValues) => updateProfileMutation.mutate(values);
 
   if (!userId && !user) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
-  if (profileError) return <div>Error loading profile.</div>; // Simplified error display
+  if (profileError) return <div>Error loading profile.</div>;
 
   return (
     <div className="min-h-screen bg-background text-foreground p-4">
       <header className="container mx-auto mb-6 flex justify-between items-center">
         <div className="flex items-center space-x-3">
-          <Link to="/dashboard" className="text-2xl font-bold hover:text-teal-600 dark:hover:text-teal-400 transition-colors">
-            BitePath
+          <Link to="/dashboard" className="text-2xl font-bold group">
+            <span className="text-accent transition-opacity duration-150 ease-in-out group-hover:opacity-80">Bite</span>
+            <span className="text-primary transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
           </Link>
           <ThemeToggleButton />
         </div>
-        {/* Optional: Add a back button or other navigation here if needed */}
       </header>
       <div className="flex flex-col items-center">
         <Card className="w-full max-w-md">
