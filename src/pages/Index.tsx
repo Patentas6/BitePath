@@ -12,8 +12,8 @@ const Index = () => {
               to="/" 
               className="text-2xl font-bold group"
             >
-              <span className="text-accent dark:text-foreground transition-opacity duration-150 ease-in-out group-hover:opacity-80">Bite</span>
-              <span className="text-foreground dark:text-primary transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
+              <span className="text-[#7BB390] dark:text-foreground transition-opacity duration-150 ease-in-out group-hover:opacity-80">Bite</span>
+              <span className="text-[#FC5A50] dark:text-primary transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
             </Link>
           </div>
           <nav className="flex items-center space-x-4">
@@ -34,9 +34,9 @@ const Index = () => {
       </header>
 
       {/* Hero Section */}
-      <section className="w-full py-20 text-center bg-gradient-to-r from-primary/20 to-accent/20 dark:from-green-900/30 dark:to-blue-900/30">
+      <section className="w-full py-20 text-center bg-gradient-to-r from-[#FC5A50] via-[#CC3333] to-[#111f27]">
         <div className="container mx-auto px-4">
-          <h1 className="text-5xl md:text-6xl font-bold text-gray-900 dark:text-white mb-4">
+          <h1 className="text-5xl md:text-6xl font-bold text-[#F2F1DC] dark:text-[#F2F1DC] mb-4">
             Ditch the Dinner Dilemma. Embrace the BitePath.
           </h1>
           <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 mb-8">
