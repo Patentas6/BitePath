@@ -15,20 +15,21 @@ const Index = () => {
               <span className="text-accent dark:text-foreground transition-opacity duration-150 ease-in-out group-hover:opacity-80">Bite</span>
               <span className="text-primary dark:text-primary transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
             </Link>
-            <ThemeToggleButton />
+            {/* ThemeToggleButton removed from here */}
           </div>
-          <nav className="space-x-4">
+          <nav className="flex items-center space-x-4"> {/* Added flex items-center for vertical alignment */}
             <a href="#features" className="hover:underline">Features</a>
             <a href="#pricing" className="hover:underline">Pricing</a>
             <a href="#testimonials" className="hover:underline">Testimonials</a>
             <Link to="/auth" className="hover:underline">Login</Link>
             <Button 
               size="sm" 
-              variant="default" // Reverted to default variant
+              variant="default"
               asChild
             >
               <Link to="/auth?mode=signup"><span>Sign Up</span></Link>
             </Button>
+            <ThemeToggleButton /> {/* ThemeToggleButton added here */}
           </nav>
         </div>
       </header>
