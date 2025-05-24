@@ -33,8 +33,8 @@
     --border: 43 50% 88%; /* Slightly darker Beige - For borders */
     --input: 0 0% 100%; /* White - For input backgrounds */
     
-    /* Ring Color at 75% opacity */
-    --ring: 110 100% 51% / 0.75; /* Bright Neon Green (#2CFF05) at 75% opacity */
+    /* Ring Color at 75% opacity - using explicit hsla() with commas */
+    --ring: hsla(110, 100%, 51%, 0.75); /* Bright Neon Green (#2CFF05) at 75% opacity */
     /* --- End User's Custom Palette --- */
 
     --radius: 0.5rem;
