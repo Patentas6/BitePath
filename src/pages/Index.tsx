@@ -30,10 +30,10 @@ const Index = () => {
       </header>
 
       {/* Hero Section */}
-      <section className="w-full py-20 text-center bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/30 dark:to-blue-900/30">
+      <section className="w-full py-20 text-center bg-gradient-to-r from-primary/20 to-accent/20 dark:from-green-900/30 dark:to-blue-900/30"> {/* Updated gradient */}
         <div className="container mx-auto px-4">
           <h1 className="text-5xl md:text-6xl font-bold text-gray-900 dark:text-white mb-4">
-            Simplify Your Meals, Simplify Your Life.
+            Ditch the Dinner Dilemma. Embrace the BitePath. {/* New Motto */}
           </h1>
           <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 mb-8">
             Plan your week in minutes and get an instant grocery list. Less stress, more delicious meals.
@@ -48,7 +48,6 @@ const Index = () => {
       <section id="features" className="w-full py-16 bg-background text-center">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold mb-8">Core Features</h2>
-          {/* Changed to grid-cols-3 and reduced gap */}
           <div className="grid grid-cols-3 gap-4"> 
             <div className="p-6 border rounded-lg shadow-sm dark:border-gray-700 bg-card">
               <h3 className="text-xl font-semibold mb-2">Minimalist Planning</h3>
@@ -67,7 +66,7 @@ const Index = () => {
       </section>
 
       {/* Testimonials Section Placeholder */}
-      <section id="testimonials" className="w-full py-16 bg-background text-center">
+      <section id="testimonials" className="w-full py-16 bg-card text-center"> {/* Changed bg-background to bg-card */}
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold mb-8">What Our Users Say</h2>
           <p className="text-muted-foreground">Testimonials coming soon!</p>
@@ -78,7 +77,6 @@ const Index = () => {
       <section id="pricing" className="w-full py-16 bg-background text-center">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold mb-8">Simple Pricing</h2>
-          {/* Changed to grid-cols-2 and reduced gap */}
           <div className="grid grid-cols-2 gap-4 max-w-lg mx-auto"> 
             <div className="p-6 border rounded-lg shadow-sm flex flex-col dark:border-gray-700 bg-card">
               <h3 className="text-2xl font-bold mb-4">Free</h3>
