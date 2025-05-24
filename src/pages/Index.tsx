@@ -1,26 +1,97 @@
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
-import { useState, MouseEvent } from "react";
+import { useState, MouseEvent, useEffect, useRef } from "react";
 
 const Index = () => {
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  // Target position for the gradient (actual mouse position)
+  const [targetPos, setTargetPos] = useState({ x: 0, y: 0 });
+  // Current animated position of the gradient's center
+  const [currentPos, setCurrentPos] = useState({ x: 0, y: 0 });
+  
+  const heroSectionRef = useRef<HTMLElement>(null);
+  const animationFrameId = useRef<number | null>(null);
+
+  // Initialize positions to the center of the hero section once it's mounted
+  useEffect(() => {
+    if (heroSectionRef.current) {
+      const rect = heroSectionRef.current.getBoundingClientRect();
+      const centerX = rect.width / 2;
+      const centerY = rect.height / 2;
+      setTargetPos({ x: centerX, y: centerY });
+      setCurrentPos({ x: centerX, y: centerY });
+    }
+  }, []);
 
   const handleMouseMove = (event: MouseEvent<HTMLElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
-    setMousePos({ x, y });
+    setTargetPos({ x, y });
   };
+
+  const handleMouseLeave = () => {
+    // Option 1: Move target off-screen
+    // setTargetPos({ x: -9999, y: -9999 });
+    // Option 2: Move target to center (smoother return to idle)
+    if (heroSectionRef.current) {
+      const rect = heroSectionRef.current.getBoundingClientRect();
+      setTargetPos({ x: rect.width / 2, y: rect.height / 2 });
+    }
+  };
+
+  // Animation loop for smooth lagging effect
+  useEffect(() => {
+    const smoothFollow = () => {
+      setCurrentPos(prevPos => {
+        const dx = targetPos.x - prevPos.x;
+        const dy = targetPos.y - prevPos.y;
+        const smoothingFactor = 0.08; // Adjust for more/less lag (0.01 = very slow, 0.2 = quite fast)
+
+        // If very close, snap to target to prevent infinite small movements & stop animation
+        if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) {
+          if (animationFrameId.current) {
+            cancelAnimationFrame(animationFrameId.current);
+            animationFrameId.current = null;
+          }
+          return targetPos;
+        }
+        
+        return {
+          x: prevPos.x + dx * smoothingFactor,
+          y: prevPos.y + dy * smoothingFactor,
+        };
+      });
+      // Only request next frame if not already cancelled by snapping
+      if (animationFrameId.current !== null) { // Check if it was cancelled by snapping
+         animationFrameId.current = requestAnimationFrame(smoothFollow);
+      }
+    };
+
+    // Start animation if it's not already running
+    if (animationFrameId.current === null) {
+        // Check if we are already close enough to the target
+        const dx = targetPos.x - currentPos.x;
+        const dy = targetPos.y - currentPos.y;
+        if (!(Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5)) {
+            animationFrameId.current = requestAnimationFrame(smoothFollow);
+        }
+    }
+    
+    return () => {
+      if (animationFrameId.current) {
+        cancelAnimationFrame(animationFrameId.current);
+        animationFrameId.current = null;
+      }
+    };
+  }, [targetPos, currentPos.x, currentPos.y]); // Rerun effect if targetPos changes, or to restart animation if currentPos was snapped.
 
   const colorOrangeRed = "#FC5A50";
   const colorMutedGreen = "#7BB390";
   const colorLightGreen = "#BDDFAB";
 
-  // Smoother gradient stops for a more "breathing" effect
-  // Adjust percentages to change the spread and blend of colors
   const heroBackgroundStyle = {
-    backgroundImage: `radial-gradient(circle farthest-corner at ${mousePos.x}px ${mousePos.y}px, 
+    backgroundImage: `radial-gradient(ellipse farthest-corner at ${currentPos.x}px ${currentPos.y}px, 
       ${colorOrangeRed} 0%, 
       ${colorMutedGreen} 30%, 
       ${colorLightGreen} 65%)`,
@@ -58,10 +129,11 @@ const Index = () => {
 
       {/* Hero Section */}
       <section 
+        ref={heroSectionRef}
         className="w-full py-20 text-center"
         style={heroBackgroundStyle}
         onMouseMove={handleMouseMove}
-        onMouseLeave={() => setMousePos({ x: -9999, y: -9999 })} // Moves gradient origin off-screen
+        onMouseLeave={handleMouseLeave}
       >
         <div className="container mx-auto px-4">
           <h1 
