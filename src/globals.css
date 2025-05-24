@@ -4,38 +4,6 @@
 
 @layer base {
   :root {
-    /* 
-    // --- Original Light Mode Palette (Commented Out for Custom Theme Test) --- 
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-    // --- End Original Light Mode Palette --- 
-    */
-
     /* --- User's Custom Liked Light Mode Palette (Beige, Blue, Green, Black) - ACTIVE --- */
     --background: 43 67% 94.1%; /* Beige (#F8F4E8) - Page background */
     --foreground: 40 100% 1.4%;  /* Black (#070500) - Small/general text */
@@ -46,7 +14,8 @@
     --popover: 0 0% 100%; /* White */
     --popover-foreground: 40 100% 1.4%; /* Black */
 
-    --primary: 73.4 82.2% 63.9%; /* Green (#CDF056) - Button backgrounds */
+    /* Updated Primary Green */
+    --primary: 73 66% 91.8%; /* New Green (#E1EF97) - Button backgrounds */
     --primary-foreground: 40 100% 1.4%; /* Black - Text on Green buttons */
 
     --secondary: 210 40% 96.1%; /* Light Gray - For secondary buttons/elements */
@@ -63,13 +32,15 @@
 
     --border: 43 50% 88%; /* Slightly darker Beige - For borders */
     --input: 0 0% 100%; /* White - For input backgrounds */
-    --ring: 73.4 82.2% 63.9%; /* Green - Focus ring, matches primary buttons */
+    
+    /* Updated Ring Color */
+    --ring: 73 66% 91.8%; /* New Green (#E1EF97) - Focus ring, matches primary buttons */
     /* --- End User's Custom Palette --- */
 
     --radius: 0.5rem;
 
     /* Sidebar specific colors - these are part of the original theme, kept for consistency if sidebar is used */
-    --sidebar-background: 0 0% 98%; /* Will be overridden by main --background in light mode if sidebar uses it */
+    --sidebar-background: 0 0% 98%; 
     --sidebar-foreground: 240 5.3% 26.1%;
     --sidebar-primary: 240 5.9% 10%;
     --sidebar-primary-foreground: 0 0% 98%;
@@ -130,22 +101,20 @@
     @apply bg-background text-foreground;
   }
 
-  /* Attempt to make all titles blue in light mode */
   :root h1, :root .h1,
   :root h2, :root .h2,
   :root h3, :root .h3,
   :root h4, :root .h4,
   :root h5, :root .h5,
   :root h6, :root .h6 {
-    color: hsl(var(--accent)); /* Blue for titles */
+    color: hsl(var(--accent)); 
   }
-  /* Ensure dark mode titles are not affected by the above rule if they have their own color strategy */
   .dark h1, .dark .h1,
   .dark h2, .dark .h2,
   .dark h3, .dark .h3,
   .dark h4, .dark .h4,
   .dark h5, .dark .h5,
   .dark h6, .dark .h6 {
-    color: hsl(var(--foreground)); /* Default to foreground in dark mode */
+    color: hsl(var(--foreground)); 
   }
 }
