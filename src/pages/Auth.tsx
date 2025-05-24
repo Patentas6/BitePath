@@ -57,8 +57,8 @@ const Auth = () => {
     <div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground p-4 relative">
       <div className="absolute top-4 left-4 md:top-6 md:left-6 flex items-center space-x-3">
         <Link to="/" className="text-2xl font-bold group">
-          <span className="text-accent dark:text-inherit transition-opacity duration-150 ease-in-out group-hover:opacity-80">Bite</span>
-          <span className="text-primary dark:text-inherit transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
+          <span className="text-accent dark:text-foreground transition-opacity duration-150 ease-in-out group-hover:opacity-80">Bite</span>
+          <span className="text-primary dark:text-foreground transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
         </Link>
         <ThemeToggleButton />
       </div>
@@ -80,7 +80,7 @@ const Auth = () => {
             appearance={{
               theme: ThemeSupa,
               variables: {
-                default: { // For 'light' mode of SupabaseAuthUI (when app is in light mode)
+                default: { 
                   colors: {
                     brand: 'hsl(var(--primary))', 
                     brandAccent: 'hsl(var(--primary-foreground))', 
@@ -90,10 +90,10 @@ const Auth = () => {
                     inputPlaceholder: 'hsl(var(--muted-foreground))',
                   },
                 },
-                dark: { // For 'dark' mode of SupabaseAuthUI (when app is in dark mode)
+                dark: { 
                   colors: {
-                    brand: 'hsl(var(--primary))', // Use dark mode's primary
-                    brandAccent: 'hsl(var(--primary-foreground))', // Use dark mode's primary-foreground
+                    brand: 'hsl(var(--primary))', 
+                    brandAccent: 'hsl(var(--primary-foreground))', 
                     inputBackground: 'hsl(var(--input))',
                     inputText: 'hsl(var(--foreground))',
                     inputLabelText: 'hsl(var(--foreground))',
