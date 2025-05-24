@@ -18,6 +18,7 @@
     --primary: 110 100% 51%; /* Bright Neon Green (#2CFF05) */
     --primary-foreground: 40 100% 1.4%; /* Black - Text on Bright Green buttons */
     --primary-60: hsla(110, 100%, 51%, 0.60); /* Primary green at 60% opacity */
+    --primary-70: hsla(110, 100%, 51%, 0.70); /* Primary green at 70% opacity for hover */
 
     --secondary: 210 40% 96.1%; /* Light Gray - For secondary buttons/elements */
     --secondary-foreground: 40 100% 1.4%; /* Black - Text on light gray secondary elements */
@@ -64,7 +65,7 @@
 
     --primary: 210 40% 98%;
     --primary-foreground: 222.2 47.4% 11.2%;
-    /* No --primary-60 needed for dark theme as it's different */
+    /* No --primary-60 or --primary-70 needed for dark theme as it's different */
 
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;

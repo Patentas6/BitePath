@@ -27,7 +27,8 @@ export default {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
-          "60": "hsl(var(--primary-60))", // Added 60% opaque primary
+          "60": "hsl(var(--primary-60))", 
+          "70": "hsl(var(--primary-70))", // Added 70% opaque primary for hover
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
