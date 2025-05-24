@@ -1,8 +1,37 @@
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
+import { useState, MouseEvent } from "react";
 
 const Index = () => {
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+
+  const handleMouseMove = (event: MouseEvent<HTMLElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    setMousePos({ x, y });
+  };
+
+  // Define the gradient stops for clarity
+  // Adjust these pixel values to change the size of each color ring
+  const colorOrangeRed = "#FC5A50";
+  const colorMutedGreen = "#7BB390";
+  const colorLightGreen = "#BDDFAB";
+
+  const radiusStop1 = 50; // px for the innermost color
+  const radiusStop2 = 150; // px for the middle color
+
+  const heroBackgroundStyle = {
+    backgroundImage: `radial-gradient(circle at ${mousePos.x}px ${mousePos.y}px, 
+      ${colorOrangeRed} 0px, 
+      ${colorOrangeRed} ${radiusStop1}px, 
+      ${colorMutedGreen} ${radiusStop1}px, 
+      ${colorMutedGreen} ${radiusStop2}px, 
+      ${colorLightGreen} ${radiusStop2}px, 
+      ${colorLightGreen} 100%)`,
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="w-full p-4 bg-background shadow-sm">
@@ -36,7 +65,9 @@ const Index = () => {
       {/* Hero Section */}
       <section 
         className="w-full py-20 text-center"
-        style={{ backgroundImage: 'linear-gradient(to right, #BDDFAB, #7BB390, #FC5A50)' }}
+        style={heroBackgroundStyle}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={() => setMousePos({ x: -9999, y: -9999 })} // Optional: move gradient off-screen or reset
       >
         <div className="container mx-auto px-4">
           <h1 
