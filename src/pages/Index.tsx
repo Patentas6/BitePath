@@ -36,13 +36,16 @@ const Index = () => {
       {/* Hero Section */}
       <section 
         className="w-full py-20 text-center"
-        style={{ backgroundImage: 'linear-gradient(to right, #BDDFAB, #7BB390, #FC5A50, #CC3333)' }}
+        style={{ backgroundImage: 'linear-gradient(to right, #BDDFAB, #7BB390, #FC5A50)' }}
       >
         <div className="container mx-auto px-4">
-          <h1 className="text-5xl md:text-6xl font-bold text-[#F2F1DC] dark:text-[#F2F1DC] mb-4">
+          <h1 
+            className="text-5xl md:text-6xl font-bold mb-4"
+            style={{ color: '#F2F1DC' }}
+          >
             Ditch the Dinner Dilemma. Embrace the BitePath.
           </h1>
-          <p className="text-xl md:text-2xl text-gray-100 dark:text-gray-200 mb-8"> {/* Adjusted for better visibility on new gradient */}
+          <p className="text-xl md:text-2xl text-gray-100 dark:text-gray-200 mb-8">
             Plan your week in minutes and get an instant grocery list. Less stress, more delicious meals.
           </p>
           <Button size="lg" asChild>
