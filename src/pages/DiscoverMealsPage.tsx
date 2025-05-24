@@ -182,7 +182,7 @@ const DiscoverMealsPage = () => {
               </div>
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                 <SelectTrigger 
-                  className="w-full sm:w-[200px] bg-primary text-primary-foreground hover:bg-primary/90 focus:ring-ring focus:ring-offset-background"
+                  className="w-full sm:w-[200px] bg-primary/75 text-primary-foreground hover:bg-primary/85 focus:ring-ring focus:ring-offset-background"
                 >
                   <SelectValue placeholder="Filter by category" />
                 </SelectTrigger>
