@@ -16,8 +16,9 @@
 
     /* Primary Color */
     /* --primary: 110 100% 51%; */ /* Previous Bright Neon Green (#2CFF05) */
-    --primary: 17 77% 51%; /* New Orangey-Red (#E15824) */
-    --primary-foreground: 40 100% 1.4%; /* Black - Text on Primary buttons (Good contrast with #E15824) */
+    /* --primary: 17 77% 51%; */ /* Previous Orangey-Red (#E15824) */
+    --primary: 70 67% 76%; /* New Light Yellowish-Green (#E1EF97) */
+    --primary-foreground: 40 100% 1.4%; /* Black - Text on Primary buttons (Good contrast with #E1EF97) */
 
     --secondary: 210 40% 96.1%; /* Light Gray - For secondary buttons/elements */
     --secondary-foreground: 40 100% 1.4%; /* Black - Text on light gray secondary elements */
