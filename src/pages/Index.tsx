@@ -13,11 +13,10 @@ const Index = () => {
               className="text-2xl font-bold group"
             >
               <span className="text-accent dark:text-foreground transition-opacity duration-150 ease-in-out group-hover:opacity-80">Bite</span>
-              <span className="text-primary dark:text-primary transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
+              <span className="text-foreground dark:text-primary transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
             </Link>
-            {/* ThemeToggleButton removed from here */}
           </div>
-          <nav className="flex items-center space-x-4"> {/* Added flex items-center for vertical alignment */}
+          <nav className="flex items-center space-x-4">
             <a href="#features" className="hover:underline">Features</a>
             <a href="#pricing" className="hover:underline">Pricing</a>
             <a href="#testimonials" className="hover:underline">Testimonials</a>
@@ -29,7 +28,7 @@ const Index = () => {
             >
               <Link to="/auth?mode=signup"><span>Sign Up</span></Link>
             </Button>
-            <ThemeToggleButton /> {/* ThemeToggleButton added here */}
+            <ThemeToggleButton />
           </nav>
         </div>
       </header>
@@ -71,13 +70,11 @@ const Index = () => {
       </section>
 
       {/* Testimonials Section Placeholder */}
-      <section id="testimonials" className="w-full py-16 bg-background text-center"> {/* Reverted section to bg-background */}
+      <section id="testimonials" className="w-full py-16 bg-background text-center"> 
         <div className="container mx-auto px-4">
-          {/* Added inner div styled as a card */}
           <div className="bg-card p-8 border rounded-lg shadow-sm dark:border-gray-700 max-w-3xl mx-auto">
             <h2 className="text-3xl font-bold mb-8">What Our Users Say</h2>
             <p className="text-muted-foreground">Testimonials coming soon!</p>
-            {/* Future testimonial items would go inside this box */}
           </div>
         </div>
       </section>

@@ -58,7 +58,7 @@ const Auth = () => {
       <div className="absolute top-4 left-4 md:top-6 md:left-6 flex items-center space-x-3">
         <Link to="/" className="text-2xl font-bold group">
           <span className="text-accent dark:text-foreground transition-opacity duration-150 ease-in-out group-hover:opacity-80">Bite</span>
-          <span className="text-primary dark:text-primary transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
+          <span className="text-foreground dark:text-primary transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
         </Link>
         <ThemeToggleButton />
       </div>
@@ -82,7 +82,7 @@ const Auth = () => {
               variables: {
                 default: { 
                   colors: {
-                    brand: 'hsl(var(--primary))', // Reverted to solid primary green
+                    brand: 'hsl(var(--primary))', 
                     brandAccent: '#070500', 
                     inputBackground: 'hsl(var(--input))',
                     inputText: 'hsl(var(--foreground))',
