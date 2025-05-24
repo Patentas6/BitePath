@@ -5,7 +5,7 @@ import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 const Index = () => {
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="w-full p-4 bg-background shadow-sm"> {/* Changed bg-card to bg-background */}
+      <header className="w-full p-4 bg-background shadow-sm">
         <div className="container mx-auto flex justify-between items-center">
           <div className="flex items-center space-x-3">
             <Link 
@@ -48,7 +48,8 @@ const Index = () => {
       <section id="features" className="w-full py-16 bg-background text-center">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold mb-8">Core Features</h2>
-          <div className="grid md:grid-cols-3 gap-8">
+          {/* Changed to grid-cols-3 and reduced gap */}
+          <div className="grid grid-cols-3 gap-4"> 
             <div className="p-6 border rounded-lg shadow-sm dark:border-gray-700 bg-card">
               <h3 className="text-xl font-semibold mb-2">Minimalist Planning</h3>
               <p className="text-muted-foreground">Easily place meals onto your weekly calendar.</p>
@@ -77,7 +78,8 @@ const Index = () => {
       <section id="pricing" className="w-full py-16 bg-background text-center">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold mb-8">Simple Pricing</h2>
-          <div className="grid md:grid-cols-2 gap-8 max-w-lg mx-auto">
+          {/* Changed to grid-cols-2 and reduced gap */}
+          <div className="grid grid-cols-2 gap-4 max-w-lg mx-auto"> 
             <div className="p-6 border rounded-lg shadow-sm flex flex-col dark:border-gray-700 bg-card">
               <h3 className="text-2xl font-bold mb-4">Free</h3>
               <p className="text-muted-foreground mb-4">Limited features to get you started.</p>

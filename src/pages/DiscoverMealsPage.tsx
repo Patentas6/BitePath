@@ -104,7 +104,8 @@ const DiscoverMealsPage = () => {
   let content;
   if (isLoadingTemplates || (userId && isLoadingUserMealNames)) {
     content = (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      // Changed to grid-cols-2 md:grid-cols-3 and reduced gap
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {Array.from({ length: 3 }).map((_, i) => (
           <Card key={i} className="hover:shadow-lg transition-shadow duration-200">
             <CardHeader><Skeleton className="h-40 w-full mb-4" /><Skeleton className="h-6 w-3/4" /></CardHeader>
@@ -118,7 +119,8 @@ const DiscoverMealsPage = () => {
     content = <p className="text-center text-red-500 dark:text-red-400">Error loading meal templates. Please try again later.</p>;
   } else if (filteredTemplates && filteredTemplates.length > 0) {
     content = (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      // Changed to grid-cols-2 md:grid-cols-3 and reduced gap
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {filteredTemplates.map(t => 
           <MealTemplateCard 
             key={t.id} 
