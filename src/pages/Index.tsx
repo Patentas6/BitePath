@@ -5,7 +5,7 @@ import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 const Index = () => {
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="w-full p-4 bg-card shadow-sm">
+      <header className="w-full p-4 bg-background shadow-sm"> {/* Changed bg-card to bg-background */}
         <div className="container mx-auto flex justify-between items-center">
           <div className="flex items-center space-x-3">
             <Link 
@@ -13,7 +13,7 @@ const Index = () => {
               className="text-2xl font-bold group"
             >
               <span className="text-accent dark:text-foreground transition-opacity duration-150 ease-in-out group-hover:opacity-80">Bite</span>
-              <span className="text-accent/40 dark:text-foreground transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
+              <span className="text-accent/40 dark:text-foreground/40 transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
             </Link>
             <ThemeToggleButton />
           </div>
@@ -99,7 +99,7 @@ const Index = () => {
                 <li>✓ Advanced grocery list</li>
                 <li>✓ Priority support</li>
               </ul>
-              <Button className="w-full"><span>Go Premium</span></Button> {/* Also wrapped for consistency, though not asChild */}
+              <Button className="w-full"><span>Go Premium</span></Button>
             </div>
           </div>
         </div>
