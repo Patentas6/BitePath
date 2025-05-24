@@ -4,13 +4,13 @@ import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 
 const Index = () => {
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-800 dark:bg-gray-900 dark:text-gray-200">
-      <header className="w-full p-4 bg-white dark:bg-gray-800 shadow-sm">
+    <div className="min-h-screen bg-background text-foreground">
+      <header className="w-full p-4 bg-card shadow-sm"> {/* Changed header to use bg-card for potential contrast */}
         <div className="container mx-auto flex justify-between items-center">
           <div className="flex items-center space-x-3"> {/* Group logo and button */}
             <Link 
               to="/" 
-              className="text-2xl font-bold text-gray-800 dark:text-gray-100 hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
+              className="text-2xl font-bold hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
             >
               BitePath
             </Link>
@@ -44,43 +44,43 @@ const Index = () => {
       </section>
 
       {/* Features Section Placeholder */}
-      <section id="features" className="w-full py-16 bg-white dark:bg-gray-800 text-center">
+      <section id="features" className="w-full py-16 bg-card text-center"> {/* Changed to bg-card */}
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold mb-8">Core Features</h2>
           <div className="grid md:grid-cols-3 gap-8">
             <div className="p-6 border rounded-lg shadow-sm dark:border-gray-700">
               <h3 className="text-xl font-semibold mb-2">Minimalist Planning</h3>
-              <p className="text-gray-600 dark:text-gray-300">Easily place meals onto your weekly calendar.</p>
+              <p className="text-muted-foreground">Easily place meals onto your weekly calendar.</p>
             </div>
             <div className="p-6 border rounded-lg shadow-sm dark:border-gray-700">
               <h3 className="text-xl font-semibold mb-2">Automated Grocery Lists</h3>
-              <p className="text-gray-600 dark:text-gray-300">Get a simple, consolidated list generated instantly from your plan.</p>
+              <p className="text-muted-foreground">Get a simple, consolidated list generated instantly from your plan.</p>
             </div>
             <div className="p-6 border rounded-lg shadow-sm dark:border-gray-700">
               <h3 className="text-xl font-semibold mb-2">Saves Time & Reduces Stress</h3>
-              <p className="text-gray-600 dark:text-gray-300">Spend less time deciding what to eat and what to buy.</p>
+              <p className="text-muted-foreground">Spend less time deciding what to eat and what to buy.</p>
             </div>
           </div>
         </div>
       </section>
 
       {/* Testimonials Section Placeholder */}
-      <section id="testimonials" className="w-full py-16 bg-gray-50 dark:bg-gray-900 text-center">
+      <section id="testimonials" className="w-full py-16 bg-background text-center"> {/* Changed to bg-background */}
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold mb-8">What Our Users Say</h2>
-          <p className="text-gray-600 dark:text-gray-300">Testimonials coming soon!</p>
+          <p className="text-muted-foreground">Testimonials coming soon!</p>
         </div>
       </section>
 
       {/* Pricing Section Placeholder */}
-      <section id="pricing" className="w-full py-16 bg-white dark:bg-gray-800 text-center">
+      <section id="pricing" className="w-full py-16 bg-card text-center"> {/* Changed to bg-card */}
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold mb-8">Simple Pricing</h2>
           <div className="grid md:grid-cols-2 gap-8 max-w-lg mx-auto">
             <div className="p-6 border rounded-lg shadow-sm flex flex-col dark:border-gray-700">
               <h3 className="text-2xl font-bold mb-4">Free</h3>
-              <p className="text-gray-600 dark:text-gray-300 mb-4">Limited features to get you started.</p>
-              <ul className="text-left text-gray-700 dark:text-gray-300 mb-6 flex-grow">
+              <p className="text-muted-foreground mb-4">Limited features to get you started.</p>
+              <ul className="text-left text-muted-foreground mb-6 flex-grow">
                 <li>✓ Basic planning</li>
                 <li>✓ Limited meal library</li>
                 <li>✓ Grocery list generation</li>
@@ -91,14 +91,14 @@ const Index = () => {
             </div>
             <div className="p-6 border rounded-lg shadow-sm flex flex-col dark:border-gray-700">
               <h3 className="text-2xl font-bold mb-4">Premium</h3>
-              <p className="text-gray-600 dark:text-gray-300 mb-4">Unlock full potential.</p>
-               <ul className="text-left text-gray-700 dark:text-gray-300 mb-6 flex-grow">
+              <p className="text-muted-foreground mb-4">Unlock full potential.</p>
+               <ul className="text-left text-muted-foreground mb-6 flex-grow">
                 <li>✓ Unlimited planning</li>
                 <li>✓ Unlimited meal library</li>
                 <li>✓ Advanced grocery list</li>
                 <li>✓ Priority support</li>
               </ul>
-              <Button className="w-full bg-teal-600 hover:bg-teal-700 text-white">Go Premium</Button>
+              <Button className="w-full">Go Premium</Button> {/* This will be green by default */}
             </div>
           </div>
         </div>

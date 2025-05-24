@@ -88,10 +88,10 @@ const ProfilePage = () => {
   if (profileError) return <div>Error loading profile.</div>; // Simplified error display
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-4">
+    <div className="min-h-screen bg-background text-foreground p-4">
       <header className="container mx-auto mb-6 flex justify-between items-center">
         <div className="flex items-center space-x-3">
-          <Link to="/dashboard" className="text-2xl font-bold text-gray-800 dark:text-gray-100 hover:text-teal-600 dark:hover:text-teal-400 transition-colors">
+          <Link to="/dashboard" className="text-2xl font-bold hover:text-teal-600 dark:hover:text-teal-400 transition-colors">
             BitePath
           </Link>
           <ThemeToggleButton />

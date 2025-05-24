@@ -126,28 +126,28 @@ const Dashboard = () => {
   console.log("[Dashboard.tsx] Proceeding to render main content. User ID:", user?.id);
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-4">
+    <div className="min-h-screen bg-background text-foreground p-4">
       <div className="container mx-auto space-y-6">
         <header className="flex justify-between items-center">
           <div className="flex items-center space-x-3"> {/* Group logo and theme button */}
-            <Link to="/dashboard" className="text-2xl font-bold text-gray-800 dark:text-gray-100 hover:text-teal-600 dark:hover:text-teal-400 transition-colors">
+            <Link to="/dashboard" className="text-2xl font-bold hover:text-teal-600 dark:hover:text-teal-400 transition-colors">
               BitePath
             </Link>
             <ThemeToggleButton />
           </div>
           <div className="flex items-center space-x-2">
-            <span className="text-base text-gray-700 dark:text-gray-300 hidden md:inline">{getWelcomeMessage()}</span>
-            <Button variant="outline" size="sm" asChild>
+            <span className="text-base hidden md:inline">{getWelcomeMessage()}</span>
+            <Button variant="default" size="sm" asChild>
               <Link to="/discover-meals">
                 <Sparkles className="mr-2 h-4 w-4" /> Discover Meals
               </Link>
             </Button>
-            <Button variant="outline" size="sm" asChild>
+            <Button variant="default" size="sm" asChild>
               <Link to="/meals">
                 <BookOpenText className="mr-2 h-4 w-4" /> My Meals
               </Link>
             </Button>
-            <Button variant="outline" size="sm" asChild>
+            <Button variant="default" size="sm" asChild>
               <Link to="/profile">
                 <UserCircle className="mr-2 h-4 w-4" /> Profile
               </Link>
