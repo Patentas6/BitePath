@@ -13,7 +13,7 @@ const FeedbackPage = () => {
           <div className="flex items-center space-x-3">
             <Link to="/dashboard" className="text-2xl font-bold group">
               <span className="text-accent dark:text-foreground transition-opacity duration-150 ease-in-out group-hover:opacity-80">Bite</span>
-              <span className="text-primary dark:text-foreground transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
+              <span className="text-accent/40 dark:text-foreground transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
             </Link>
             <ThemeToggleButton />
           </div>
