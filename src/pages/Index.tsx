@@ -30,10 +30,10 @@ const Index = () => {
       </header>
 
       {/* Hero Section */}
-      <section className="w-full py-20 text-center bg-gradient-to-r from-primary/20 to-accent/20 dark:from-green-900/30 dark:to-blue-900/30"> {/* Updated gradient */}
+      <section className="w-full py-20 text-center bg-gradient-to-r from-primary/20 to-accent/20 dark:from-green-900/30 dark:to-blue-900/30">
         <div className="container mx-auto px-4">
           <h1 className="text-5xl md:text-6xl font-bold text-gray-900 dark:text-white mb-4">
-            Ditch the Dinner Dilemma. Embrace the BitePath. {/* New Motto */}
+            Ditch the Dinner Dilemma. Embrace the BitePath.
           </h1>
           <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 mb-8">
             Plan your week in minutes and get an instant grocery list. Less stress, more delicious meals.
@@ -66,10 +66,14 @@ const Index = () => {
       </section>
 
       {/* Testimonials Section Placeholder */}
-      <section id="testimonials" className="w-full py-16 bg-card text-center"> {/* Changed bg-background to bg-card */}
+      <section id="testimonials" className="w-full py-16 bg-background text-center"> {/* Reverted section to bg-background */}
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold mb-8">What Our Users Say</h2>
-          <p className="text-muted-foreground">Testimonials coming soon!</p>
+          {/* Added inner div styled as a card */}
+          <div className="bg-card p-8 border rounded-lg shadow-sm dark:border-gray-700 max-w-3xl mx-auto">
+            <h2 className="text-3xl font-bold mb-8">What Our Users Say</h2>
+            <p className="text-muted-foreground">Testimonials coming soon!</p>
+            {/* Future testimonial items would go inside this box */}
+          </div>
         </div>
       </section>
 
