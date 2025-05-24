@@ -13,23 +13,17 @@ const Index = () => {
     setMousePos({ x, y });
   };
 
-  // Define the gradient stops for clarity
-  // Adjust these pixel values to change the size of each color ring
   const colorOrangeRed = "#FC5A50";
   const colorMutedGreen = "#7BB390";
   const colorLightGreen = "#BDDFAB";
 
-  const radiusStop1 = 50; // px for the innermost color
-  const radiusStop2 = 150; // px for the middle color
-
+  // Smoother gradient stops for a more "breathing" effect
+  // Adjust percentages to change the spread and blend of colors
   const heroBackgroundStyle = {
-    backgroundImage: `radial-gradient(circle at ${mousePos.x}px ${mousePos.y}px, 
-      ${colorOrangeRed} 0px, 
-      ${colorOrangeRed} ${radiusStop1}px, 
-      ${colorMutedGreen} ${radiusStop1}px, 
-      ${colorMutedGreen} ${radiusStop2}px, 
-      ${colorLightGreen} ${radiusStop2}px, 
-      ${colorLightGreen} 100%)`,
+    backgroundImage: `radial-gradient(circle farthest-corner at ${mousePos.x}px ${mousePos.y}px, 
+      ${colorOrangeRed} 0%, 
+      ${colorMutedGreen} 30%, 
+      ${colorLightGreen} 65%)`,
   };
 
   return (
@@ -67,7 +61,7 @@ const Index = () => {
         className="w-full py-20 text-center"
         style={heroBackgroundStyle}
         onMouseMove={handleMouseMove}
-        onMouseLeave={() => setMousePos({ x: -9999, y: -9999 })} // Optional: move gradient off-screen or reset
+        onMouseLeave={() => setMousePos({ x: -9999, y: -9999 })} // Moves gradient origin off-screen
       >
         <div className="container mx-auto px-4">
           <h1 
