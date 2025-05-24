@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    /* --- Previous User Custom Liked Light Mode Palette (Beige, Blue, Very Light Green, Black) - SAVED --- */
+    /* --- Original User Custom Liked Light Mode Palette (Beige, Blue, Very Light Green, Black) - SAVED AS VERSION 1 --- */
     /*
     --background: 43 67% 94.1%; /!* Beige (#F8F4E8) - Page background *!/
     --foreground: 40 100% 1.4%;  /!* Black (#070500) - Small/general text *!/
@@ -35,38 +35,71 @@
     
     --ring: hsl(var(--primary)); 
     */
-    /* --- End Previous User Custom Palette --- */
+    /* --- End Previous User Custom Palette (Version 1) --- */
 
-    /* --- New User Custom Palette --- */
-    --background: 43 67% 94.1%; /* Beige (#F8F4E8) - Page background (Unchanged from previous custom) */
-    --foreground: 40 100% 1.4%;  /* Black (#070500) - Small/general text (Unchanged from previous custom) */
+    /* --- Previous User Custom Palette (Version 2 - Based on user's iteration) - SAVED --- */
+    /*
+    --background: 43 67% 94.1%; /!* Beige (#F8F4E8) - Page background (Unchanged from V1) *!/
+    --foreground: 40 100% 1.4%;  /!* Black (#070500) - Small/general text (Unchanged from V1) *!/
 
-    --card: 0 0% 100%; /* White - For cards (Unchanged from previous custom) */
-    --card-foreground: 40 100% 1.4%; /* Black - Text in cards (Unchanged from previous custom) */
+    --card: 0 0% 100%; /!* White - For cards (Unchanged from V1) *!/
+    --card-foreground: 40 100% 1.4%; /!* Black - Text in cards (Unchanged from V1) *!/
 
-    --popover: 0 0% 100%; /* White (Unchanged from previous custom) */
-    --popover-foreground: 40 100% 1.4%; /* Black (Unchanged from previous custom) */
+    --popover: 0 0% 100%; /!* White (Unchanged from V1) *!/
+    --popover-foreground: 40 100% 1.4%; /!* Black (Unchanged from V1) *!/
 
-    --primary: 97 47% 77%; /* New Primary: #BDDFAB (Light Green) */
-    --primary-foreground: 40 100% 1.4%; /* Black - Text on Primary buttons (Good contrast) */
+    --primary: 97 47% 77%; /!* New Primary from V2: #BDDFAB (Light Green) *!/
+    --primary-foreground: 40 100% 1.4%; /!* Black - Text on Primary buttons (Good contrast) *!/
 
-    --secondary: 210 40% 96.1%; /* Light Gray - (Unchanged from previous custom) */
-    --secondary-foreground: 40 100% 1.4%; /* Black - (Unchanged from previous custom) */
+    --secondary: 210 40% 96.1%; /!* Light Gray - (Unchanged from V1) *!/
+    --secondary-foreground: 40 100% 1.4%; /!* Black - (Unchanged from V1) *!/
 
-    --muted: 145 26% 59%;   /* New Muted BG for boxes: #7BB390 (Muted Green) */
+    --muted: 145 26% 59%;   /!* New Muted BG for boxes from V2: #7BB390 (Muted Green) *!/
+    --muted-foreground: 40 100% 1.4%; /!* Black - Text on new muted green boxes *!/
+
+    --accent: 234.7 98.2% 54.5%; /!* Blue (#1A26FC) - (Unchanged from V1) *!/
+    --accent-foreground: 43 67% 94.1%; /!* Beige - (Unchanged from V1) *!/
+
+    --destructive: 0 84.2% 60.2%; /!* Standard Red (Unchanged from V1) *!/
+    --destructive-foreground: 0 0% 100%; /!* White (Unchanged from V1) *!/
+
+    --border: 54 33% 91%; /!* New Border from V2: #F2F1DC (Very Light Yellowish) *!/
+    --input: 0 0% 100%; /!* White - For input backgrounds (Unchanged from V1) *!/
+    
+    --ring: hsl(var(--primary)); /!* Will use the new primary color *!/
+    */
+    /* --- End Previous User Custom Palette (Version 2) --- */
+
+    /* --- Current Active User Custom Palette (Version 3) --- */
+    --background: 43 67% 94.1%; /* Beige (#F8F4E8) - Page background */
+    --foreground: 40 100% 1.4%;  /* Black (#070500) - Small/general text */
+
+    --card: 0 0% 100%; /* White - For cards */
+    --card-foreground: 40 100% 1.4%; /* Black - Text in cards */
+
+    --popover: 0 0% 100%; /* White */
+    --popover-foreground: 40 100% 1.4%; /* Black */
+
+    --primary: 97 47% 77%; /* #BDDFAB (Light Green) - User confirmed */
+    --primary-foreground: 40 100% 1.4%; /* Black - Text on Primary buttons */
+
+    --secondary: 210 40% 96.1%; /* Light Gray */
+    --secondary-foreground: 40 100% 1.4%; /* Black */
+
+    --muted: 145 26% 59%;   /* #7BB390 (Muted Green for boxes) - User confirmed */
     --muted-foreground: 40 100% 1.4%; /* Black - Text on new muted green boxes */
 
-    --accent: 234.7 98.2% 54.5%; /* Blue (#1A26FC) - (Unchanged from previous custom) */
-    --accent-foreground: 43 67% 94.1%; /* Beige - (Unchanged from previous custom) */
+    --accent: 234.7 98.2% 54.5%; /* Blue (#1A26FC) */
+    --accent-foreground: 43 67% 94.1%; /* Beige */
 
-    --destructive: 0 84.2% 60.2%; /* Standard Red (Unchanged from previous custom) */
-    --destructive-foreground: 0 0% 100%; /* White (Unchanged from previous custom) */
+    --destructive: 0 84.2% 60.2%; /* Standard Red */
+    --destructive-foreground: 0 0% 100%; /* White */
 
-    --border: 54 33% 91%; /* New Border: #F2F1DC (Very Light Yellowish) */
-    --input: 0 0% 100%; /* White - For input backgrounds (Unchanged from previous custom) */
+    --border: 54 33% 91%; /* #F2F1DC (Very Light Yellowish for borders) - User confirmed */
+    --input: 0 0% 100%; /* White - For input backgrounds */
     
-    --ring: hsl(var(--primary)); /* Will use the new primary color */
-    /* --- End New User Custom Palette --- */
+    --ring: hsl(var(--primary)); 
+    /* --- End Current Active User Custom Palette (Version 3) --- */
 
     --radius: 0.5rem;
 
@@ -109,9 +142,8 @@
 
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%; /* Dark mode ring remains as defined for dark theme */
+    --ring: 212.7 26.8% 83.9%;
     
-    /* Sidebar specific colors for dark mode - unchanged */
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
