@@ -41,7 +41,7 @@ const Index = () => {
         <div className="container mx-auto px-4">
           <h1 
             className="text-5xl md:text-6xl font-bold mb-4"
-            style={{ color: '#F1EECA' }}
+            style={{ color: '#f3f2dd' }}
           >
             Ditch the Dinner Dilemma. Embrace the BitePath.
           </h1>
