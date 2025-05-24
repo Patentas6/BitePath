@@ -95,7 +95,7 @@
     --destructive: 0 84.2% 60.2%; /* Standard Red */
     --destructive-foreground: 0 0% 100%; /* White */
 
-    --border: 54 33% 91%; /* #F2F1DC (Very Light Yellowish for borders) - User confirmed */
+    --border: 57 49% 91%; /* #F1EECA (Pale Creamy Yellow) - User confirmed */
     --input: 0 0% 100%; /* White - For input backgrounds */
     
     --ring: hsl(var(--primary)); 
