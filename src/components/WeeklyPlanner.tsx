@@ -85,10 +85,6 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart,
   }, [currentWeekStart]);
 
   const handleMealSlotClick = (day: Date, mealType: string, plannedMeal: MealPlan | undefined) => {
-    // Guard to prevent opening dialog for past days (excluding today)
-    // if (isPast(day) && !isToday(day)) return; 
-    // The above line was part of a temporary change for testing, ensuring it's reverted or managed correctly.
-    // For normal operation, you might want to prevent planning in the past:
     if (isPast(day) && !isToday(day)) {
         console.log("Cannot plan for a past date (excluding today).");
         return;
@@ -110,9 +106,9 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart,
         </CardHeader>
         <CardContent>
           <div className="flex justify-between items-center mb-4">
-            <Button variant="outline" size="sm" onClick={() => onWeekNavigate("prev")}><ChevronLeft className="h-4 w-4 mr-1" /> Previous</Button>
+            <Button variant="default" size="sm" onClick={() => onWeekNavigate("prev")}><ChevronLeft className="h-4 w-4 mr-1" /> Previous</Button> {/* Changed to default */}
             <h3 className="text-lg font-semibold text-center text-foreground">{format(currentWeekStart, 'MMM dd')} - {format(addDays(currentWeekStart, 6), 'MMM dd, yyyy')}</h3>
-            <Button variant="outline" size="sm" onClick={() => onWeekNavigate("next")}>Next <ChevronRight className="h-4 w-4 ml-1" /></Button>
+            <Button variant="default" size="sm" onClick={() => onWeekNavigate("next")}>Next <ChevronRight className="h-4 w-4 ml-1" /></Button> {/* Changed to default */}
           </div>
           <div className="grid grid-cols-7 gap-2 text-center mb-2">
             {daysOfWeek.map(day => (

@@ -69,7 +69,7 @@ const Dashboard = () => {
       const { first_name, last_name } = userProfile;
       if (first_name && last_name) return `Welcome, ${first_name} ${last_name}!`;
       if (first_name) return `Welcome, ${first_name}!`;
-      if (last_name) return `Welcome, ${last_name}!`; // Corrected from first_name
+      if (last_name) return `Welcome, ${last_name}!`;
     }
     return `Welcome, ${user.email ? user.email.split('@')[0] : 'User'}!`;
   };
@@ -82,8 +82,8 @@ const Dashboard = () => {
         <header className="flex justify-between items-center">
           <div className="flex items-center space-x-3">
             <Link to="/dashboard" className="text-2xl font-bold group">
-              <span className="text-accent transition-opacity duration-150 ease-in-out group-hover:opacity-80">Bite</span>
-              <span className="text-primary transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
+              <span className="text-accent dark:text-inherit transition-opacity duration-150 ease-in-out group-hover:opacity-80">Bite</span>
+              <span className="text-primary dark:text-inherit transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
             </Link>
             <ThemeToggleButton />
           </div>

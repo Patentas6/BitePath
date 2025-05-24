@@ -114,7 +114,6 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
 
     const futurePlannedMeals = plannedMealsData.filter(pm => {
       if (!pm.plan_date || typeof pm.plan_date !== 'string') {
-        // console.warn('[GroceryList] Invalid plan_date in pm:', pm); // Kept useful warns
         return false;
       }
       try {
@@ -122,7 +121,6 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
         const isFutureOrToday = !isBefore(planDate, today);
         return isFutureOrToday;
       } catch (e) {
-        // console.warn(`[GroceryList] Invalid date format for plan_date: ${pm.plan_date}`, e); // Kept useful warns
         return false;
       }
     });
@@ -280,7 +278,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
       <CardHeader className="flex flex-row justify-between items-center">
         <CardTitle className="flex items-center"><ListChecks className="mr-2 h-5 w-5" />Grocery List for {format(currentWeekStart, 'MMM dd')} - {format(weekEnd, 'MMM dd')}</CardTitle>
         <Button 
-            variant="outline" 
+            variant="default" /* Changed to default */
             size="sm" 
             onClick={() => setDisplaySystem(prev => prev === 'imperial' ? 'metric' : 'imperial')}
             className="ml-auto"

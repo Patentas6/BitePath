@@ -87,8 +87,8 @@ const ProfilePage = () => {
       <header className="container mx-auto mb-6 flex justify-between items-center">
         <div className="flex items-center space-x-3">
           <Link to="/dashboard" className="text-2xl font-bold group">
-            <span className="text-accent transition-opacity duration-150 ease-in-out group-hover:opacity-80">Bite</span>
-            <span className="text-primary transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
+            <span className="text-accent dark:text-inherit transition-opacity duration-150 ease-in-out group-hover:opacity-80">Bite</span>
+            <span className="text-primary dark:text-inherit transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
           </Link>
           <ThemeToggleButton />
         </div>
@@ -127,6 +127,7 @@ const ProfilePage = () => {
                   )}
                 />
                 <div className="flex space-x-2 justify-end">
+                  {/* Back to Dashboard button on Profile page is already default variant if it exists, or can be outline */}
                   <Button variant="outline" onClick={() => navigate("/dashboard")} disabled={updateProfileMutation.isPending}>
                     Back to Dashboard
                   </Button>

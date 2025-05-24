@@ -148,8 +148,8 @@ const DiscoverMealsPage = () => {
         <header className="flex justify-between items-center mb-6">
           <div className="flex items-center space-x-3">
             <Link to="/dashboard" className="text-2xl font-bold group">
-              <span className="text-accent transition-opacity duration-150 ease-in-out group-hover:opacity-80">Bite</span>
-              <span className="text-primary transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
+              <span className="text-accent dark:text-inherit transition-opacity duration-150 ease-in-out group-hover:opacity-80">Bite</span>
+              <span className="text-primary dark:text-inherit transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
             </Link>
             <ThemeToggleButton />
           </div>
@@ -157,7 +157,7 @@ const DiscoverMealsPage = () => {
             <Sparkles className="h-8 w-8 mr-3 text-teal-600 hidden sm:block" />
             <h1 className="text-xl sm:text-3xl font-bold">Discover Meal Templates</h1>
           </div>
-          <Button variant="outline" asChild>
+          <Button variant="default" asChild> {/* Changed to default for green background */}
             <Link to="/dashboard">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Dashboard
@@ -179,7 +179,9 @@ const DiscoverMealsPage = () => {
                 />
               </div>
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger className="w-full sm:w-[200px]">
+                <SelectTrigger 
+                  className="w-full sm:w-[200px] bg-primary text-primary-foreground hover:bg-primary/90 focus:ring-ring focus:ring-offset-background"
+                >
                   <SelectValue placeholder="Filter by category" />
                 </SelectTrigger>
                 <SelectContent>
