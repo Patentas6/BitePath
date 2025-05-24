@@ -82,7 +82,7 @@ const Auth = () => {
               variables: {
                 default: { 
                   colors: {
-                    brand: 'hsla(110, 100%, 51%, 0.60)', // Updated to 60% opaque green
+                    brand: 'hsl(var(--primary))', // Reverted to solid primary green
                     brandAccent: '#070500', 
                     inputBackground: 'hsl(var(--input))',
                     inputText: 'hsl(var(--foreground))',
