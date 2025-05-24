@@ -82,7 +82,7 @@ const Auth = () => {
               variables: {
                 default: { // For 'light' mode of SupabaseAuthUI (when app is in light mode)
                   colors: {
-                    brand: '#FFCCEF', // Updated to new Pink
+                    brand: '#E1F532', // Updated to new Lime Green
                     brandAccent: '#070500', // Black text
                     inputBackground: 'hsl(var(--input))',
                     inputText: 'hsl(var(--foreground))',
