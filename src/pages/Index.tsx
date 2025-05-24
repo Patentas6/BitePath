@@ -23,7 +23,7 @@ const Index = () => {
             <a href="#testimonials" className="hover:underline">Testimonials</a>
             <Link to="/auth" className="hover:underline">Login</Link>
             <Button variant="default" size="sm" asChild>
-              <Link to="/auth?mode=signup">Sign Up</Link>
+              <Link to="/auth?mode=signup"><span>Sign Up</span></Link>
             </Button>
           </nav>
         </div>
@@ -38,26 +38,26 @@ const Index = () => {
           <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 mb-8">
             Plan your week in minutes and get an instant grocery list. Less stress, more delicious meals.
           </p>
-          <Button size="lg" asChild> {/* Removed teal classes, will use default (green) */}
-            <Link to="/auth?mode=signup">Start Planning for Free</Link>
+          <Button size="lg" asChild>
+            <Link to="/auth?mode=signup"><span>Start Planning for Free</span></Link>
           </Button>
         </div>
       </section>
 
       {/* Features Section Placeholder */}
-      <section id="features" className="w-full py-16 bg-background text-center"> {/* Changed bg-card to bg-background */}
+      <section id="features" className="w-full py-16 bg-background text-center">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold mb-8">Core Features</h2>
           <div className="grid md:grid-cols-3 gap-8">
-            <div className="p-6 border rounded-lg shadow-sm dark:border-gray-700 bg-card"> {/* Added bg-card to inner cards for contrast */}
+            <div className="p-6 border rounded-lg shadow-sm dark:border-gray-700 bg-card">
               <h3 className="text-xl font-semibold mb-2">Minimalist Planning</h3>
               <p className="text-muted-foreground">Easily place meals onto your weekly calendar.</p>
             </div>
-            <div className="p-6 border rounded-lg shadow-sm dark:border-gray-700 bg-card"> {/* Added bg-card to inner cards for contrast */}
+            <div className="p-6 border rounded-lg shadow-sm dark:border-gray-700 bg-card">
               <h3 className="text-xl font-semibold mb-2">Automated Grocery Lists</h3>
               <p className="text-muted-foreground">Get a simple, consolidated list generated instantly from your plan.</p>
             </div>
-            <div className="p-6 border rounded-lg shadow-sm dark:border-gray-700 bg-card"> {/* Added bg-card to inner cards for contrast */}
+            <div className="p-6 border rounded-lg shadow-sm dark:border-gray-700 bg-card">
               <h3 className="text-xl font-semibold mb-2">Saves Time & Reduces Stress</h3>
               <p className="text-muted-foreground">Spend less time deciding what to eat and what to buy.</p>
             </div>
@@ -66,7 +66,7 @@ const Index = () => {
       </section>
 
       {/* Testimonials Section Placeholder */}
-      <section id="testimonials" className="w-full py-16 bg-background text-center"> {/* Already bg-background */}
+      <section id="testimonials" className="w-full py-16 bg-background text-center">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold mb-8">What Our Users Say</h2>
           <p className="text-muted-foreground">Testimonials coming soon!</p>
@@ -74,11 +74,11 @@ const Index = () => {
       </section>
 
       {/* Pricing Section Placeholder */}
-      <section id="pricing" className="w-full py-16 bg-background text-center"> {/* Changed bg-card to bg-background */}
+      <section id="pricing" className="w-full py-16 bg-background text-center">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold mb-8">Simple Pricing</h2>
           <div className="grid md:grid-cols-2 gap-8 max-w-lg mx-auto">
-            <div className="p-6 border rounded-lg shadow-sm flex flex-col dark:border-gray-700 bg-card"> {/* Added bg-card to inner cards for contrast */}
+            <div className="p-6 border rounded-lg shadow-sm flex flex-col dark:border-gray-700 bg-card">
               <h3 className="text-2xl font-bold mb-4">Free</h3>
               <p className="text-muted-foreground mb-4">Limited features to get you started.</p>
               <ul className="text-left text-muted-foreground mb-6 flex-grow">
@@ -87,10 +87,10 @@ const Index = () => {
                 <li>✓ Grocery list generation</li>
               </ul>
               <Button variant="outline" className="w-full" asChild>
-                <Link to="/auth?mode=signup">Sign Up for Free</Link>
+                <Link to="/auth?mode=signup"><span>Sign Up for Free</span></Link>
               </Button>
             </div>
-            <div className="p-6 border rounded-lg shadow-sm flex flex-col dark:border-gray-700 bg-card"> {/* Added bg-card to inner cards for contrast */}
+            <div className="p-6 border rounded-lg shadow-sm flex flex-col dark:border-gray-700 bg-card">
               <h3 className="text-2xl font-bold mb-4">Premium</h3>
               <p className="text-muted-foreground mb-4">Unlock full potential.</p>
                <ul className="text-left text-muted-foreground mb-6 flex-grow">
@@ -99,7 +99,7 @@ const Index = () => {
                 <li>✓ Advanced grocery list</li>
                 <li>✓ Priority support</li>
               </ul>
-              <Button className="w-full">Go Premium</Button>
+              <Button className="w-full"><span>Go Premium</span></Button> {/* Also wrapped for consistency, though not asChild */}
             </div>
           </div>
         </div>
