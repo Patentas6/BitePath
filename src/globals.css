@@ -89,8 +89,8 @@
     --muted: 145 26% 59%;   /* #7BB390 (Muted Green for boxes) - User confirmed */
     --muted-foreground: 40 100% 1.4%; /* Black - Text on new muted green boxes */
 
-    --accent: 234.7 98.2% 54.5%; /* Blue (#1A26FC) */
-    --accent-foreground: 43 67% 94.1%; /* Beige */
+    --accent: 208 42% 11%; /* #111f27 (Very Dark Blue/Black) - New Accent */
+    --accent-foreground: 43 67% 94.1%; /* Beige - Remains for text on accent background if used */
 
     --destructive: 0 84.2% 60.2%; /* Standard Red */
     --destructive-foreground: 0 0% 100%; /* White */
@@ -134,7 +134,7 @@
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
 
-    --accent: 217.2 32.6% 17.5%;
+    --accent: 217.2 32.6% 17.5%; /* Dark mode accent remains as defined for dark theme */
     --accent-foreground: 210 40% 98%;
 
     --destructive: 0 62.8% 30.6%;

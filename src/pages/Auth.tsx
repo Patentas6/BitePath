@@ -118,7 +118,7 @@ const Auth = () => {
             {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
             <button
               onClick={() => navigate(`/auth${isLogin ? '?mode=signup' : ''}`, { replace: true })}
-              className="text-blue-600 hover:underline" 
+              className="text-[#111f27] hover:underline" 
               disabled={isLoading}
             >
               {isLogin ? "Sign Up" : "Login"}
