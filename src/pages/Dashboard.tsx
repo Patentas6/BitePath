@@ -3,11 +3,10 @@ import { supabase } from "@/lib/supabase";
 import { useNavigate, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-// import TodaysMeals from "@/components/TodaysMeals";
+import TodaysMeals from "@/components/TodaysMeals"; // Uncommented
 // import TodaysGroceryList from "@/components/TodaysGroceryList";
 import type { User } from "@supabase/supabase-js";
-// import { startOfWeek, addDays } from "date-fns"; // No longer needed here
-import { UserCircle, BookOpenText, Brain, SquarePen, CalendarDays, ShoppingCart } from "lucide-react"; // Keep CalendarDays for new button
+import { UserCircle, BookOpenText, Brain, SquarePen, CalendarDays } from "lucide-react";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 
 interface UserProfile {
@@ -93,7 +92,6 @@ const Dashboard = () => {
             <Button variant="default" size="sm" asChild>
               <Link to="/add-meal"><SquarePen className="mr-2 h-4 w-4" /> Add Meal</Link>
             </Button>
-            {/* Combined Planning Button */}
             <Button variant="default" size="sm" asChild>
               <Link to="/planning"><CalendarDays className="mr-2 h-4 w-4" /> Plan & Shop</Link>
             </Button>
@@ -105,9 +103,9 @@ const Dashboard = () => {
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* TodaysMeals and TodaysGroceryList are still commented out for testing */}
-          <div>TodaysMeals component commented out for testing.</div>
-          <div>TodaysGroceryList component commented out for testing.</div>
+          {user && <TodaysMeals userId={user.id} />} {/* Uncommented */}
+          {/* {user && <TodaysGroceryList userId={user.id} />} */}
+          <div>TodaysGroceryList component will be re-added next.</div>
         </div>
 
       </div>
