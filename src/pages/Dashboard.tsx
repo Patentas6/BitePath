@@ -3,11 +3,10 @@ import { supabase } from "@/lib/supabase";
 import { useNavigate, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import WeeklyPlanner from "@/components/WeeklyPlanner";
-import GroceryList from "@/components/GroceryList";
+// Removed import for WeeklyPlanner
+// Removed import for startOfWeek, addDays
 import type { User } from "@supabase/supabase-js";
-import { startOfWeek, addDays } from "date-fns";
-import { UserCircle, BookOpenText, Brain, SquarePen } from "lucide-react"; // Added SquarePen icon
+import { UserCircle, BookOpenText, Brain, SquarePen, CalendarDays } from "lucide-react"; // Added CalendarDays icon
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 
 interface UserProfile {
@@ -18,7 +17,7 @@ interface UserProfile {
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const navigate = useNavigate();
-  const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  // Removed state for currentWeekStart
 
   useEffect(() => {
     const getSession = async () => {
@@ -58,9 +57,7 @@ const Dashboard = () => {
     await supabase.auth.signOut();
   };
 
-  const handleWeekNavigate = (direction: "prev" | "next") => {
-    setCurrentWeekStart(prev => addDays(prev, direction === "next" ? 7 : -7));
-  };
+  // Removed handleWeekNavigate
 
   const getWelcomeMessage = () => {
     if (!user) return "Loading...";
@@ -81,7 +78,7 @@ const Dashboard = () => {
       <div className="container mx-auto space-y-6">
         <header className="flex justify-between items-center">
           <div className="flex items-center space-x-3">
-            <Link to="/dashboard" className="text-2xl font-bold group">
+            <Link to="/" className="text-2xl font-bold group">
               <span className="text-accent dark:text-foreground transition-opacity duration-150 ease-in-out group-hover:opacity-80">Bite</span>
               <span className="text-primary dark:text-primary transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
             </Link>
@@ -89,25 +86,25 @@ const Dashboard = () => {
           </div>
           <div className="flex items-center space-x-2">
             <span className="text-base hidden md:inline">{getWelcomeMessage()}</span>
-             {/* New AI Generate Button */}
-            <Button variant="default" size="sm" asChild>
-              <Link to="/generate-meal"><Brain className="mr-2 h-4 w-4" /> Generate Meal</Link>
-            </Button>
-             {/* New Add Meal Button */}
-            <Button variant="default" size="sm" asChild>
-              <Link to="/add-meal"><SquarePen className="mr-2 h-4 w-4" /> Add Meal</Link>
-            </Button>
+            {/* Navigation Links in new order */}
             <Button variant="default" size="sm" asChild>
               <Link to="/meals"><BookOpenText className="mr-2 h-4 w-4" /> My Meals</Link>
             </Button>
-            <Button variant="default" size="sm" asChild>
-              <Link to="/profile"><UserCircle className="mr-2 h-4 w-4" /> Profile</Link>
+             <Button variant="default" size="sm" asChild>
+              <Link to="/generate-meal"><Brain className="mr-2 h-4 w-4" /> Generate Meal</Link>
             </Button>
+             <Button variant="default" size="sm" asChild>
+              <Link to="/add-meal"><SquarePen className="mr-2 h-4 w-4" /> Add Own Meal</Link>
+            </Button>
+             <Button variant="default" size="sm" asChild>
+              <Link to="/profile"><CalendarDays className="mr-2 h-4 w-4" /> Weekly Plan</Link> {/* Link to Profile page */}
+            </Button>
+            {/* Profile link removed from main nav */}
             <Button onClick={handleLogout} variant="destructive" size="sm">Logout</Button>
           </div>
         </header>
-        {user && <WeeklyPlanner userId={user.id} currentWeekStart={currentWeekStart} onWeekNavigate={handleWeekNavigate} />}
-        {user && <GroceryList userId={user.id} currentWeekStart={currentWeekStart} />}
+        {/* WeeklyPlanner removed from here */}
+        {user && <GroceryList userId={user.id} currentWeekStart={new Date()} />} {/* Keep GroceryList, maybe adjust date logic if needed */}
       </div>
     </div>
   );
