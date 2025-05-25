@@ -24,10 +24,12 @@ const queryClient = new QueryClient();
 const App = () => (
   <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
     <QueryClientProvider client={queryClient}>
+      {/* TooltipProvider now wraps only BrowserRouter */}
       <TooltipProvider>
-        <Toaster />
-        <Sonner />
         <BrowserRouter>
+          {/* Toaster and Sonner are inside BrowserRouter */}
+          <Toaster />
+          <Sonner />
           <BetaDisclaimerBanner />
           <Routes>
             <Route path="/" element={<Index />} />
