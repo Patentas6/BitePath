@@ -3,17 +3,12 @@ import { supabase } from "@/lib/supabase";
 import { useNavigate, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-// Removed imports for WeeklyPlanner and GroceryList
+import WeeklyPlanner from "@/components/WeeklyPlanner";
+import GroceryList from "@/components/GroceryList";
 import type { User } from "@supabase/supabase-js";
-// Removed startOfWeek, addDays as they are now in PlannerViewPage
-import { UserCircle, PlusCircle } from "lucide-react"; // Added PlusCircle for quick action
+import { startOfWeek, addDays } from "date-fns";
+import { UserCircle, BookOpenText, Sparkles } from "lucide-react";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
-import BottomNavBar from "@/components/BottomNavBar"; // Import the new bottom nav
-import UserProfileIcon from "../components/UserProfileIcon"; // Updated import to new name and relative path
-import AddMealToPlanDialog from "@/components/AddMealToPlanDialog"; // Import dialog for quick action
-import TodaysMealsSummary from "@/components/TodaysMealsSummary"; // Import new summary component
-import UpcomingGrocerySummary from "@/components/UpcomingGrocerySummary"; // Import new summary component
-import { startOfToday } from "date-fns"; // Needed for today's date
 
 interface UserProfile {
   first_name: string | null;
@@ -23,10 +18,7 @@ interface UserProfile {
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const navigate = useNavigate();
-  // Removed currentWeekStart state and handleWeekNavigate function
-
-  const [isAddMealDialogOpen, setIsAddMealDialogOpen] = useState(false);
-  const today = startOfToday(); // Get today's date for quick action
+  const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
 
   useEffect(() => {
     const getSession = async () => {
@@ -66,6 +58,10 @@ const Dashboard = () => {
     await supabase.auth.signOut();
   };
 
+  const handleWeekNavigate = (direction: "prev" | "next") => {
+    setCurrentWeekStart(prev => addDays(prev, direction === "next" ? 7 : -7));
+  };
+
   const getWelcomeMessage = () => {
     if (!user) return "Loading...";
     if (isUserProfileLoading && !userProfile) return `Welcome, ${user.email ? user.email.split('@')[0] : 'User'}!`;
@@ -81,59 +77,33 @@ const Dashboard = () => {
   if (!user) return <div className="min-h-screen flex items-center justify-center">Loading user session...</div>;
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
-      <header className="w-full p-4 bg-background shadow-sm">
-        <div className="container mx-auto flex justify-between items-center">
+    <div className="min-h-screen bg-background text-foreground p-4">
+      <div className="container mx-auto space-y-6">
+        <header className="flex justify-between items-center">
           <div className="flex items-center space-x-3">
-            {/* Profile Button */}
-            <UserProfileIcon userId={user.id} /> {/* Using the new component name */}
             <Link to="/dashboard" className="text-2xl font-bold group">
-              <span className="text-[#7BB390] dark:text-foreground transition-opacity duration-150 ease-in-out group-hover:opacity-80">Bite</span>
-              <span className="text-[#FC5A50] dark:text-primary transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
+              <span className="text-accent dark:text-foreground transition-opacity duration-150 ease-in-out group-hover:opacity-80">Bite</span>
+              <span className="text-primary dark:text-primary transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
             </Link>
             <ThemeToggleButton />
           </div>
-          <div className="flex items-center space-x-4">
-             <span className="text-base hidden md:inline">{getWelcomeMessage()}</span>
-             <Button onClick={handleLogout} variant="destructive" size="sm">Logout</Button>
-          </div>
-        </div>
-      </header>
-
-      <main className="flex-grow container mx-auto p-4 space-y-6">
-        {/* Quick Action Button */}
-        <div className="text-center">
-            <Button size="lg" onClick={() => setIsAddMealDialogOpen(true)}>
-                <PlusCircle className="mr-2 h-5 w-5" /> Add Meal to Today's Plan
+          <div className="flex items-center space-x-2">
+            <span className="text-base hidden md:inline">{getWelcomeMessage()}</span>
+            <Button variant="default" size="sm" asChild>
+              <Link to="/discover-meals"><Sparkles className="mr-2 h-4 w-4" /> Discover Meals</Link>
             </Button>
-        </div>
-
-        {/* Summary Sections */}
-        {user && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <TodaysMealsSummary userId={user.id} />
-            <UpcomingGrocerySummary userId={user.id} daysAhead={2} /> {/* Show groceries for today + next 2 days */}
+            <Button variant="default" size="sm" asChild>
+              <Link to="/meals"><BookOpenText className="mr-2 h-4 w-4" /> My Meals</Link>
+            </Button>
+            <Button variant="default" size="sm" asChild>
+              <Link to="/profile"><UserCircle className="mr-2 h-4 w-4" /> Profile</Link>
+            </Button>
+            <Button onClick={handleLogout} variant="destructive" size="sm">Logout</Button>
           </div>
-        )}
-
-        {/* Placeholder for Dashboard content - maybe a summary or welcome message */}
-        {/* Removed the large welcome text as summaries are now present */}
-
-      </main>
-
-      {/* Bottom Navigation Bar (Visible on small screens) */}
-      <BottomNavBar />
-
-      {/* Dialog for Quick Action */}
-      {user && (
-        <AddMealToPlanDialog
-          open={isAddMealDialogOpen}
-          onOpenChange={setIsAddMealDialogOpen}
-          planDate={today}
-          mealType="Dinner" // Default to Dinner, or could let user choose
-          userId={user.id}
-        />
-      )}
+        </header>
+        {user && <WeeklyPlanner userId={user.id} currentWeekStart={currentWeekStart} onWeekNavigate={handleWeekNavigate} />}
+        {user && <GroceryList userId={user.id} currentWeekStart={currentWeekStart} />}
+      </div>
     </div>
   );
 };

@@ -4,17 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
-import BottomNavBar from "@/components/BottomNavBar"; // Import BottomNavBar
 
 const MealsPage = () => {
   return (
-    <div className="min-h-screen bg-background text-foreground p-4 flex flex-col"> {/* Added flex-col */}
-      <div className="container mx-auto space-y-6 flex-grow"> {/* Added flex-grow */}
+    <div className="min-h-screen bg-background text-foreground p-4">
+      <div className="container mx-auto space-y-6">
         <header className="flex justify-between items-center mb-6">
           <div className="flex items-center space-x-3">
             <Link to="/dashboard" className="text-2xl font-bold group">
-              <span className="text-[#7BB390] dark:text-foreground transition-opacity duration-150 ease-in-out group-hover:opacity-80">Bite</span>
-              <span className="text-[#FC5A50] dark:text-primary transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
+              <span className="text-accent dark:text-foreground transition-opacity duration-150 ease-in-out group-hover:opacity-80">Bite</span>
+              <span className="text-primary dark:text-primary transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
             </Link>
             <ThemeToggleButton />
           </div>
@@ -32,7 +31,6 @@ const MealsPage = () => {
           <MealList />
         </div>
       </div>
-      <BottomNavBar /> {/* Added BottomNavBar */}
     </div>
   );
 };

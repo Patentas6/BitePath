@@ -57,8 +57,8 @@ const Auth = () => {
     <div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground p-4 relative">
       <div className="absolute top-4 left-4 md:top-6 md:left-6 flex items-center space-x-3">
         <Link to="/" className="text-2xl font-bold group">
-          <span className="text-[#7BB390] dark:text-foreground transition-opacity duration-150 ease-in-out group-hover:opacity-80">Bite</span>
-          <span className="text-[#FC5A50] dark:text-primary transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
+          <span className="text-accent dark:text-foreground transition-opacity duration-150 ease-in-out group-hover:opacity-80">Bite</span>
+          <span className="text-primary dark:text-primary transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
         </Link>
         <ThemeToggleButton />
       </div>
@@ -82,7 +82,7 @@ const Auth = () => {
               variables: {
                 default: { 
                   colors: {
-                    brand: 'hsl(var(--primary))', 
+                    brand: 'hsl(var(--primary))', // Reverted to solid primary green
                     brandAccent: '#070500', 
                     inputBackground: 'hsl(var(--input))',
                     inputText: 'hsl(var(--foreground))',
@@ -118,7 +118,7 @@ const Auth = () => {
             {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
             <button
               onClick={() => navigate(`/auth${isLogin ? '?mode=signup' : ''}`, { replace: true })}
-              className="text-[#111f27] hover:underline" 
+              className="text-blue-600 hover:underline" 
               disabled={isLoading}
             >
               {isLogin ? "Sign Up" : "Login"}

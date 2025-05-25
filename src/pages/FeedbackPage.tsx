@@ -12,8 +12,8 @@ const FeedbackPage = () => {
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-3">
             <Link to="/dashboard" className="text-2xl font-bold group">
-              <span className="text-[#7BB390] dark:text-foreground transition-opacity duration-150 ease-in-out group-hover:opacity-80">Bite</span>
-              <span className="text-[#FC5A50] dark:text-primary transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
+              <span className="text-accent dark:text-foreground transition-opacity duration-150 ease-in-out group-hover:opacity-80">Bite</span>
+              <span className="text-primary dark:text-primary transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
             </Link>
             <ThemeToggleButton />
           </div>
