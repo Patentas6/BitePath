@@ -7,7 +7,7 @@ import TodaysMeals from "@/components/TodaysMeals"; // Import new component
 import TodaysGroceryList from "@/components/TodaysGroceryList"; // Import new component
 import type { User } from "@supabase/supabase-js";
 import { startOfWeek, addDays } from "date-fns";
-import { UserCircle, BookOpenText, Brain, SquarePen, CalendarDays, ShoppingCart } from "lucide-react";
+import { UserCircle, BookOpenText, Brain, SquarePen, CalendarDays, ShoppingCart, Home } from "lucide-react"; // Added Home icon
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 
 interface UserProfile {
@@ -86,6 +86,9 @@ const Dashboard = () => {
           <div className="flex items-center space-x-2">
             <span className="text-base hidden md:inline">{getWelcomeMessage()}</span>
             {/* Buttons in the new order */}
+             <Button variant="default" size="sm" asChild> {/* New Home button */}
+              <Link to="/dashboard"><Home className="mr-2 h-4 w-4" /> Home</Link>
+            </Button>
             <Button variant="default" size="sm" asChild>
               <Link to="/meals"><BookOpenText className="mr-2 h-4 w-4" /> My Meals</Link>
             </Button>
