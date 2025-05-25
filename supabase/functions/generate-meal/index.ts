@@ -29,7 +29,7 @@ interface GeneratedMeal {
 async function getAccessToken(serviceAccountJsonString: string): Promise<string> {
   try {
     const sa = JSON.parse(serviceAccountJsonString);
-    const privateKeyPem = sa.private_key;
+    let privateKeyPem = sa.private_key;
     const clientEmail = sa.client_email;
     const projectId = sa.project_id;
 
@@ -56,10 +56,14 @@ async function getAccessToken(serviceAccountJsonString: string): Promise<string>
 
     let privateKey: CryptoKey;
     try {
-        const pemHeader = "-----BEGIN PRIVATE KEY-----";
-        const pemFooter = "-----END PRIVATE KEY-----";
-        const pemContents = privateKeyPem.substring(pemHeader.length, privateKeyPem.length - pemFooter.length).trim();
-        const binaryDer = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0));
+        // Clean the private key string: remove headers/footers and all whitespace (including newlines)
+        // This is a common issue when storing multi-line keys in single-line env vars
+        privateKeyPem = privateKeyPem
+            .replace('-----BEGIN PRIVATE KEY-----', '')
+            .replace('-----END PRIVATE KEY-----', '')
+            .replace(/\s+/g, ''); // Remove all whitespace characters
+
+        const binaryDer = Uint8Array.from(atob(privateKeyPem), c => c.charCodeAt(0));
 
         privateKey = await crypto.subtle.importKey(
             "pkcs8",
@@ -134,10 +138,11 @@ serve(async (req) => {
     const region = "us-central1"; // Specify your Vertex AI region
 
     // --- Step 1: Generate Recipe using Vertex AI Gemini ---
-    const geminiModelId = "gemini-1.5-flash-001"; // Using a suitable Gemini model on Vertex
+    // Updated model ID based on user feedback
+    const geminiModelId = "gemini-2.5-flash-preview-05-20"; 
     const geminiEndpoint = `https://${region}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${region}/publishers/google/models/${geminiModelId}:generateContent`;
 
-    console.log("Attempting to call Gemini endpoint:", geminiEndpoint); // Added log
+    console.log("Attempting to call Gemini endpoint:", geminiEndpoint);
 
     let prompt = `Generate a detailed meal recipe in JSON format. The JSON object should have the following structure:
     {
@@ -198,6 +203,7 @@ serve(async (req) => {
 
     let generatedMealData: GeneratedMeal;
     try {
+        // Attempt to extract JSON from markdown code block if present
         const jsonMatch = generatedContentString.match(/```json\n([\s\S]*?)\n```/);
         const jsonString = jsonMatch ? jsonMatch[1] : generatedContentString;
         generatedMealData = JSON.parse(jsonString);
@@ -216,7 +222,7 @@ serve(async (req) => {
     const imagenModelId = "imagegeneration@002"; // Using a suitable Imagen model on Vertex
     const imagenEndpoint = `https://${region}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${region}/publishers/google/models/${imagenModelId}:predict`;
 
-    console.log("Attempting to call Imagen endpoint:", imagenEndpoint); // Added log
+    console.log("Attempting to call Imagen endpoint:", imagenEndpoint);
 
     const imagePrompt = `A realistic photo of the meal "${generatedMealData.name}". Focus on the finished dish presented nicely.`;
     console.log("Sending prompt to Vertex AI Imagen:", imagePrompt);
@@ -244,15 +250,19 @@ serve(async (req) => {
         const imagenData = await imagenResponse.json();
         console.log("Vertex AI Imagen API response:", imagenData);
 
+        // Vertex AI Imagen response structure might vary, check documentation
+        // Assuming the response contains a 'predictions' array with image data/urls
         const imageUrl = imagenData.predictions?.[0]?.bytesBase64 ? `data:image/png;base64,${imagenData.predictions[0].bytesBase64}` : imagenData.predictions?.[0]?.urls?.[0];
+
 
         if (!imageUrl) {
             console.error("Vertex AI Imagen response did not contain an image URL or data.", imagenData);
+            // Let's proceed without an image if the URL/data is missing but the API call was OK
             console.warn("No image URL or data returned from Vertex AI Imagen, proceeding without image.");
-            generatedMealData.image_url = undefined;
+            generatedMealData.image_url = undefined; // Ensure it's not set if missing
         } else {
             generatedMealData.image_url = imageUrl;
-            console.log("Generated Image URL/Data:", imageUrl.substring(0, 50) + "...");
+            console.log("Generated Image URL/Data:", imageUrl.substring(0, 50) + "..."); // Log snippet
         }
     }
 
