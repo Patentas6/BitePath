@@ -9,7 +9,7 @@ import type { User } from "@supabase/supabase-js";
 import { UserCircle, PlusCircle } from "lucide-react"; // Added PlusCircle for quick action
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 import BottomNavBar from "@/components/BottomNavBar"; // Import the new bottom nav
-import ProfileButton from "@/components/ProfileButton"; // Import the new profile button
+import ProfileButton from "../components/ProfileButton"; // Changed import to relative path
 import AddMealToPlanDialog from "@/components/AddMealToPlanDialog"; // Import dialog for quick action
 import { startOfToday } from "date-fns"; // Needed for today's date
 
