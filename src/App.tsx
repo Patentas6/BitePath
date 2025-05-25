@@ -5,19 +5,19 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 
-import Index from "@/pages/Index.tsx"; // Using @ alias
-import NotFound from "@/pages/NotFound.tsx"; // Using @ alias
-import Auth from "@/pages/Auth.tsx"; // Using @ alias
-import Dashboard from "@/pages/Dashboard.tsx"; // Using @ alias
-import ProtectedRoute from "@/components/ProtectedRoute"; // Using @ alias
-import ProfilePage from "@/pages/Profile.tsx"; // Using @ alias
-import MealsPage from "@/pages/MealsPage.tsx"; // Using @ alias
-import DiscoverMealsPage from "@/pages/DiscoverMealsPage.tsx"; // Using @ alias
-import BetaDisclaimerBanner from "@/components/BetaDisclaimerBanner"; // Using @ alias
-import FeedbackPage from "@/pages/FeedbackPage.tsx"; // Using @ alias
-import PlannerViewPage from "@/pages/PlannerViewPage.tsx"; // Using @ alias
-import GroceryListPage from "@/pages/GroceryListPage.tsx"; // Using @ alias
-import AIMealGeneratorPage from "@/pages/AIMealGeneratorPage.tsx"; // Using @ alias
+import Index from "./pages/Index.tsx"; // Reverted to relative path
+import NotFound from "./pages/NotFound.tsx"; // Reverted to relative path
+import Auth from "./pages/Auth.tsx"; // Reverted to relative path
+import Dashboard from "./pages/Dashboard.tsx"; // Reverted to relative path
+import ProtectedRoute from "./components/ProtectedRoute"; // Reverted to relative path
+import ProfilePage from "./pages/Profile.tsx"; // Reverted to relative path
+import MealsPage from "./pages/MealsPage.tsx"; // Reverted to relative path
+import DiscoverMealsPage from "./pages/DiscoverMealsPage.tsx"; // Reverted to relative path
+import BetaDisclaimerBanner from "./components/BetaDisclaimerBanner"; // Reverted to relative path
+import FeedbackPage from "./pages/FeedbackPage.tsx"; // Reverted to relative path
+import PlannerViewPage from "./pages/PlannerViewPage.tsx"; // Reverted to relative path
+import GroceryListPage from "./pages/GroceryListPage.tsx"; // Reverted to relative path
+import AIMealGeneratorPage from "./pages/AIMealGeneratorPage.tsx"; // Reverted to relative path
 
 const queryClient = new QueryClient();
 
