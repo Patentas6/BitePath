@@ -122,13 +122,14 @@ serve(async (req) => {
     const requestBody = await req.json();
     const { mealType, kinds, styles, preferences, mealData } = requestBody; // Destructure mealData
 
-    let generatedMealData: GeneratedMeal;
+    let generatedMealData: GeneratedMeal | undefined; // Initialize as undefined
+
     let mealNameForImage: string;
 
     if (mealData) {
         // If mealData is provided, skip Gemini and use provided data
         console.log("Received existing meal data for image generation:", mealData.name);
-        generatedMealData = mealData as GeneratedMeal; // Use provided data structure
+        generatedMealData = mealData as GeneratedMeal; // This is where generatedMealData is set
         mealNameForImage = mealData.name;
         // Ensure ingredients is an array if it was null/string from DB
         if (typeof generatedMealData.ingredients === 'string') {
@@ -228,7 +229,6 @@ serve(async (req) => {
            throw new Error("Vertex AI Gemini did not return a valid recipe.");
         }
 
-        let generatedMealData: GeneratedMeal;
         try {
             // Attempt to extract JSON from markdown code block if present
             const jsonMatch = generatedContentString.match(/```json\n([\s\S]*?)\n```/);
@@ -256,7 +256,7 @@ serve(async (req) => {
       if (mealData) { // If only image was requested, this is a failure
          throw new Error("AI service not configured for image generation. Please set VERTEX_SERVICE_ACCOUNT_KEY_JSON secret.");
       } else { // If full generation was requested, return recipe without image
-         generatedMealData.image_url = undefined;
+         if (generatedMealData) generatedMealData.image_url = undefined; // Ensure it's undefined if generation failed
          return new Response(
             JSON.stringify(generatedMealData),
             { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
@@ -296,7 +296,7 @@ serve(async (req) => {
         const errorBody = await imagenResponse.json();
         console.error(`Vertex AI Imagen API error: ${imagenResponse.status} ${imagenResponse.statusText}`, errorBody);
         console.warn(`Vertex AI Imagen failed (${imagenResponse.status}): ${errorBody.error?.message || 'Unknown error'}. Proceeding without image.`);
-        generatedMealData.image_url = undefined; // Ensure it's not set if image generation failed
+        if (generatedMealData) generatedMealData.image_url = undefined; // Ensure it's not set if image generation failed
     } else {
         const imagenData = await imagenResponse.json();
         console.log("Vertex AI Imagen API response:", imagenData);
@@ -319,12 +319,17 @@ serve(async (req) => {
         } else {
             console.error("Vertex AI Imagen response did not contain an image URL or data in expected fields.", imagenData);
             console.warn("No image URL or data returned from Vertex AI Imagen, proceeding without image.");
-            generatedMealData.image_url = undefined; // Ensure it's not set if missing
+            if (generatedMealData) generatedMealData.image_url = undefined; // Ensure it's not set if missing
         }
 
         if (imageUrl) {
-            generatedMealData.image_url = imageUrl;
-            console.log("Generated Image URL/Data:", imageUrl.substring(0, 50) + "..."); // Log snippet
+            if (generatedMealData) { // Add safety check here
+                generatedMealData.image_url = imageUrl;
+                console.log("Generated Image URL/Data:", imageUrl.substring(0, 50) + "..."); // Log snippet
+            } else {
+                 console.error("generatedMealData is undefined when trying to set image_url after Imagen success.");
+                 // Depending on flow, maybe throw here or handle differently
+            }
         }
     }
 
@@ -333,11 +338,15 @@ serve(async (req) => {
     // If mealData was provided, we only return the image_url
     if (mealData) {
          return new Response(
-            JSON.stringify({ image_url: generatedMealData.image_url }),
+            JSON.stringify({ image_url: generatedMealData?.image_url }), // Use optional chaining
             { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
          );
     } else {
         // If full generation was done, return the full meal data
+        if (!generatedMealData) { // Add check in case Gemini failed without throwing
+             console.error("generatedMealData is undefined after Gemini attempt.");
+             throw new Error("Failed to generate meal data.");
+        }
         return new Response(
           JSON.stringify(generatedMealData),
           { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
