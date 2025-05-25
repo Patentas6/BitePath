@@ -5,19 +5,19 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes"; // Import ThemeProvider
 
-import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
-import Auth from "./pages/Auth";
-import Dashboard from "./pages/Dashboard";
+import Index from "./pages/Index.tsx"; // Added .tsx
+import NotFound from "./pages/NotFound.tsx"; // Added .tsx
+import Auth from "./pages/Auth.tsx"; // Added .tsx
+import Dashboard from "./pages/Dashboard.tsx"; // Added .tsx
 import ProtectedRoute from "./components/ProtectedRoute";
-import ProfilePage from "./pages/Profile";
-import MealsPage from "./pages/MealsPage";
-import DiscoverMealsPage from "./pages/DiscoverMealsPage";
+import ProfilePage from "./pages/Profile.tsx"; // Added .tsx
+import MealsPage from "./pages/MealsPage.tsx"; // Added .tsx
+import DiscoverMealsPage from "./pages/DiscoverMealsPage.tsx"; // Added .tsx
 import BetaDisclaimerBanner from "./components/BetaDisclaimerBanner";
-import FeedbackPage from "./pages/FeedbackPage";
-import PlannerViewPage from "./pages/PlannerViewPage"; // Import PlannerViewPage
-import GroceryListPage from "./pages/GroceryListPage"; // Import GroceryListPage
-import AIMealGeneratorPage from "./pages/AIMealGeneratorPage"; // Import new AI page
+import FeedbackPage from "./pages/FeedbackPage.tsx"; // Added .tsx
+import PlannerViewPage from "./pages/PlannerViewPage.tsx"; // Added .tsx
+import GroceryListPage from "./pages/GroceryListPage.tsx"; // Added .tsx
+import AIMealGeneratorPage from "./pages/AIMealGeneratorPage.tsx"; // Added .tsx
 
 const queryClient = new QueryClient();
 
