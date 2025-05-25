@@ -138,7 +138,6 @@ serve(async (req) => {
     const region = "us-central1"; // Specify your Vertex AI region
 
     // --- Step 1: Generate Recipe using Vertex AI Gemini ---
-    // Updated model ID based on user feedback
     const geminiModelId = "gemini-2.5-flash-preview-05-20"; 
     const geminiEndpoint = `https://${region}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${region}/publishers/google/models/${geminiModelId}:generateContent`;
 
@@ -182,7 +181,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
+        contents: [{ role: "user", parts: [{ text: prompt }] }], // Explicitly set role to "user"
         generationConfig: { response_mime_type: "application/json" }
       }),
     });
@@ -250,19 +249,15 @@ serve(async (req) => {
         const imagenData = await imagenResponse.json();
         console.log("Vertex AI Imagen API response:", imagenData);
 
-        // Vertex AI Imagen response structure might vary, check documentation
-        // Assuming the response contains a 'predictions' array with image data/urls
         const imageUrl = imagenData.predictions?.[0]?.bytesBase64 ? `data:image/png;base64,${imagenData.predictions[0].bytesBase64}` : imagenData.predictions?.[0]?.urls?.[0];
-
 
         if (!imageUrl) {
             console.error("Vertex AI Imagen response did not contain an image URL or data.", imagenData);
-            // Let's proceed without an image if the URL/data is missing but the API call was OK
             console.warn("No image URL or data returned from Vertex AI Imagen, proceeding without image.");
-            generatedMealData.image_url = undefined; // Ensure it's not set if missing
+            generatedMealData.image_url = undefined;
         } else {
             generatedMealData.image_url = imageUrl;
-            console.log("Generated Image URL/Data:", imageUrl.substring(0, 50) + "..."); // Log snippet
+            console.log("Generated Image URL/Data:", imageUrl.substring(0, 50) + "...");
         }
     }
 
