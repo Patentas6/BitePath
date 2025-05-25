@@ -1,4 +1,3 @@
-// Trigger re-evaluation
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -81,20 +80,20 @@ const Auth = () => {
             appearance={{
               theme: ThemeSupa,
               variables: {
-                default: {
+                default: { 
                   colors: {
                     brand: 'hsl(var(--primary))', // Reverted to solid primary green
-                    brandAccent: '#070500',
+                    brandAccent: '#070500', 
                     inputBackground: 'hsl(var(--input))',
                     inputText: 'hsl(var(--foreground))',
                     inputLabelText: 'hsl(var(--foreground))',
                     inputPlaceholder: 'hsl(var(--muted-foreground))',
                   },
                 },
-                dark: {
+                dark: { 
                   colors: {
-                    brand: 'hsl(var(--primary))',
-                    brandAccent: 'hsl(var(--primary-foreground))',
+                    brand: 'hsl(var(--primary))', 
+                    brandAccent: 'hsl(var(--primary-foreground))', 
                     inputBackground: 'hsl(var(--input))',
                     inputText: 'hsl(var(--foreground))',
                     inputLabelText: 'hsl(var(--foreground))',
@@ -119,7 +118,7 @@ const Auth = () => {
             {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
             <button
               onClick={() => navigate(`/auth${isLogin ? '?mode=signup' : ''}`, { replace: true })}
-              className="text-blue-600 hover:underline"
+              className="text-blue-600 hover:underline" 
               disabled={isLoading}
             >
               {isLogin ? "Sign Up" : "Login"}

@@ -1,4 +1,3 @@
-// Trigger re-evaluation
 import MealForm from "@/components/MealForm";
 import MealList from "@/components/MealList";
 import { Button } from "@/components/ui/button";
