@@ -1,4 +1,3 @@
-tags around buttons with asChild prop to fix React.Children.only error.">
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
@@ -105,9 +104,7 @@ const Index = () => {
             <a href="#features" className="hover:underline">Features</a>
             <a href="#pricing" className="hover:underline">Pricing</a>
             <a href="#testimonials" className="hover:underline">Testimonials</a>
-            {/* Removed outer <a> tag */}
             <Link to="/auth" className="hover:underline">Login</Link>
-            {/* Removed outer <a> tag */}
             <Button
               size="sm"
               variant="default"
