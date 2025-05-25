@@ -74,51 +74,55 @@ const Auth = () => {
           )}
         </CardHeader>
         <CardContent>
-          <SupabaseAuthUI
-            supabaseClient={supabase}
-            theme={appTheme === 'dark' ? 'dark' : 'light'}
-            appearance={{
-              theme: ThemeSupa,
-              variables: {
-                default: { 
-                  colors: {
-                    brand: 'hsl(var(--primary))', // Reverted to solid primary green
-                    brandAccent: '#070500', 
-                    inputBackground: 'hsl(var(--input))',
-                    inputText: 'hsl(var(--foreground))',
-                    inputLabelText: 'hsl(var(--foreground))',
-                    inputPlaceholder: 'hsl(var(--muted-foreground))',
+          {/* Wrap the Supabase Auth UI component in a div */}
+          <div>
+            <SupabaseAuthUI
+              supabaseClient={supabase}
+              theme={appTheme === 'dark' ? 'dark' : 'light'}
+              appearance={{
+                theme: ThemeSupa,
+                variables: {
+                  default: {
+                    colors: {
+                      brand: 'hsl(var(--primary))', // Reverted to solid primary green
+                      brandAccent: '#070500',
+                      inputBackground: 'hsl(var(--input))',
+                      inputText: 'hsl(var(--foreground))',
+                      inputLabelText: 'hsl(var(--foreground))',
+                      inputPlaceholder: 'hsl(var(--muted-foreground))',
+                    },
+                  },
+                  dark: {
+                    colors: {
+                      brand: 'hsl(var(--primary))',
+                      brandAccent: 'hsl(var(--primary-foreground))',
+                      inputBackground: 'hsl(var(--input))',
+                      inputText: 'hsl(var(--foreground))',
+                      inputLabelText: 'hsl(var(--foreground))',
+                      inputPlaceholder: 'hsl(var(--muted-foreground))',
+                    },
                   },
                 },
-                dark: { 
-                  colors: {
-                    brand: 'hsl(var(--primary))', 
-                    brandAccent: 'hsl(var(--primary-foreground))', 
-                    inputBackground: 'hsl(var(--input))',
-                    inputText: 'hsl(var(--foreground))',
-                    inputLabelText: 'hsl(var(--foreground))',
-                    inputPlaceholder: 'hsl(var(--muted-foreground))',
-                  },
+              }}
+              providers={['google']}
+              redirectTo={`${window.location.origin}/dashboard`}
+              localization={{
+                variables: {
+                  sign_in: { email_label: "Email address", password_label: "Password", button_label: "Sign in", social_provider_text: "Sign in with {{provider}}", link_text: "Already have an account? Sign in" },
+                  sign_up: { email_label: "Email address", password_label: "Password", button_label: "Sign up", social_provider_text: "Sign up with {{provider}}", link_text: "Don't have an account? Sign up" },
+                  forgotten_password: { email_label: "Email address", button_label: "Send reset instructions", link_text: "Forgot your password?" },
                 },
-              },
-            }}
-            providers={['google']}
-            redirectTo={`${window.location.origin}/dashboard`}
-            localization={{
-              variables: {
-                sign_in: { email_label: "Email address", password_label: "Password", button_label: "Sign in", social_provider_text: "Sign in with {{provider}}", link_text: "Already have an account? Sign in" },
-                sign_up: { email_label: "Email address", password_label: "Password", button_label: "Sign up", social_provider_text: "Sign up with {{provider}}", link_text: "Don't have an account? Sign up" },
-                forgotten_password: { email_label: "Email address", button_label: "Send reset instructions", link_text: "Forgot your password?" },
-              },
-            }}
-            view={isLogin ? 'sign_in' : 'sign_up'}
-            showLinks={false}
-          />
+              }}
+              view={isLogin ? 'sign_in' : 'sign_up'}
+              showLinks={false}
+            />
+          </div>
+          {/* Keep other elements outside the Auth component's container */}
           <div className="mt-6 text-center text-sm">
             {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
             <button
               onClick={() => navigate(`/auth${isLogin ? '?mode=signup' : ''}`, { replace: true })}
-              className="text-blue-600 hover:underline" 
+              className="text-blue-600 hover:underline"
               disabled={isLoading}
             >
               {isLogin ? "Sign Up" : "Login"}
