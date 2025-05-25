@@ -24,13 +24,13 @@ const queryClient = new QueryClient();
 const App = () => (
   <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
     <QueryClientProvider client={queryClient}>
-      {/* TooltipProvider now wraps only BrowserRouter */}
+      {/* Toaster, Sonner, and BetaDisclaimerBanner should be outside BrowserRouter */}
+      <Toaster />
+      <Sonner />
+      <BetaDisclaimerBanner />
       <TooltipProvider>
+        {/* BrowserRouter should wrap the routing logic */}
         <BrowserRouter>
-          {/* Toaster and Sonner are inside BrowserRouter */}
-          <Toaster />
-          <Sonner />
-          <BetaDisclaimerBanner />
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
