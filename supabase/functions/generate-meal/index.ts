@@ -7,8 +7,9 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-// This is a temporary simplified function to diagnose request parsing.
-// It will just try to read the request body and return success if it can.
+// This is a MOCK Edge Function for AI meal generation.
+// It does NOT actually use AI yet, but returns a predefined structure.
+// Replace this with actual AI integration later.
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -16,32 +17,55 @@ serve(async (req) => {
   }
 
   try {
-    console.log("Edge Function received request. Attempting to parse JSON body...");
+    console.log("Edge Function received request for meal generation.");
     const body = await req.json();
-    console.log("Successfully parsed request body:", body);
+    console.log("Request body:", body);
 
-    // --- Temporary Success Response ---
-    // If you see this message, the request body was parsed correctly.
-    // The issue is likely in the previous mock generation logic.
+    // --- MOCK AI GENERATION LOGIC ---
+    // This is where your actual AI call would go.
+    // For now, we return a consistent mock structure.
+
+    let generatedName = "AI Generated Delight";
+    let generatedInstructions = "Follow these simple steps:\n1. Combine ingredients.\n2. Cook thoroughly.\n3. Enjoy!";
+    let generatedIngredients = [
+      { name: "Mock Ingredient 1", quantity: 1, unit: "cup", description: "chopped" },
+      { name: "Mock Ingredient 2", quantity: 2, unit: "pieces" },
+      { name: "Mock Ingredient 3", quantity: 500, unit: "g" },
+    ];
+    let generatedTags = ["Mock", "Generated"];
+
+    // You could add some basic logic here based on the input 'body'
+    if (body.mealType) {
+      generatedName = `${body.mealType} ${generatedName}`;
+      generatedTags.push(body.mealType);
+    }
+    if (body.kinds && body.kinds.length > 0) {
+       generatedTags = [...generatedTags, ...body.kinds];
+    }
+     if (body.styles && body.styles.length > 0) {
+       generatedTags = [...generatedTags, ...body.styles];
+    }
+    generatedTags = Array.from(new Set(generatedTags)); // Remove duplicates
+
+    const generatedMealData = {
+      name: generatedName,
+      ingredients: generatedIngredients,
+      instructions: generatedInstructions,
+      meal_tags: generatedTags,
+    };
+    // --- END MOCK LOGIC ---
+
+    console.log("Returning mock generated meal:", generatedMealData);
+
     return new Response(
-      JSON.stringify({ success: true, message: "Request body parsed successfully (temporary response)." }),
+      JSON.stringify(generatedMealData),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
     );
-    // --- End Temporary Response ---
-
-    // The original mock generation logic would go here:
-    // let generatedName = "Delicious Generated Meal";
-    // ... rest of the mock logic ...
-    // const generatedMealData = { ... };
-    // return new Response( JSON.stringify(generatedMealData), { ... status: 200 });
-
 
   } catch (error) {
-    console.error("Error processing request in Edge Function:", error);
-    // If you see this error, the function failed to parse the request body.
-    // This could be due to invalid JSON or a request issue.
+    console.error("Error in Edge Function during mock generation:", error);
     return new Response(
-      JSON.stringify({ error: `Failed to parse request or unexpected error: ${error.message || 'Unknown error'}` }),
+      JSON.stringify({ error: `Failed during mock generation: ${error.message || 'Unknown error'}` }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
     );
   }
