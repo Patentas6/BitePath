@@ -12,10 +12,12 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { useNavigate, Link } from "react-router-dom";
 import type { User } from "@supabase/supabase-js";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
+import { Textarea } from "@/components/ui/textarea"; // Import Textarea
 
 const profileFormSchema = z.object({
   first_name: z.string().min(1, "First name is required.").max(50, "First name cannot exceed 50 characters."),
   last_name: z.string().min(1, "Last name is required.").max(50, "Last name cannot exceed 50 characters."),
+  ai_preferences: z.string().optional(), // Added AI preferences field
 });
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
@@ -23,6 +25,7 @@ interface ProfileData {
   id: string;
   first_name: string | null;
   last_name: string | null;
+  ai_preferences: string | null; // Added AI preferences field
 }
 
 const ProfilePage = () => {
@@ -34,12 +37,12 @@ const ProfilePage = () => {
   useEffect(() => {
     const getSessionAndUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) { setUser(session.user); setUserId(session.user.id); } 
+      if (session?.user) { setUser(session.user); setUserId(session.user.id); }
       else { navigate("/auth"); }
     };
     getSessionAndUser();
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_OUT" || !session?.user) { setUser(null); setUserId(null); navigate("/auth"); } 
+      if (event === "SIGNED_OUT" || !session?.user) { setUser(null); setUserId(null); navigate("/auth"); }
       else if (session?.user) { setUser(session.user); setUserId(session.user.id); }
     });
     return () => authListener?.subscription.unsubscribe();
@@ -47,23 +50,23 @@ const ProfilePage = () => {
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
-    defaultValues: { first_name: "", last_name: "" },
+    defaultValues: { first_name: "", last_name: "", ai_preferences: "" }, // Set default value
   });
 
   const { data: profile, isLoading: isLoadingProfile, error: profileError } = useQuery<ProfileData | null>({
     queryKey: ["userProfile", userId],
     queryFn: async () => {
       if (!userId) return null;
-      const { data, error } = await supabase.from("profiles").select("id, first_name, last_name").eq("id", userId).single();
+      const { data, error } = await supabase.from("profiles").select("id, first_name, last_name, ai_preferences").eq("id", userId).single(); // Select new field
       if (error && error.code !== 'PGRST116') throw error;
       return data;
     },
-    enabled: !!userId, 
+    enabled: !!userId,
   });
-  
+
   useEffect(() => {
-    if (profile) form.reset({ first_name: profile.first_name || "", last_name: profile.last_name || "" });
-    else if (!isLoadingProfile && userId) form.reset({ first_name: "", last_name: "" });
+    if (profile) form.reset({ first_name: profile.first_name || "", last_name: profile.last_name || "", ai_preferences: profile.ai_preferences || "" }); // Populate new field
+    else if (!isLoadingProfile && userId) form.reset({ first_name: "", last_name: "", ai_preferences: "" }); // Reset new field
   }, [profile, isLoadingProfile, userId, form]);
 
   const updateProfileMutation = useMutation({
@@ -97,7 +100,7 @@ const ProfilePage = () => {
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle>Your Profile</CardTitle>
-            <ShadcnCardDescription>Update your display name. Feel free to get creative!</ShadcnCardDescription>
+            <ShadcnCardDescription>Update your display name and AI preferences.</ShadcnCardDescription> {/* Updated description */}
           </CardHeader>
           <CardContent>
             <Form {...form}>
@@ -122,6 +125,28 @@ const ProfilePage = () => {
                       <FormLabel>Last Name</FormLabel>
                       <FormControl><Input placeholder="e.g., The Magnificent" {...field} disabled={updateProfileMutation.isPending || isLoadingProfile} /></FormControl>
                       <FormDescription>Your surname, a cool title, or leave it blank!</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                 {/* New AI Preferences Field */}
+                <FormField
+                  control={form.control}
+                  name="ai_preferences"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>AI Meal Preferences</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="e.g., 'lactose intolerant', 'prefer vegetarian options', 'avoid nuts'"
+                          {...field}
+                          disabled={updateProfileMutation.isPending || isLoadingProfile}
+                          rows={4} // Adjust rows as needed
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Tell the AI about your dietary needs, allergies, or general preferences for meal generation.
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}

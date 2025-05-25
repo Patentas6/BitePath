@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { create, getNumericDate } from "https://deno.land/x/djwt@v2.4/mod.ts";
 import { parse } from "https://deno.land/std@0.224.0/yaml/parse.ts";
 import { format } from "https://deno.land/std@0.224.0/datetime/format.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'; // Import Supabase client
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -119,6 +120,47 @@ serve(async (req) => {
 
   try {
     console.log(`[${format(new Date(), "yyyy-MM-dd HH:mm:ss")}] Edge Function received request for AI meal generation (Vertex AI).`);
+
+    // Initialize Supabase client within the Edge Function
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        auth: {
+          apiHost: Deno.env.get('SUPABASE_URL')?.replace('https://', '') ?? '',
+          persistSession: false,
+        },
+      }
+    );
+
+    // Get the authenticated user from the request header
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      console.error("Authentication failed:", userError?.message);
+      return new Response(JSON.stringify({ error: "Authentication failed." }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    console.log("Authenticated user:", user.id);
+
+    // Fetch user's AI preferences from the profile table
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('ai_preferences')
+      .eq('id', user.id)
+      .single();
+
+    let userPreferences = profileData?.ai_preferences || '';
+    if (profileError && profileError.code !== 'PGRST116') { // PGRST116 means no row found
+        console.error("Error fetching user profile for preferences:", profileError);
+        // Continue without preferences if there's a DB error, but log it
+    } else if (profileError && profileError.code === 'PGRST116') {
+        console.log("No profile found for user, proceeding without AI preferences.");
+    } else {
+        console.log("Fetched user preferences:", userPreferences);
+    }
+
+
     const requestBody = await req.json();
     const { mealType, kinds, styles, preferences, mealData } = requestBody; // Destructure mealData
 
@@ -195,9 +237,15 @@ serve(async (req) => {
         if (styles && styles.length > 0) {
           prompt += ` It should be ${styles.join(', ')}.`;
         }
-        if (preferences) {
-          prompt += ` Consider these ingredient preferences: ${preferences}.`;
+        // Include user's profile preferences in the prompt
+        if (userPreferences) {
+            prompt += ` Consider these user preferences: ${userPreferences}.`;
         }
+        // Include specific request preferences in the prompt
+        if (preferences) {
+          prompt += ` Also consider these specific request preferences: ${preferences}.`;
+        }
+
 
         prompt += ` Ensure the response is ONLY the JSON object, nothing else.`;
 
