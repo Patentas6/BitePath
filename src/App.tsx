@@ -12,11 +12,12 @@ import Dashboard from "./pages/Dashboard";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ProfilePage from "./pages/Profile";
 import MealsPage from "./pages/MealsPage";
-import BetaDisclaimerBanner from "./components/BetaDisclaimerBanner";
+import BetaDisclaimerBanner from "@/components/BetaDisclaimerBanner"; // Corrected import path
 import FeedbackPage from "./pages/FeedbackPage";
 import GenerateMealPage from "./pages/GenerateMealPage";
 import AddMealPage from "./pages/AddMealPage";
-import WeeklyPlanPage from "./pages/WeeklyPlanPage"; // Import the new page
+import WeeklyPlanPage from "./pages/WeeklyPlanPage";
+import GroceryListPage from "./pages/GroceryListPage"; // Import the new page
 
 const queryClient = new QueryClient();
 
@@ -71,12 +72,20 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-            {/* New Weekly Plan Route */}
             <Route
               path="/weekly-plan"
               element={
                 <ProtectedRoute>
-                  <WeeklyPlanPage /> {/* Render the new page */}
+                  <WeeklyPlanPage />
+                </ProtectedRoute>
+              }
+            />
+            {/* New Grocery List Route */}
+            <Route
+              path="/grocery-list"
+              element={
+                <ProtectedRoute>
+                  <GroceryListPage /> {/* Render the new page */}
                 </ProtectedRoute>
               }
             />

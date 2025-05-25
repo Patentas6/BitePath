@@ -7,7 +7,7 @@ import WeeklyPlanner from "@/components/WeeklyPlanner";
 import GroceryList from "@/components/GroceryList";
 import type { User } from "@supabase/supabase-js";
 import { startOfWeek, addDays } from "date-fns";
-import { UserCircle, BookOpenText, Brain, SquarePen, CalendarDays } from "lucide-react"; // Added CalendarDays icon
+import { UserCircle, BookOpenText, Brain, SquarePen, CalendarDays, ShoppingCart } from "lucide-react"; // Added ShoppingCart icon
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 
 interface UserProfile {
@@ -89,20 +89,22 @@ const Dashboard = () => {
           </div>
           <div className="flex items-center space-x-2">
             <span className="text-base hidden md:inline">{getWelcomeMessage()}</span>
-             {/* New AI Generate Button */}
+            {/* Buttons in the new order */}
+            <Button variant="default" size="sm" asChild>
+              <Link to="/meals"><BookOpenText className="mr-2 h-4 w-4" /> My Meals</Link>
+            </Button>
             <Button variant="default" size="sm" asChild>
               <Link to="/generate-meal"><Brain className="mr-2 h-4 w-4" /> Generate Meal</Link>
             </Button>
-             {/* New Add Meal Button */}
             <Button variant="default" size="sm" asChild>
               <Link to="/add-meal"><SquarePen className="mr-2 h-4 w-4" /> Add Meal</Link>
             </Button>
-            {/* New Weekly Plan Button */}
             <Button variant="default" size="sm" asChild>
               <Link to="/weekly-plan"><CalendarDays className="mr-2 h-4 w-4" /> Weekly Plan</Link>
             </Button>
+             {/* New Grocery List Button */}
             <Button variant="default" size="sm" asChild>
-              <Link to="/meals"><BookOpenText className="mr-2 h-4 w-4" /> My Meals</Link>
+              <Link to="/grocery-list"><ShoppingCart className="mr-2 h-4 w-4" /> Grocery List</Link>
             </Button>
             <Button variant="default" size="sm" asChild>
               <Link to="/profile"><UserCircle className="mr-2 h-4 w-4" /> Profile</Link>
@@ -110,8 +112,8 @@ const Dashboard = () => {
             <Button onClick={handleLogout} variant="destructive" size="sm">Logout</Button>
           </div>
         </header>
-        {/* WeeklyPlanner is now on its own page */}
-        {user && <GroceryList userId={user.id} currentWeekStart={currentWeekStart} />} {/* Keep GroceryList here */}
+        {/* WeeklyPlanner and GroceryList are now on their own pages */}
+        {/* {user && <GroceryList userId={user.id} currentWeekStart={currentWeekStart} />} */}
       </div>
     </div>
   );
