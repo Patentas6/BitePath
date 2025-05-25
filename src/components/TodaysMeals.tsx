@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { format, isToday, startOfToday, parseISO } from "date-fns";
-import { useMemo, useState } from "react"; // Import useState
+import { useMemo } from "react"; // Removed useState
 import { cn } from "@/lib/utils";
 import { PLANNING_MEAL_TYPES, PlanningMealType } from "@/lib/constants";
 
@@ -10,7 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { UtensilsCrossed } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent } from "@/components/ui/dialog"; // Import Dialog components
+// Removed Dialog import
 
 interface MealPlan {
   id: string;
@@ -19,7 +19,7 @@ interface MealPlan {
   meal_type?: string;
   meals: {
     name: string;
-    image_url?: string | null; // Added image_url
+    image_url?: string | null; // Keep image_url in interface
   } | null;
 }
 
@@ -33,7 +33,7 @@ const MEAL_TYPE_DISPLAY_ORDER: PlanningMealType[] = ["Breakfast", "Brunch Snack"
 const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
   const today = startOfToday();
   const todayStr = format(today, 'yyyy-MM-dd');
-  const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null); // State for enlarged image view
+  // Removed viewingImageUrl state
 
   const { data: mealPlans, isLoading, error } = useQuery<MealPlan[]>({
     queryKey: ["todaysMealPlans", userId, todayStr],
@@ -86,17 +86,12 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
               {sortedMealPlans.map(plannedMeal => (
                 <li key={plannedMeal.id} className="border rounded-md p-3 bg-card shadow-sm flex items-center space-x-3"> {/* Added flex and spacing */}
                    {plannedMeal.meals?.image_url && (
-                      <div
-                        className="h-16 w-16 object-cover rounded-md flex-shrink-0 cursor-pointer flex items-center justify-center overflow-hidden bg-muted" // Increased size, added cursor, flex centering, background
-                        onClick={() => setViewingImageUrl(plannedMeal.meals?.image_url || null)} // Set state on click
-                      >
-                        <img
-                          src={plannedMeal.meals.image_url}
-                          alt={plannedMeal.meals.name || 'Meal image'}
-                          className="h-full object-contain" // Use h-full and object-contain
-                          onError={(e) => (e.currentTarget.style.display = 'none')} // Hide image on error
-                        />
-                      </div>
+                    <img
+                      src={plannedMeal.meals.image_url}
+                      alt={plannedMeal.meals.name || 'Meal image'}
+                      className="h-12 w-12 object-cover rounded-md flex-shrink-0" // Reverted size
+                      onError={(e) => (e.currentTarget.style.display = 'none')} // Hide image on error
+                    />
                    )}
                    <div className="flex-grow"> {/* Allow text to take remaining space */}
                      <div className="font-medium text-gray-600 dark:text-gray-400 text-sm">
@@ -113,18 +108,7 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
         </CardContent>
       </Card>
 
-      {/* Image Viewer Dialog */}
-      <Dialog open={!!viewingImageUrl} onOpenChange={(open) => !open && setViewingImageUrl(null)}>
-        <DialogContent className="max-w-screen-md w-[90vw] h-[90vh] p-0 flex items-center justify-center bg-transparent border-none">
-          {viewingImageUrl && (
-            <img
-              src={viewingImageUrl}
-              alt="Enlarged meal image"
-              className="max-w-full max-h-full object-contain" // Ensure image fits within dialog
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Removed Image Viewer Dialog */}
     </>
   );
 };

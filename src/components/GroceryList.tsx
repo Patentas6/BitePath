@@ -268,9 +268,11 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
 
   return (
     <Card className="hover:shadow-lg transition-shadow duration-200">
-      {/* Removed Card Header */}
+      <CardHeader> {/* Added Card Header back */}
+        <CardTitle>Grocery List</CardTitle>
+      </CardHeader>
       <CardContent>
-        {/* Moved Controls here */}
+        {/* Added Controls back */}
         <div className="flex flex-col sm:flex-row gap-4 items-center mb-4">
            <div className="flex items-center">
              <ListChecks className="mr-2 h-5 w-5" />
@@ -278,7 +280,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
                Grocery List for {format(queryStartDate, 'MMM dd')} - {format(queryEndDate, 'MMM dd')}
              </h2>
            </div>
-           <div className="flex items-center space-x-2 ml-auto"> {/* Added ml-auto to push controls to the right */}
+           <div className="flex items-center space-x-2 ml-auto">
               <Select value={selectedDays} onValueChange={setSelectedDays}>
                  <SelectTrigger className="w-[120px] h-8 text-sm">
                    <SelectValue placeholder="Select days" />

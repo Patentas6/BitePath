@@ -1,17 +1,16 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import WeeklyPlanner from "@/components/WeeklyPlanner";
 import GroceryList from "@/components/GroceryList";
-import { ArrowLeft, ChevronLeft, ChevronRight, CalendarDays, ShoppingCart } from "lucide-react";
+import { ArrowLeft, ShoppingCart } from "lucide-react";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
-import { startOfWeek, addDays, format } from "date-fns";
+import { startOfWeek } from "date-fns";
 import { supabase } from "@/lib/supabase";
 
-const PlanningPage = () => {
+const GroceryListPage = () => {
   const navigate = useNavigate();
   const [userId, setUserId] = useState<string | null>(null);
-  const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [currentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -38,10 +37,6 @@ const PlanningPage = () => {
     };
   }, [navigate]);
 
-  const handleWeekNavigate = (direction: "prev" | "next") => {
-    setCurrentWeekStart(prev => addDays(prev, direction === "next" ? 7 : -7));
-  };
-
   if (userId === null) {
     return <div className="min-h-screen flex items-center justify-center">Loading user data...</div>;
   }
@@ -57,7 +52,7 @@ const PlanningPage = () => {
             </Link>
             <ThemeToggleButton />
           </div>
-          <h1 className="text-xl sm:text-3xl font-bold flex items-center"><CalendarDays className="mr-2 h-6 w-6" /> Meal Planning & Grocery List</h1> {/* Updated Title */}
+          <h1 className="text-xl sm:text-3xl font-bold flex items-center"><ShoppingCart className="mr-2 h-6 w-6" /> Grocery List</h1>
           <Button variant="default" asChild>
             <Link to="/dashboard">
               <ArrowLeft className="mr-2 h-4 w-4" />
@@ -66,25 +61,13 @@ const PlanningPage = () => {
           </Button>
         </header>
 
-        {/* Weekly Navigation */}
-        <div className="flex justify-between items-center mb-4">
-          <Button variant="default" size="sm" onClick={() => handleWeekNavigate("prev")}><ChevronLeft className="h-4 w-4 mr-1" /> Previous</Button>
-          <h3 className="text-lg font-semibold text-center text-foreground">{format(currentWeekStart, 'MMM dd')} - {format(addDays(currentWeekStart, 6), 'MMM dd, yyyy')}</h3>
-          <Button variant="default" size="sm" onClick={() => handleWeekNavigate("next")}>Next <ChevronRight className="h-4 w-4 ml-1" /></Button>
-        </div>
-
-        {/* Two-column layout for Planner and Grocery List */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Left Column: Weekly Planner */}
-          <WeeklyPlanner userId={userId} currentWeekStart={currentWeekStart} />
-
-          {/* Right Column: Grocery List */}
-          <GroceryList userId={userId} currentWeekStart={currentWeekStart} /> {/* Pass currentWeekStart, GroceryList will use startOfToday internally */}
-        </div>
+        {/* Grocery List Component */}
+        {/* Pass the fetched userId and currentWeekStart to the GroceryList */}
+        <GroceryList userId={userId} currentWeekStart={currentWeekStart} />
 
       </div>
     </div>
   );
 };
 
-export default PlanningPage;
+export default GroceryListPage;

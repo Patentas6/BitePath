@@ -16,7 +16,8 @@ import BetaDisclaimerBanner from "@/components/BetaDisclaimerBanner"; // Correct
 import FeedbackPage from "./pages/FeedbackPage";
 import GenerateMealPage from "./pages/GenerateMealPage";
 import AddMealPage from "./pages/AddMealPage";
-import PlanningPage from "./pages/PlanningPage"; // Import the new PlanningPage
+import WeeklyPlanPage from "./pages/WeeklyPlanPage"; // Import the WeeklyPlanPage
+import GroceryListPage from "./pages/GroceryListPage"; // Import the GroceryListPage
 
 const queryClient = new QueryClient();
 
@@ -71,18 +72,24 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-            {/* New Planning Route */}
+            {/* Re-added Weekly Plan route */}
             <Route
-              path="/planning"
+              path="/weekly-plan"
               element={
                 <ProtectedRoute>
-                  <PlanningPage /> {/* Render the new page */}
+                  <WeeklyPlanPage />
                 </ProtectedRoute>
               }
             />
-            {/* Removed old Weekly Plan and Grocery List routes */}
-            {/* <Route path="/weekly-plan" element={<ProtectedRoute><WeeklyPlanPage /></ProtectedRoute>} /> */}
-            {/* <Route path="/grocery-list" element={<ProtectedRoute><GroceryListPage /></ProtectedRoute>} /> */}
+            {/* Re-added Grocery List route */}
+            <Route
+              path="/grocery-list"
+              element={
+                <ProtectedRoute>
+                  <GroceryListPage />
+                </ProtectedRoute>
+              }
+            />
 
             <Route path="/feedback" element={<FeedbackPage />} />
             <Route path="*" element={<NotFound />} />
