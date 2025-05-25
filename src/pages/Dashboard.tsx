@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import type { User } from "@supabase/supabase-js";
 import { UserCircle, BookOpenText, Brain, SquarePen, CalendarDays } from "lucide-react"; // Added CalendarDays icon
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
+// Removed import for GroceryList
 
 interface UserProfile {
   first_name: string | null;
@@ -104,7 +105,7 @@ const Dashboard = () => {
           </div>
         </header>
         {/* WeeklyPlanner removed from here */}
-        {user && <GroceryList userId={user.id} currentWeekStart={new Date()} />} {/* Keep GroceryList, maybe adjust date logic if needed */}
+        {/* GroceryList removed from here */}
       </div>
     </div>
   );

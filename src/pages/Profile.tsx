@@ -14,6 +14,7 @@ import type { User } from "@supabase/supabase-js";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 import { Textarea } from "@/components/ui/textarea"; // Import Textarea
 import WeeklyPlanner from "@/components/WeeklyPlanner"; // Import WeeklyPlanner
+import GroceryList from "@/components/GroceryList"; // Import GroceryList
 import { startOfWeek, addDays } from "date-fns"; // Import date-fns for WeeklyPlanner state
 import { BookOpenText, Brain, SquarePen, CalendarDays } from "lucide-react"; // Import icons
 
@@ -125,8 +126,9 @@ const ProfilePage = () => {
       </header>
       <div className="container mx-auto flex flex-col lg:flex-row gap-6"> {/* Flex container for layout */}
         {/* Left side: Weekly Planner */}
-        <div className="lg:w-2/3"> {/* Takes 2/3 width on large screens */}
+        <div className="lg:w-2/3 flex flex-col gap-6"> {/* Takes 2/3 width on large screens, added flex-col and gap */}
           {userId && <WeeklyPlanner userId={userId} currentWeekStart={currentWeekStart} onWeekNavigate={handleWeekNavigate} />}
+          {userId && <GroceryList userId={userId} currentWeekStart={currentWeekStart} />} {/* Add GroceryList here */}
         </div>
         {/* Right side: Profile Form */}
         <div className="lg:w-1/3"> {/* Takes 1/3 width on large screens */}
