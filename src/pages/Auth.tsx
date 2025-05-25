@@ -74,39 +74,38 @@ const Auth = () => {
           )}
         </CardHeader>
         <CardContent>
-          {/* Wrap SupabaseAuthUI and the toggle link div in a single parent div */}
-          <div>
-            <SupabaseAuthUI
-              supabaseClient={supabase}
-              theme={appTheme === 'dark' ? 'dark' : 'light'}
-              appearance={{
-                theme: ThemeSupa,
-                // Removed custom variables to simplify appearance
-              }}
-              providers={['google']}
-              redirectTo={`${window.location.origin}/dashboard`}
-              localization={{
-                variables: {
-                  sign_in: { email_label: "Email address", password_label: "Password", button_label: "Sign in", social_provider_text: "Sign in with {{provider}}", link_text: "Already have an account? Sign in" },
-                  sign_up: { email_label: "Email address", password_label: "Password", button_label: "Sign up", social_provider_text: "Sign up with {{provider}}", link_text: "Don't have an account? Sign up" },
-                  forgotten_password: { email_label: "Email address", button_label: "Send reset instructions", link_text: "Forgot your password?" },
-                },
-              }}
-              view={isLogin ? 'sign_in' : 'sign_up'}
-              showLinks={false} // Hide default links as we provide our own below
-            />
-            <div className="mt-6 text-center text-sm">
-              {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
-              <button
-                onClick={() => navigate(`/auth${isLogin ? '?mode=signup' : ''}`, { replace: true })}
-                className="text-blue-600 hover:underline"
-                disabled={isLoading} // Use isLoading if applicable, though not currently tied to form submission state
-              >
-                {isLogin ? "Sign Up" : "Login"}
-              </button>
-            </div>
-          </div>
+          {/* SupabaseAuthUI component is now the ONLY direct child of CardContent */}
+          <SupabaseAuthUI
+            supabaseClient={supabase}
+            theme={appTheme === 'dark' ? 'dark' : 'light'}
+            appearance={{
+              theme: ThemeSupa,
+              // Removed custom variables to simplify appearance
+            }}
+            providers={['google']}
+            redirectTo={`${window.location.origin}/dashboard`}
+            localization={{
+              variables: {
+                sign_in: { email_label: "Email address", password_label: "Password", button_label: "Sign in", social_provider_text: "Sign in with {{provider}}", link_text: "Already have an account? Sign in" },
+                sign_up: { email_label: "Email address", password_label: "Password", button_label: "Sign up", social_provider_text: "Sign up with {{provider}}", link_text: "Don't have an account? Sign up" },
+                forgotten_password: { email_label: "Email address", button_label: "Send reset instructions", link_text: "Forgot your password?" },
+              },
+            }}
+            view={isLogin ? 'sign_in' : 'sign_up'}
+            showLinks={false} // Hide default links as we provide our own below
+          />
         </CardContent>
+        {/* The toggle link div is now a sibling of CardContent */}
+        <div className="mt-6 text-center text-sm px-6 pb-6"> {/* Added padding */}
+          {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
+          <button
+            onClick={() => navigate(`/auth${isLogin ? '?mode=signup' : ''}`, { replace: true })}
+            className="text-blue-600 hover:underline"
+            disabled={isLoading} // Use isLoading if applicable, though not currently tied to form submission state
+          >
+            {isLogin ? "Sign Up" : "Login"}
+          </button>
+        </div>
       </Card>
       {/* Custom toggle link placed outside the Card */}
       <div className="mt-8 text-center text-sm"> {/* Adjusted margin-top */}
