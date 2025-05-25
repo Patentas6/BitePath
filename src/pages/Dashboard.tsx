@@ -9,7 +9,7 @@ import type { User } from "@supabase/supabase-js";
 import { UserCircle, PlusCircle } from "lucide-react"; // Added PlusCircle for quick action
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 import BottomNavBar from "@/components/BottomNavBar"; // Import the new bottom nav
-import ProfileButton from "../components/ProfileButton"; // Changed import to relative path
+import UserProfileIcon from "../components/UserProfileIcon"; // Updated import to new name and relative path
 import AddMealToPlanDialog from "@/components/AddMealToPlanDialog"; // Import dialog for quick action
 import { startOfToday } from "date-fns"; // Needed for today's date
 
@@ -84,7 +84,7 @@ const Dashboard = () => {
         <div className="container mx-auto flex justify-between items-center">
           <div className="flex items-center space-x-3">
             {/* Profile Button */}
-            <ProfileButton userId={user.id} />
+            <UserProfileIcon userId={user.id} /> {/* Using the new component name */}
             <Link to="/dashboard" className="text-2xl font-bold group">
               <span className="text-[#7BB390] dark:text-foreground transition-opacity duration-150 ease-in-out group-hover:opacity-80">Bite</span>
               <span className="text-[#FC5A50] dark:text-primary transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
