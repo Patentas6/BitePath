@@ -80,7 +80,7 @@ const GenerateMealPage = () => {
       }
 
       setIsGenerating(true);
-      const loadingToastId = showLoading("Generating meal and image..."); // Updated loading message
+      const loadingToastId = showLoading("Generating meal and image...");
 
       try {
         const { data, error } = await supabase.functions.invoke('generate-meal', {
@@ -97,9 +97,8 @@ const GenerateMealPage = () => {
         if (error) throw error;
         if (data?.error) throw new Error(data.error);
 
-        // Assuming the Edge Function returns data in the GeneratedMeal format
         setGeneratedMeal(data as GeneratedMeal);
-        showSuccess("Meal and image generated!"); // Updated success message
+        showSuccess("Meal and image generated!");
         return data;
 
       } catch (error: any) {
@@ -267,12 +266,14 @@ const GenerateMealPage = () => {
           <Card>
             <CardHeader>
               {generatedMeal.image_url && (
-                <img
-                  src={generatedMeal.image_url}
-                  alt={`Image of ${generatedMeal.name}`}
-                  className="w-full h-64 object-cover rounded-t-md mb-4"
-                  onError={(e) => (e.currentTarget.style.display = 'none')} // Hide image on error
-                />
+                <a href={generatedMeal.image_url} target="_blank" rel="noopener noreferrer" className="cursor-pointer">
+                  <img
+                    src={generatedMeal.image_url}
+                    alt={`Image of ${generatedMeal.name}`}
+                    className="w-full h-48 object-contain rounded-t-md mb-4" // Adjusted size and object-fit
+                    onError={(e) => (e.currentTarget.style.display = 'none')} // Hide image on error
+                  />
+                </a>
               )}
               <CardTitle>{generatedMeal.name}</CardTitle>
               <CardDescription>Generated Recipe</CardDescription>

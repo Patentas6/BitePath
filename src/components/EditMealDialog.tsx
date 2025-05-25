@@ -56,6 +56,7 @@ export interface MealForEditing {
   instructions?: string | null;
   user_id: string;
   meal_tags?: string[] | null; // Expect tags from DB
+  image_url?: string | null; // Added image_url
 }
 
 interface EditMealDialogProps {
@@ -137,6 +138,7 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
           ingredients: ingredientsJSON,
           instructions: values.instructions,
           meal_tags: values.meal_tags, // Save tags
+          // image_url is not updated here, it's set on creation
         })
         .eq("id", meal.id)
         .eq("user_id", user.id)
@@ -173,6 +175,14 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4 max-h-[70vh] overflow-y-auto pr-2">
+             {meal.image_url && (
+                <img
+                  src={meal.image_url}
+                  alt={`Image of ${meal.name}`}
+                  className="w-full h-40 object-contain rounded-md mb-4" // Added image styling
+                  onError={(e) => (e.currentTarget.style.display = 'none')} // Hide image on error
+                />
+              )}
             <FormField
               control={form.control}
               name="name"

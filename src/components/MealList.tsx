@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 
 interface Meal extends MealForEditing {
   meal_tags?: string[] | null; 
+  image_url?: string | null; // Added image_url
 }
 
 interface ParsedIngredient {
@@ -49,7 +50,7 @@ const MealList = () => {
 
       const { data, error } = await supabase
         .from("meals")
-        .select("id, name, ingredients, instructions, user_id, meal_tags") 
+        .select("id, name, ingredients, instructions, user_id, meal_tags, image_url") // Select image_url
         .eq("user_id", user.id)
         .order('created_at', { ascending: false });
 
@@ -191,7 +192,15 @@ const MealList = () => {
             <div className="space-y-3">
               {filteredMeals.map((meal) => (
                 <div key={meal.id} className="border p-4 rounded-lg shadow-sm bg-card hover:shadow-md transition-shadow duration-150 space-y-2">
-                  <div className="flex justify-between items-start">
+                  <div className="flex items-start"> {/* Use flex to align image and text */}
+                    {meal.image_url && (
+                       <img 
+                         src={meal.image_url} 
+                         alt={meal.name} 
+                         className="h-20 w-20 object-cover rounded-md mr-4 flex-shrink-0" // Added image styling
+                         onError={(e) => (e.currentTarget.style.display = 'none')} // Hide image on error
+                       />
+                    )}
                     <div className="flex-grow pr-2">
                       <h3 className="text-xl font-semibold text-foreground">{meal.name}</h3>
                       {meal.meal_tags && meal.meal_tags.length > 0 && (
