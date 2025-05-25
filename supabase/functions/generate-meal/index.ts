@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { create, getNumericDate } from "https://deno.land/x/djwt@v2.4/mod.ts"; // Corrected import path for djwt
-import { parse } from "https://deno.land/std@0.224.0/yaml/parse.ts"; // Using parse for PEM key
-import { format } from "https://deno.land/std@0.224.0/datetime/format.ts"; // For logging timestamps
+import { create, getNumericDate } from "https://deno.land/x/djwt@v2.4/mod.ts";
+import { parse } from "https://deno.land/std@0.224.0/yaml/parse.ts";
+import { format } from "https://deno.land/std@0.224.0/datetime/format.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -22,7 +22,7 @@ interface GeneratedMeal {
   ingredients: GeneratedIngredient[];
   instructions: string;
   meal_tags: string[];
-  image_url?: string; // Added image_url field
+  image_url?: string;
 }
 
 // Helper function to get an OAuth2 access token using a service account key
@@ -54,13 +54,8 @@ async function getAccessToken(serviceAccountJsonString: string): Promise<string>
       exp: expires,
     };
 
-    // Import the private key
-    // Need to convert PEM to JWK or use SubtleCrypto directly
-    // SubtleCrypto requires PKCS8 format, PEM is usually PKCS8 or PKCS1
-    // Let's assume PKCS8 for now, or try parsing
     let privateKey: CryptoKey;
     try {
-        // Attempt to parse PEM and import
         const pemHeader = "-----BEGIN PRIVATE KEY-----";
         const pemFooter = "-----END PRIVATE KEY-----";
         const pemContents = privateKeyPem.substring(pemHeader.length, privateKeyPem.length - pemFooter.length).trim();
@@ -70,10 +65,10 @@ async function getAccessToken(serviceAccountJsonString: string): Promise<string>
             "pkcs8",
             binaryDer,
             {
-                name: "RSASSA-PKCS1-v1_5", // Or "ECDSA" depending on key type
+                name: "RSASSA-PKCS1-v1_5",
                 hash: "SHA-256",
             },
-            false, // not extractable
+            false,
             ["sign"]
         );
          console.log("Successfully imported private key.");
@@ -82,12 +77,9 @@ async function getAccessToken(serviceAccountJsonString: string): Promise<string>
         throw new Error("Failed to import private key for JWT signing.");
     }
 
-
-    // Create and sign the JWT
     const jwt = await create({ alg: "RS256", typ: "JWT" }, payload, privateKey);
     console.log("Created signed JWT.");
 
-    // Request the access token
     const response = await fetch(tokenUri, {
       method: "POST",
       headers: {
@@ -126,7 +118,6 @@ serve(async (req) => {
     const { mealType, kinds, styles, preferences } = await req.json();
     console.log("Request body:", { mealType, kinds, styles, preferences });
 
-    // Get the service account key JSON from secrets
     const serviceAccountJsonString = Deno.env.get("VERTEX_SERVICE_ACCOUNT_KEY_JSON");
     if (!serviceAccountJsonString) {
       console.error("VERTEX_SERVICE_ACCOUNT_KEY_JSON secret not set.");
@@ -135,7 +126,6 @@ serve(async (req) => {
       });
     }
 
-    // Obtain access token
     const accessToken = await getAccessToken(serviceAccountJsonString);
     console.log("Obtained access token.");
 
@@ -146,6 +136,8 @@ serve(async (req) => {
     // --- Step 1: Generate Recipe using Vertex AI Gemini ---
     const geminiModelId = "gemini-1.5-flash-001"; // Using a suitable Gemini model on Vertex
     const geminiEndpoint = `https://${region}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${region}/publishers/google/models/${geminiModelId}:generateContent`;
+
+    console.log("Attempting to call Gemini endpoint:", geminiEndpoint); // Added log
 
     let prompt = `Generate a detailed meal recipe in JSON format. The JSON object should have the following structure:
     {
@@ -224,6 +216,8 @@ serve(async (req) => {
     const imagenModelId = "imagegeneration@002"; // Using a suitable Imagen model on Vertex
     const imagenEndpoint = `https://${region}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${region}/publishers/google/models/${imagenModelId}:predict`;
 
+    console.log("Attempting to call Imagen endpoint:", imagenEndpoint); // Added log
+
     const imagePrompt = `A realistic photo of the meal "${generatedMealData.name}". Focus on the finished dish presented nicely.`;
     console.log("Sending prompt to Vertex AI Imagen:", imagePrompt);
 
@@ -243,27 +237,25 @@ serve(async (req) => {
         const errorBody = await imagenResponse.json();
         console.error(`Vertex AI Imagen API error: ${imagenResponse.status} ${imagenResponse.statusText}`, errorBody);
         // Decide if you want to throw an error or just proceed without an image
-        // For now, let's throw an error if image generation fails
-        throw new Error(`AI API error (Vertex Imagen): ${imagenResponse.statusText} - ${errorBody.error?.message || 'Unknown error'}`);
-    }
-
-    const imagenData = await imagenResponse.json();
-    console.log("Vertex AI Imagen API response:", imagenData);
-
-    // Vertex AI Imagen response structure might vary, check documentation
-    // Assuming the response contains a 'predictions' array with image data/urls
-    const imageUrl = imagenData.predictions?.[0]?.bytesBase64 ? `data:image/png;base64,${imagenData.predictions[0].bytesBase64}` : imagenData.predictions?.[0]?.urls?.[0];
-
-
-    if (!imageUrl) {
-        console.error("Vertex AI Imagen response did not contain an image URL or data.", imagenData);
-        // Let's proceed without an image if the URL/data is missing but the API call was OK
-        console.warn("No image URL or data returned from Vertex AI Imagen, proceeding without image.");
-        generatedMealData.image_url = undefined; // Ensure it's not set if missing
+        // For now, let's proceed without an image if the API call fails, but log the error
+        console.warn(`Vertex AI Imagen failed (${imagenResponse.status}): ${errorBody.error?.message || 'Unknown error'}. Proceeding without image.`);
+        generatedMealData.image_url = undefined; // Ensure it's not set if image generation failed
     } else {
-        generatedMealData.image_url = imageUrl;
-        console.log("Generated Image URL/Data:", imageUrl.substring(0, 50) + "..."); // Log snippet
+        const imagenData = await imagenResponse.json();
+        console.log("Vertex AI Imagen API response:", imagenData);
+
+        const imageUrl = imagenData.predictions?.[0]?.bytesBase64 ? `data:image/png;base64,${imagenData.predictions[0].bytesBase64}` : imagenData.predictions?.[0]?.urls?.[0];
+
+        if (!imageUrl) {
+            console.error("Vertex AI Imagen response did not contain an image URL or data.", imagenData);
+            console.warn("No image URL or data returned from Vertex AI Imagen, proceeding without image.");
+            generatedMealData.image_url = undefined;
+        } else {
+            generatedMealData.image_url = imageUrl;
+            console.log("Generated Image URL/Data:", imageUrl.substring(0, 50) + "...");
+        }
     }
+
 
     // --- Step 3: Return Combined Data ---
     return new Response(
