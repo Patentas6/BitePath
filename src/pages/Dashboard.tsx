@@ -7,7 +7,7 @@ import WeeklyPlanner from "@/components/WeeklyPlanner";
 import GroceryList from "@/components/GroceryList";
 import type { User } from "@supabase/supabase-js";
 import { startOfWeek, addDays } from "date-fns";
-import { UserCircle, BookOpenText, Brain, SquarePen } from "lucide-react"; // Added SquarePen icon
+import { UserCircle, BookOpenText, Brain, SquarePen, CalendarDays } from "lucide-react"; // Added CalendarDays icon
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 
 interface UserProfile {
@@ -97,6 +97,10 @@ const Dashboard = () => {
             <Button variant="default" size="sm" asChild>
               <Link to="/add-meal"><SquarePen className="mr-2 h-4 w-4" /> Add Meal</Link>
             </Button>
+            {/* New Weekly Plan Button */}
+            <Button variant="default" size="sm" asChild>
+              <Link to="/weekly-plan"><CalendarDays className="mr-2 h-4 w-4" /> Weekly Plan</Link>
+            </Button>
             <Button variant="default" size="sm" asChild>
               <Link to="/meals"><BookOpenText className="mr-2 h-4 w-4" /> My Meals</Link>
             </Button>
@@ -106,8 +110,8 @@ const Dashboard = () => {
             <Button onClick={handleLogout} variant="destructive" size="sm">Logout</Button>
           </div>
         </header>
-        {user && <WeeklyPlanner userId={user.id} currentWeekStart={currentWeekStart} onWeekNavigate={handleWeekNavigate} />}
-        {user && <GroceryList userId={user.id} currentWeekStart={currentWeekStart} />}
+        {/* WeeklyPlanner is now on its own page */}
+        {user && <GroceryList userId={user.id} currentWeekStart={currentWeekStart} />} {/* Keep GroceryList here */}
       </div>
     </div>
   );

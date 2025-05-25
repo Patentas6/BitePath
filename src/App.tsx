@@ -15,7 +15,8 @@ import MealsPage from "./pages/MealsPage";
 import BetaDisclaimerBanner from "./components/BetaDisclaimerBanner";
 import FeedbackPage from "./pages/FeedbackPage";
 import GenerateMealPage from "./pages/GenerateMealPage";
-import AddMealPage from "./pages/AddMealPage"; // Import the new page
+import AddMealPage from "./pages/AddMealPage";
+import WeeklyPlanPage from "./pages/WeeklyPlanPage"; // Import the new page
 
 const queryClient = new QueryClient();
 
@@ -63,10 +64,19 @@ const App = () => (
               }
             />
              <Route
-              path="/add-meal" // New route path
+              path="/add-meal"
               element={
                 <ProtectedRoute>
-                  <AddMealPage /> {/* Render the new page */}
+                  <AddMealPage />
+                </ProtectedRoute>
+              }
+            />
+            {/* New Weekly Plan Route */}
+            <Route
+              path="/weekly-plan"
+              element={
+                <ProtectedRoute>
+                  <WeeklyPlanPage /> {/* Render the new page */}
                 </ProtectedRoute>
               }
             />

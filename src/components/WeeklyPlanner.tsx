@@ -25,13 +25,13 @@ interface MealPlan {
 interface WeeklyPlannerProps {
   userId: string;
   currentWeekStart: Date;
-  onWeekNavigate: (direction: "prev" | "next") => void;
+  // Removed onWeekNavigate prop
 }
 
 // Define the desired display order for meal types
-const MEAL_TYPE_DISPLAY_ORDER: PlanningMealType[] = ["Breakfast", "Brunch Snack", "Lunch", "Afternoon Snack", "Dinner", "Snack"];
+const MEAL_TYPE_DISPLAY_ORDER: PlanningMealType[] = ["Breakfast", "Brunch Snack", "Lunch", "Afternoon Snack", "Dinner"]; // Updated order
 
-const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart, onWeekNavigate }) => {
+const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart }) => { // Removed onWeekNavigate
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedDateForDialog, setSelectedDateForDialog] = useState<Date | null>(null);
 
@@ -127,105 +127,95 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart,
 
   return (
     <>
-      <Card className="hover:shadow-lg transition-shadow duration-200">
-        <CardHeader>
-          <CardTitle>Weekly Plan</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex justify-between items-center mb-4">
-            <Button variant="default" size="sm" onClick={() => onWeekNavigate("prev")}><ChevronLeft className="h-4 w-4 mr-1" /> Previous</Button>
-            <h3 className="text-lg font-semibold text-center text-foreground">{format(currentWeekStart, 'MMM dd')} - {format(addDays(currentWeekStart, 6), 'MMM dd, yyyy')}</h3>
-            <Button variant="default" size="sm" onClick={() => onWeekNavigate("next")}>Next <ChevronRight className="h-4 w-4 ml-1" /></Button>
+      {/* Removed Card Header and Navigation Buttons */}
+      <div className="grid grid-cols-7 gap-2 text-center mb-2">
+        {daysOfWeek.map(day => (
+          <div
+            key={day.toISOString()}
+            className={cn(
+              "flex flex-col items-center p-1 rounded-md",
+              isToday(day) && "bg-primary/10 dark:bg-primary/20"
+            )}
+          >
+            <div className="font-semibold text-foreground">{format(day, 'EEE')}</div>
+            <div className="text-sm text-muted-foreground">{format(day, 'MMM dd')}</div>
           </div>
-          <div className="grid grid-cols-7 gap-2 text-center mb-2">
-            {daysOfWeek.map(day => (
-              <div
-                key={day.toISOString()}
-                className={cn(
-                  "flex flex-col items-center p-1 rounded-md",
-                  isToday(day) && "bg-primary/10 dark:bg-primary/20"
-                )}
-              >
-                <div className="font-semibold text-foreground">{format(day, 'EEE')}</div>
-                <div className="text-sm text-muted-foreground">{format(day, 'MMM dd')}</div>
-              </div>
-            ))}
-          </div>
-          <div className="grid grid-cols-7 gap-2">
-            {daysOfWeek.map(day => {
-              const isDayPast = isPast(day) && !isToday(day);
-              const dateKey = format(day, 'yyyy-MM-dd'); // Key to match mealPlansByDate
-              const mealsForDay = mealPlansByDate.get(dateKey) || [];
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-2">
+        {daysOfWeek.map(day => {
+          const isDayPast = isPast(day) && !isToday(day);
+          const dateKey = format(day, 'yyyy-MM-dd'); // Key to match mealPlansByDate
+          const mealsForDay = mealPlansByDate.get(dateKey) || [];
 
-              return (
-                <div key={day.toISOString() + "-meals"} className={cn("flex flex-col space-y-2", isDayPast && "opacity-60")}>
-                   {/* Add Meal Button */}
-                   {!isDayPast && (
-                     <Button
-                       variant="outline"
-                       size="sm"
-                       className="w-full h-10 flex items-center justify-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                       onClick={() => handleAddMealClick(day)} // Use new handler
-                       disabled={isDayPast}
-                     >
-                       <Plus className="h-4 w-4 mr-1" /> Add Meal
-                     </Button>
-                   )}
-                   {isDayPast && (
-                      <div className="w-full h-10 flex items-center justify-center text-gray-400 dark:text-gray-600 text-sm italic">
-                         Past
-                      </div>
-                   )}
+          return (
+            <div key={day.toISOString() + "-meals"} className={cn("flex flex-col space-y-2", isDayPast && "opacity-60")}>
+               {/* Add Meal Button */}
+               {!isDayPast && (
+                 <Button
+                   variant="outline"
+                   size="sm"
+                   className="w-full h-10 flex items-center justify-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                   onClick={() => handleAddMealClick(day)} // Use new handler
+                   disabled={isDayPast}
+                 >
+                   <Plus className="h-4 w-4 mr-1" /> Add Meal
+                 </Button>
+               )}
+               {isDayPast && (
+                  <div className="w-full h-10 flex items-center justify-center text-gray-400 dark:text-gray-600 text-sm italic">
+                     Past
+                  </div>
+               )}
 
 
-                  {/* List Planned Meals for the Day */}
-                  {mealsForDay.length > 0 ? (
-                    mealsForDay.map(plannedMeal => (
-                      <div
-                        key={plannedMeal.id}
-                        className={cn(
-                          "border rounded-md p-2 text-xs flex flex-col justify-between overflow-hidden relative transition-colors",
-                          isDayPast ? "bg-gray-50 dark:bg-gray-800/30" : "bg-card" // Use bg-card for non-past days
-                        )}
-                        // Removed onClick here, planning is now done via the "+" button
+              {/* List Planned Meals for the Day */}
+              {mealsForDay.length > 0 ? (
+                mealsForDay.map(plannedMeal => (
+                  <div
+                    key={plannedMeal.id}
+                    className={cn(
+                      "border rounded-md p-2 text-xs flex flex-col justify-between overflow-hidden relative transition-colors",
+                      isDayPast ? "bg-gray-50 dark:bg-gray-800/30" : "bg-card" // Use bg-card for non-past days
+                    )}
+                    // Removed onClick here, planning is now done via the "+" button
+                  >
+                    <div className={cn(
+                      "font-medium self-start text-gray-600 dark:text-gray-400",
+                      isDayPast && "text-gray-500 dark:text-gray-500"
+                    )}>
+                      {plannedMeal.meal_type || 'Meal'} {/* Display meal type */}
+                    </div>
+                    <div className={cn(
+                      "text-sm font-medium truncate self-start flex-grow mt-1",
+                      isDayPast ? "line-through text-gray-500 dark:text-gray-500" : "text-foreground"
+                    )}>
+                      {plannedMeal.meals?.name || 'Unknown Meal'}
+                    </div>
+                    {!isDayPast && (
+                      <button
+                        onClick={(e) => handleRemoveMeal(plannedMeal.id, e)}
+                        className="absolute top-1 right-1 p-0.5 rounded-full text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors"
+                        aria-label="Remove meal"
                       >
-                        <div className={cn(
-                          "font-medium self-start text-gray-600 dark:text-gray-400",
-                          isDayPast && "text-gray-500 dark:text-gray-500"
-                        )}>
-                          {plannedMeal.meal_type || 'Meal'} {/* Display meal type */}
-                        </div>
-                        <div className={cn(
-                          "text-sm font-medium truncate self-start flex-grow mt-1",
-                          isDayPast ? "line-through text-gray-500 dark:text-gray-500" : "text-foreground"
-                        )}>
-                          {plannedMeal.meals?.name || 'Unknown Meal'}
-                        </div>
-                        {!isDayPast && (
-                          <button
-                            onClick={(e) => handleRemoveMeal(plannedMeal.id, e)}
-                            className="absolute top-1 right-1 p-0.5 rounded-full text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors"
-                            aria-label="Remove meal"
-                          >
-                            <XCircle size={16} />
-                          </button>
-                        )}
-                      </div>
-                    ))
-                  ) : (
-                    // Optional: Placeholder if no meals planned for the day
-                    !isDayPast && (
-                       <div className="text-xs italic self-start mt-1 flex-grow flex items-center justify-start text-gray-400 dark:text-gray-500">
-                          {/* No meals planned */}
-                       </div>
-                    )
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+                        <XCircle size={16} />
+                      </button>
+                    )}
+                  </div>
+                ))
+              ) : (
+                // Optional: Placeholder if no meals planned for the day
+                !isDayPast && (
+                   <div className="text-xs italic self-start mt-1 flex-grow flex items-center justify-start text-gray-400 dark:text-gray-500">
+                      {/* No meals planned */}
+                   </div>
+                )
+              )}
+            </div>
+          );
+        })}
+      </div>
+
 
       <AddMealToPlanDialog
         open={isDialogOpen}
