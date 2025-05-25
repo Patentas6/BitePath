@@ -36,7 +36,7 @@ const SUMMABLE_UNITS: ReadonlyArray<string> = [
   "ml", "milliliter", "milliliters", "l", "liter", "liters",
   "piece", "pieces", "can", "cans", "bottle", "bottles", "package", "packages",
   "slice", "slices", "item", "items", "clove", "cloves", "sprig", "sprigs",
-  "head", "heads", "bunch", "bunches"
+  'head', 'heads', 'bunch', 'bunches'
 ];
 
 const PIECE_UNITS: ReadonlyArray<string> = ['piece', 'pieces', 'item', 'items', 'unit', 'units'];
@@ -255,7 +255,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
     setStruckItems(prevStruckItems => {
       const newStruckItems = new Set(prevStruckItems);
       if (newStruckItems.has(uniqueKey)) { newStruckItems.delete(uniqueKey); }
-      else { newStruckItems.add(uniqueItems.add(uniqueKey); } // Corrected typo
+      else { newStruckItems.add(uniqueKey); } // Corrected typo here
       return newStruckItems;
     });
   };
