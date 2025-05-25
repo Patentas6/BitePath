@@ -74,28 +74,30 @@ const Auth = () => {
           )}
         </CardHeader>
         <CardContent>
-          {/* SupabaseAuthUI component is now the ONLY direct child of CardContent */}
-          <SupabaseAuthUI
-            supabaseClient={supabase}
-            theme={appTheme === 'dark' ? 'dark' : 'light'}
-            appearance={{
-              theme: ThemeSupa,
-              // Removed custom variables to simplify appearance
-            }}
-            providers={['google']}
-            redirectTo={`${window.location.origin}/dashboard`}
-            localization={{
-              variables: {
-                sign_in: { email_label: "Email address", password_label: "Password", button_label: "Sign in", social_provider_text: "Sign in with {{provider}}", link_text: "Already have an account? Sign in" },
-                sign_up: { email_label: "Email address", password_label: "Password", button_label: "Sign up", social_provider_text: "Sign up with {{provider}}", link_text: "Don't have an account? Sign up" },
-                forgotten_password: { email_label: "Email address", button_label: "Send reset instructions", link_text: "Forgot your password?" },
-              },
-            }}
-            view={isLogin ? 'sign_in' : 'sign_up'}
-            showLinks={false} // Hide default links as we provide our own below
-          />
+          {/* Wrap SupabaseAuthUI in a single div within CardContent */}
+          <div>
+            <SupabaseAuthUI
+              supabaseClient={supabase}
+              theme={appTheme === 'dark' ? 'dark' : 'light'}
+              appearance={{
+                theme: ThemeSupa,
+                // Removed custom variables to simplify appearance
+              }}
+              providers={['google']}
+              redirectTo={`${window.location.origin}/dashboard`}
+              localization={{
+                variables: {
+                  sign_in: { email_label: "Email address", password_label: "Password", button_label: "Sign in", social_provider_text: "Sign in with {{provider}}", link_text: "Already have an account? Sign in" },
+                  sign_up: { email_label: "Email address", password_label: "Password", button_label: "Sign up", social_provider_text: "Sign up with {{provider}}", link_text: "Don't have an account? Sign up" },
+                  forgotten_password: { email_label: "Email address", button_label: "Send reset instructions", link_text: "Forgot your password?" },
+                },
+              }}
+              view={isLogin ? 'sign_in' : 'sign_up'}
+              showLinks={false} // Hide default links as we provide our own below
+            />
+          </div>
         </CardContent>
-        {/* The toggle link div is now a sibling of CardContent */}
+        {/* The toggle link div is a sibling of CardContent */}
         <div className="mt-6 text-center text-sm px-6 pb-6"> {/* Added padding */}
           {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
           <button
