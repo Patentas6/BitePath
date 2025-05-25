@@ -9,10 +9,10 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input'; // Added Input for ingredient display
+import { Input } from '@/components/ui/input';
 import { ArrowLeft, Brain, Save, RefreshCw } from 'lucide-react';
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
-import { MEAL_TAG_OPTIONS, MealTag } from "@/lib/constants"; // Import tags
+import { MEAL_TAG_OPTIONS, MealTag } from "@/lib/constants";
 
 // Define types for the generated meal structure
 interface GeneratedIngredient {
@@ -27,6 +27,7 @@ interface GeneratedMeal {
   ingredients: GeneratedIngredient[];
   instructions: string;
   meal_tags: string[];
+  image_url?: string; // Added image_url field
 }
 
 const mealTypes = ["Breakfast", "Lunch", "Dinner", "Snack"];
@@ -79,7 +80,7 @@ const GenerateMealPage = () => {
       }
 
       setIsGenerating(true);
-      const loadingToastId = showLoading("Generating meal...");
+      const loadingToastId = showLoading("Generating meal and image..."); // Updated loading message
 
       try {
         const { data, error } = await supabase.functions.invoke('generate-meal', {
@@ -98,7 +99,7 @@ const GenerateMealPage = () => {
 
         // Assuming the Edge Function returns data in the GeneratedMeal format
         setGeneratedMeal(data as GeneratedMeal);
-        showSuccess("Meal generated!");
+        showSuccess("Meal and image generated!"); // Updated success message
         return data;
 
       } catch (error: any) {
@@ -128,6 +129,7 @@ const GenerateMealPage = () => {
             ingredients: ingredientsJSON,
             instructions: mealToSave.instructions,
             meal_tags: mealToSave.meal_tags,
+            image_url: mealToSave.image_url, // Save the image URL
           },
         ])
         .select();
@@ -264,6 +266,14 @@ const GenerateMealPage = () => {
         {generatedMeal && (
           <Card>
             <CardHeader>
+              {generatedMeal.image_url && (
+                <img
+                  src={generatedMeal.image_url}
+                  alt={`Image of ${generatedMeal.name}`}
+                  className="w-full h-64 object-cover rounded-t-md mb-4"
+                  onError={(e) => (e.currentTarget.style.display = 'none')} // Hide image on error
+                />
+              )}
               <CardTitle>{generatedMeal.name}</CardTitle>
               <CardDescription>Generated Recipe</CardDescription>
             </CardHeader>
