@@ -3,21 +3,21 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { ThemeProvider } from "next-themes"; // Import ThemeProvider
+import { ThemeProvider } from "next-themes";
 
-import Index from "@/pages/Index.tsx"; // Updated import path
-import NotFound from "@/pages/NotFound.tsx"; // Updated import path
-import Auth from "@/pages/Auth.tsx"; // Updated import path
-import Dashboard from "@/pages/Dashboard.tsx"; // Updated import path
-import ProtectedRoute from "@/components/ProtectedRoute"; // Updated import path
-import ProfilePage from "@/pages/Profile.tsx"; // Updated import path
-import MealsPage from "@/pages/MealsPage.tsx"; // Updated import path
-import DiscoverMealsPage from "@/pages/DiscoverMealsPage.tsx"; // Updated import path
-import BetaDisclaimerBanner from "@/components/BetaDisclaimerBanner"; // Updated import path
-import FeedbackPage from "@/pages/FeedbackPage.tsx"; // Updated import path
-import PlannerViewPage from "@/pages/PlannerViewPage.tsx"; // Updated import path
-import GroceryListPage from "@/pages/GroceryListPage.tsx"; // Updated import path
-import AIMealGeneratorPage from "@/pages/AIMealGeneratorPage.tsx"; // Updated import path
+import Index from "@/pages/Index.tsx"; // Using @ alias
+import NotFound from "@/pages/NotFound.tsx"; // Using @ alias
+import Auth from "@/pages/Auth.tsx"; // Using @ alias
+import Dashboard from "@/pages/Dashboard.tsx"; // Using @ alias
+import ProtectedRoute from "@/components/ProtectedRoute"; // Using @ alias
+import ProfilePage from "@/pages/Profile.tsx"; // Using @ alias
+import MealsPage from "@/pages/MealsPage.tsx"; // Using @ alias
+import DiscoverMealsPage from "@/pages/DiscoverMealsPage.tsx"; // Using @ alias
+import BetaDisclaimerBanner from "@/components/BetaDisclaimerBanner"; // Using @ alias
+import FeedbackPage from "@/pages/FeedbackPage.tsx"; // Using @ alias
+import PlannerViewPage from "@/pages/PlannerViewPage.tsx"; // Using @ alias
+import GroceryListPage from "@/pages/GroceryListPage.tsx"; // Using @ alias
+import AIMealGeneratorPage from "@/pages/AIMealGeneratorPage.tsx"; // Using @ alias
 
 const queryClient = new QueryClient();
 
