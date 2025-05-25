@@ -14,7 +14,7 @@ const BottomNavBar: React.FC = () => {
   const location = useLocation();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border shadow-lg z-50 md:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border shadow-lg z-50"> {/* Removed md:hidden */}
       <div className="container mx-auto h-14 flex items-center justify-around">
         {navLinks.map((link) => {
           const isActive = location.pathname === link.path;

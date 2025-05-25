@@ -8,6 +8,7 @@ import type { User } from "@supabase/supabase-js";
 import { startOfWeek } from "date-fns";
 import { ArrowLeft } from "lucide-react";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
+import BottomNavBar from "@/components/BottomNavBar"; // Import BottomNavBar
 
 const GroceryListPage = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -37,8 +38,8 @@ const GroceryListPage = () => {
   if (!user) return <div className="min-h-screen flex items-center justify-center">Loading user session...</div>;
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-4">
-      <div className="container mx-auto space-y-6">
+    <div className="min-h-screen bg-background text-foreground p-4 flex flex-col"> {/* Added flex-col */}
+      <div className="container mx-auto space-y-6 flex-grow"> {/* Added flex-grow */}
         <header className="flex justify-between items-center mb-6">
           <div className="flex items-center space-x-3">
             <Link to="/dashboard" className="text-2xl font-bold group">
@@ -58,6 +59,7 @@ const GroceryListPage = () => {
         {user && <GroceryList userId={user.id} currentWeekStart={currentWeekStart} />}
         {/* TODO: Add 1/3/7 day toggle UI */}
       </div>
+      <BottomNavBar /> {/* Added BottomNavBar */}
     </div>
   );
 };
