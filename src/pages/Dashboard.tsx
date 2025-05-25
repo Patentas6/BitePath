@@ -3,11 +3,11 @@ import { supabase } from "@/lib/supabase";
 import { useNavigate, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-// import TodaysMeals from "@/components/TodaysMeals"; // Keep TodaysMeals
-// import TodaysGroceryList from "@/components/TodaysGroceryList"; // Keep TodaysGroceryList
+// import TodaysMeals from "@/components/TodaysMeals";
+// import TodaysGroceryList from "@/components/TodaysGroceryList";
 import type { User } from "@supabase/supabase-js";
-import { startOfWeek, addDays } from "date-fns";
-import { UserCircle, BookOpenText, Brain, SquarePen, CalendarDays, ShoppingCart } from "lucide-react";
+// import { startOfWeek, addDays } from "date-fns"; // No longer needed here
+import { UserCircle, BookOpenText, Brain, SquarePen, CalendarDays, ShoppingCart } from "lucide-react"; // Keep CalendarDays for new button
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 
 interface UserProfile {
@@ -18,7 +18,6 @@ interface UserProfile {
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const navigate = useNavigate();
-  // Removed currentWeekStart as it's not needed for today's view
 
   useEffect(() => {
     const getSession = async () => {
@@ -85,7 +84,6 @@ const Dashboard = () => {
           </div>
           <div className="flex items-center space-x-2">
             <span className="text-base hidden md:inline">{getWelcomeMessage()}</span>
-            {/* Buttons in the previous order */}
             <Button variant="default" size="sm" asChild>
               <Link to="/meals"><BookOpenText className="mr-2 h-4 w-4" /> My Meals</Link>
             </Button>
@@ -95,12 +93,9 @@ const Dashboard = () => {
             <Button variant="default" size="sm" asChild>
               <Link to="/add-meal"><SquarePen className="mr-2 h-4 w-4" /> Add Meal</Link>
             </Button>
+            {/* Combined Planning Button */}
             <Button variant="default" size="sm" asChild>
-              <Link to="/weekly-plan"><CalendarDays className="mr-2 h-4 w-4" /> Weekly Plan</Link> {/* Reverted text and link */}
-            </Button>
-             {/* Re-added Grocery List Button */}
-            <Button variant="default" size="sm" asChild>
-              <Link to="/grocery-list"><ShoppingCart className="mr-2 h-4 w-4" /> Grocery List</Link>
+              <Link to="/planning"><CalendarDays className="mr-2 h-4 w-4" /> Plan & Shop</Link>
             </Button>
             <Button variant="default" size="sm" asChild>
               <Link to="/profile"><UserCircle className="mr-2 h-4 w-4" /> Profile</Link>
@@ -109,10 +104,8 @@ const Dashboard = () => {
           </div>
         </header>
 
-        {/* Two-column layout for today's info */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* {user && <TodaysMeals userId={user.id} />} */}
-          {/* {user && <TodaysGroceryList userId={user.id} />} */}
+          {/* TodaysMeals and TodaysGroceryList are still commented out for testing */}
           <div>TodaysMeals component commented out for testing.</div>
           <div>TodaysGroceryList component commented out for testing.</div>
         </div>

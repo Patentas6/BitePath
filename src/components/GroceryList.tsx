@@ -1,14 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState, useEffect } from "react"; // Import useEffect
+import { useMemo, useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { format, endOfWeek, isBefore, startOfToday, parseISO, addDays } from "date-fns"; // Import addDays
+import { format, addDays, parseISO } from "date-fns"; // Removed endOfWeek, isBefore, startOfToday
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ListChecks, RefreshCw, ShoppingCart } from "lucide-react";
 import { convertToPreferredSystem } from "@/utils/conversionUtils";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Import Select components
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface PlannedMealWithIngredients {
   plan_date: string;
@@ -84,30 +84,31 @@ interface CategorizedDisplayListItem {
 
 interface GroceryListProps {
   userId: string;
-  currentWeekStart: Date; // Keep this prop, but query uses startOfToday
+  currentWeekStart: Date;
 }
 
 const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) => {
   const [struckItems, setStruckItems] = useState<Set<string>>(new Set());
   const [displaySystem, setDisplaySystem] = useState<'imperial' | 'metric'>('imperial');
-  const [selectedDays, setSelectedDays] = useState<string>('7'); // State for selected days, default to 7
-  const today = startOfToday();
+  const [selectedDays, setSelectedDays] = useState<string>('7');
 
-  const queryStartDate = today;
-  const queryEndDate = addDays(today, parseInt(selectedDays) - 1); // Calculate end date based on selectedDays
+  // Use currentWeekStart for queryStartDate
+  const queryStartDate = currentWeekStart;
+  const queryEndDate = addDays(queryStartDate, parseInt(selectedDays) - 1);
 
   const { data: plannedMealsData, isLoading, error: plannedMealsError } = useQuery<PlannedMealWithIngredients[]>({
-    queryKey: ["groceryListSource", userId, format(queryStartDate, 'yyyy-MM-dd'), selectedDays], // Add selectedDays to queryKey
+    // Update queryKey to include currentWeekStart
+    queryKey: ["groceryListSource", userId, format(queryStartDate, 'yyyy-MM-dd'), selectedDays],
     queryFn: async () => {
       if (!userId) return [];
       const startDateStr = format(queryStartDate, 'yyyy-MM-dd');
-      const endDateStr = format(queryEndDate, 'yyyy-MM-dd'); // Use calculated end date
+      const endDateStr = format(queryEndDate, 'yyyy-MM-dd');
       const { data, error } = await supabase
         .from("meal_plans")
         .select("plan_date, meals ( name, ingredients )")
         .eq("user_id", userId)
         .gte("plan_date", startDateStr)
-        .lte("plan_date", endDateStr); // Filter by the new date range
+        .lte("plan_date", endDateStr);
       if (error) throw error;
       return data || [];
     },
@@ -116,8 +117,6 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
 
   const aggregatedIngredients = useMemo(() => {
     if (!plannedMealsData) return [];
-
-    // The query already filters by date range from today, so no need for isBefore check here
     const ingredientMap = new Map<string, GroceryListItem>();
     plannedMealsData.forEach(pm => {
       const ingredientsBlock = pm.meals?.ingredients;
@@ -152,7 +151,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
       }
     });
     return Array.from(ingredientMap.values());
-  }, [plannedMealsData]); // Depend on plannedMealsData
+  }, [plannedMealsData]);
 
   const categorizedDisplayList = useMemo(() => {
     const grouped: Record<Category, CategorizedDisplayListItem[]> =
@@ -268,16 +267,15 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
 
   return (
     <Card className="hover:shadow-lg transition-shadow duration-200">
-      <CardHeader> {/* Added Card Header back */}
+      <CardHeader>
         <CardTitle>Grocery List</CardTitle>
       </CardHeader>
       <CardContent>
-        {/* Added Controls back */}
         <div className="flex flex-col sm:flex-row gap-4 items-center mb-4">
            <div className="flex items-center">
              <ListChecks className="mr-2 h-5 w-5" />
              <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
-               Grocery List for {format(queryStartDate, 'MMM dd')} - {format(queryEndDate, 'MMM dd')}
+               For: {format(queryStartDate, 'MMM dd')} - {format(queryEndDate, 'MMM dd')}
              </h2>
            </div>
            <div className="flex items-center space-x-2 ml-auto">
@@ -312,7 +310,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
           <div className="text-center py-6 text-muted-foreground">
             <ShoppingCart className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500 mb-4" />
             <p className="text-lg font-semibold mb-1">Your List is Empty</p>
-            <p className="text-sm">Plan some meals from today onwards for the next {selectedDays} days to see ingredients here.</p>
+            <p className="text-sm">Plan some meals for the selected date range to see ingredients here.</p>
           </div>
         ) : (
           categoryOrder.map(category => {

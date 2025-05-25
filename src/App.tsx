@@ -12,24 +12,24 @@ import Dashboard from "./pages/Dashboard";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ProfilePage from "./pages/Profile";
 import MealsPage from "./pages/MealsPage";
-import BetaDisclaimerBanner from "@/components/BetaDisclaimerBanner"; // Corrected import path
+import BetaDisclaimerBanner from "@/components/BetaDisclaimerBanner";
 import FeedbackPage from "./pages/FeedbackPage";
 import GenerateMealPage from "./pages/GenerateMealPage";
 import AddMealPage from "./pages/AddMealPage";
-import WeeklyPlanPage from "./pages/WeeklyPlanPage"; // Import the WeeklyPlanPage
-import GroceryListPage from "./pages/GroceryListPage"; // Import the GroceryListPage
+import WeeklyPlanPage from "./pages/WeeklyPlanPage";
+import GroceryListPage from "./pages/GroceryListPage";
+import PlanningPage from "./pages/PlanningPage"; // Import the new PlanningPage
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
     <QueryClientProvider client={queryClient}>
-      {/* Toaster and Sonner are global and can be outside */}
       <Toaster />
       <Sonner />
       <TooltipProvider>
         <BrowserRouter>
-          <> {/* Wrap BrowserRouter children in a Fragment */}
+          <>
             <BetaDisclaimerBanner />
             <Routes>
               <Route path="/" element={<Index />} />
@@ -87,6 +87,15 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <GroceryListPage />
+                  </ProtectedRoute>
+                }
+              />
+              {/* Add new route for PlanningPage */}
+              <Route
+                path="/planning"
+                element={
+                  <ProtectedRoute>
+                    <PlanningPage />
                   </ProtectedRoute>
                 }
               />
