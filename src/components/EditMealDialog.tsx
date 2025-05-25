@@ -192,21 +192,6 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
                 )}
               <FormField
                 control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Meal Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g., Spaghetti Bolognese" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Meal Tags Checkboxes */}
-              <FormField
-                control={form.control}
                 name="meal_tags"
                 render={({ field }) => ( // Pass field to the render prop
                   <FormItem>
