@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react"; // Import useEffect
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { showError, showSuccess } from "@/utils/toast";
@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Trash2, Edit3, Search, ChefHat } from "lucide-react";
+import { Trash2, Edit3, Search, ChefHat, List, Grid3X3 } from "lucide-react"; // Added List and Grid3X3 icons
 import EditMealDialog, { MealForEditing } from "./EditMealDialog";
 import {
   AlertDialog,
@@ -19,11 +19,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge"; 
+import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog"; // Import Dialog components
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Import Select components
+import { cn } from "@/lib/utils"; // Import cn for conditional classes
 
 interface Meal extends MealForEditing {
-  meal_tags?: string[] | null; 
+  meal_tags?: string[] | null;
   image_url?: string | null; // Added image_url
 }
 
@@ -36,12 +38,14 @@ interface ParsedIngredient {
 
 const MealList = () => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string | 'all'>('all'); // State for category filter
+  const [layoutView, setLayoutView] = useState<'list' | 'grid'>('list'); // State for layout view
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [mealToEdit, setMealToEdit] = useState<MealForEditing | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [mealToDelete, setMealToDelete] = useState<MealForEditing | null>(null);
   const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null); // State for enlarged image view
-  
+
   const queryClient = useQueryClient();
 
   const { data: meals, isLoading, error } = useQuery<Meal[]>({
@@ -86,12 +90,12 @@ const MealList = () => {
     },
   });
 
-  const handleEditClick = (meal: Meal) => { 
+  const handleEditClick = (meal: Meal) => {
     setMealToEdit(meal);
     setIsEditDialogOpen(true);
   };
 
-  const handleDeleteClick = (meal: Meal) => { 
+  const handleDeleteClick = (meal: Meal) => {
     setMealToDelete(meal);
     setIsDeleteDialogOpen(true);
   };
@@ -104,12 +108,20 @@ const MealList = () => {
     }
   };
 
+  const uniqueCategories = useMemo(() => {
+    if (!meals) return [];
+    const allTags = meals.flatMap(meal => meal.meal_tags || []).filter(Boolean) as string[];
+    return Array.from(new Set(allTags)).sort();
+  }, [meals]);
+
   const filteredMeals = useMemo(() => {
     if (!meals) return [];
-    return meals.filter(meal =>
-      meal.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [meals, searchTerm]);
+    return meals.filter(meal => {
+      const nameMatch = meal.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const categoryMatch = selectedCategory === 'all' || (meal.meal_tags && meal.meal_tags.includes(selectedCategory));
+      return nameMatch && categoryMatch;
+    });
+  }, [meals, searchTerm, selectedCategory]);
 
   const formatIngredientsDisplay = (ingredientsString: string | null | undefined): string => {
     if (!ingredientsString) return 'No ingredients listed.';
@@ -118,14 +130,14 @@ const MealList = () => {
       if (Array.isArray(parsedIngredients) && parsedIngredients.length > 0) {
         const names = parsedIngredients.map(ing => ing.name).filter(Boolean);
         if (names.length === 0) return 'Ingredients listed (check format).';
-        
+
         let displayText = names.slice(0, 5).join(', '); // Show up to 5 ingredients
         if (names.length > 5) {
           displayText += ', ...';
         }
         return displayText;
       }
-      return 'No ingredients listed or format error.'; 
+      return 'No ingredients listed or format error.';
     } catch (e) {
       const maxLength = 70; // Increased snippet length
       return ingredientsString.substring(0, maxLength) + (ingredientsString.length > maxLength ? '...' : '');
@@ -163,46 +175,81 @@ const MealList = () => {
           <CardTitle>My Meals</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <Input
-              type="text"
-              placeholder="Search my meals..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 w-full"
-            />
+          {/* Controls: Search, Category Filter, Layout Toggle */}
+          <div className="flex flex-col sm:flex-row gap-4 items-center">
+            <div className="relative flex-grow w-full sm:w-auto">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <Input
+                type="text"
+                placeholder="Search my meals..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 w-full"
+              />
+            </div>
+            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue placeholder="Filter by category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                {uniqueCategories.map(category => (
+                  <SelectItem key={category} value={category}>{category}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex space-x-2 w-full sm:w-auto justify-center sm:justify-start">
+              <Button
+                variant={layoutView === 'list' ? 'default' : 'outline'}
+                size="icon"
+                onClick={() => setLayoutView('list')}
+                aria-label="Switch to list view"
+              >
+                <List className="h-5 w-5" />
+              </Button>
+              <Button
+                variant={layoutView === 'grid' ? 'default' : 'outline'}
+                size="icon"
+                onClick={() => setLayoutView('grid')}
+                aria-label="Switch to grid view"
+              >
+                <Grid3X3 className="h-5 w-5" />
+              </Button>
+            </div>
           </div>
 
           {meals && meals.length === 0 && (
             <div className="text-center py-6 text-muted-foreground">
               <ChefHat className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500 mb-4" />
               <p className="text-lg font-semibold mb-1">No Meals Yet!</p>
-              <p className="text-sm">Looks like your recipe book is empty. <br/>Add a meal using the form above or discover new ones!</p>
+              <p className="text-sm">Looks like your recipe book is empty. <br/>Add a meal using the "Add Meal" button above or discover new ones!</p>
             </div>
           )}
 
           {meals && meals.length > 0 && filteredMeals.length === 0 && (
             <div className="text-center py-6 text-muted-foreground">
               <Search className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500 mb-3" />
-              <p className="text-lg">No meals match your search "{searchTerm}".</p>
-              <p className="text-sm">Try a different search term or clear the search.</p>
+              <p className="text-lg">No meals match your current filters.</p>
+              <p className="text-sm">Try a different search term or category.</p>
             </div>
           )}
-          
+
+          {/* Meal List/Grid Display */}
           {filteredMeals && filteredMeals.length > 0 && (
-            <div className="space-y-3">
+            <div className={cn(
+              layoutView === 'list' ? 'space-y-3' : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'
+            )}>
               {filteredMeals.map((meal) => (
-                <div key={meal.id} className="border p-4 rounded-lg shadow-sm bg-card hover:shadow-md transition-shadow duration-150 space-y-2">
+                <div key={meal.id} className="border p-4 rounded-lg shadow-sm bg-card hover:shadow-md transition-shadow duration-150 space-y-2 flex flex-col"> {/* Added flex-col for grid consistency */}
                   <div className="flex items-start"> {/* Use flex to align image and text */}
                     {meal.image_url && (
-                       <div 
+                       <div
                          className="h-20 w-20 object-cover rounded-md mr-4 flex-shrink-0 cursor-pointer flex items-center justify-center overflow-hidden bg-muted" // Added styling and click handler
                          onClick={() => setViewingImageUrl(meal.image_url || null)}
                        >
-                         <img 
-                           src={meal.image_url} 
-                           alt={meal.name} 
+                         <img
+                           src={meal.image_url}
+                           alt={meal.name}
                            className="h-full object-contain" // Use h-full and object-contain
                            onError={(e) => (e.currentTarget.style.display = 'none')} // Hide image on error
                          />
@@ -228,7 +275,7 @@ const MealList = () => {
                     </div>
                   </div>
                   {(meal.ingredients || (meal.instructions && meal.instructions.trim() !== "")) && (
-                    <div className="space-y-2 pt-2 border-t border-muted/50">
+                    <div className="space-y-2 pt-2 border-t border-muted/50 flex-grow"> {/* Added flex-grow */}
                       {meal.ingredients && (
                         <div>
                           <p className="text-sm font-medium text-muted-foreground">Ingredients:</p>
