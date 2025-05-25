@@ -228,6 +228,7 @@ serve(async (req) => {
            throw new Error("Vertex AI Gemini did not return a valid recipe.");
         }
 
+        let generatedMealData: GeneratedMeal;
         try {
             // Attempt to extract JSON from markdown code block if present
             const jsonMatch = generatedContentString.match(/```json\n([\s\S]*?)\n```/);
@@ -275,7 +276,8 @@ serve(async (req) => {
 
     console.log("Attempting to call Imagen endpoint:", imagenEndpoint);
 
-    const imagePrompt = `A realistic photo of the meal "${mealNameForImage}". Focus on the finished dish presented nicely.`;
+    // Updated image prompt to include focus on main ingredients/protein
+    const imagePrompt = `A realistic photo of the meal "${mealNameForImage}". Focus on the finished dish presented nicely, ensuring main ingredients, especially protein, are clearly visible.`;
     console.log("Sending prompt to Vertex AI Imagen:", imagePrompt);
 
     const imagenResponse = await fetch(imagenEndpoint, {

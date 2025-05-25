@@ -243,7 +243,7 @@ const GenerateMealPage = () => {
 
             {/* Ingredient Preferences */}
             <div>
-              <Label htmlFor="ingredient-preferences" className="text-base">Any ingredients you want or don't want?</Label>
+              <Label htmlFor="ingredient-preferences" className="text-base">Any ingredients you want or don't want, or other general preferences?</Label> {/* Updated label text */}
               <Textarea
                 id="ingredient-preferences"
                 placeholder="e.g., 'use chicken, no cilantro'"
@@ -268,7 +268,7 @@ const GenerateMealPage = () => {
           <Card>
             <CardHeader>
               {generatedMeal.image_url && (
-                <div 
+                <div
                   className="cursor-pointer w-full h-48 flex items-center justify-center overflow-hidden rounded-t-md mb-4 bg-muted" // Added flex centering and background
                   onClick={() => setViewingImageUrl(generatedMeal.image_url || null)} // Set state on click
                 >
