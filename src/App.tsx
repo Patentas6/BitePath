@@ -29,70 +29,71 @@ const App = () => (
       <Sonner />
       <TooltipProvider>
         <BrowserRouter>
-          {/* BetaDisclaimerBanner needs to be inside BrowserRouter because it uses Link */}
-          <BetaDisclaimerBanner />
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/profile"
-              element={
-                <ProtectedRoute>
-                  <ProfilePage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/meals"
-              element={
-                <ProtectedRoute>
-                  <MealsPage />
-                </ProtectedRoute>
-              }
-            />
-             <Route
-              path="/generate-meal"
-              element={
-                <ProtectedRoute>
-                  <GenerateMealPage />
-                </ProtectedRoute>
-              }
-            />
-             <Route
-              path="/add-meal"
-              element={
-                <ProtectedRoute>
-                  <AddMealPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/weekly-plan"
-              element={
-                <ProtectedRoute>
-                  <WeeklyPlanPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/grocery-list"
-              element={
-                <ProtectedRoute>
-                  <GroceryListPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route path="/feedback" element={<FeedbackPage />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <> {/* Wrap BrowserRouter children in a Fragment */}
+            <BetaDisclaimerBanner />
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/profile"
+                element={
+                  <ProtectedRoute>
+                    <ProfilePage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/meals"
+                element={
+                  <ProtectedRoute>
+                    <MealsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/generate-meal"
+                element={
+                  <ProtectedRoute>
+                    <GenerateMealPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/add-meal"
+                element={
+                  <ProtectedRoute>
+                    <AddMealPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/weekly-plan"
+                element={
+                  <ProtectedRoute>
+                    <WeeklyPlanPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/grocery-list"
+                element={
+                  <ProtectedRoute>
+                    <GroceryListPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="/feedback" element={<FeedbackPage />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </>
         </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>
