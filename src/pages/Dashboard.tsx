@@ -11,6 +11,8 @@ import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 import BottomNavBar from "@/components/BottomNavBar"; // Import the new bottom nav
 import UserProfileIcon from "../components/UserProfileIcon"; // Updated import to new name and relative path
 import AddMealToPlanDialog from "@/components/AddMealToPlanDialog"; // Import dialog for quick action
+import TodaysMealsSummary from "@/components/TodaysMealsSummary"; // Import new summary component
+import UpcomingGrocerySummary from "@/components/UpcomingGrocerySummary"; // Import new summary component
 import { startOfToday } from "date-fns"; // Needed for today's date
 
 interface UserProfile {
@@ -106,15 +108,20 @@ const Dashboard = () => {
             </Button>
         </div>
 
+        {/* Summary Sections */}
+        {user && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <TodaysMealsSummary userId={user.id} />
+            <UpcomingGrocerySummary userId={user.id} daysAhead={2} /> {/* Show groceries for today + next 2 days */}
+          </div>
+        )}
+
         {/* Placeholder for Dashboard content - maybe a summary or welcome message */}
-        <div className="text-center py-10">
-            <h2 className="text-3xl font-bold mb-4">Welcome to BitePath!</h2>
-            <p className="text-lg text-muted-foreground">Use the navigation below to plan your meals, manage your recipes, and generate your grocery list.</p>
-        </div>
+        {/* Removed the large welcome text as summaries are now present */}
 
       </main>
 
-      {/* Bottom Navigation Bar */}
+      {/* Bottom Navigation Bar (Visible on small screens) */}
       <BottomNavBar />
 
       {/* Dialog for Quick Action */}
