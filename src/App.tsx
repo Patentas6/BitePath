@@ -15,6 +15,7 @@ import MealsPage from "./pages/MealsPage";
 import DiscoverMealsPage from "./pages/DiscoverMealsPage";
 import BetaDisclaimerBanner from "./components/BetaDisclaimerBanner";
 import FeedbackPage from "./pages/FeedbackPage";
+import AIRecipeGeneratorPage from "./pages/AIRecipeGeneratorPage"; // Import the new page
 
 const queryClient = new QueryClient();
 
@@ -58,6 +59,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <DiscoverMealsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ai-recipe-generator" // Add new route
+              element={
+                <ProtectedRoute>
+                  <AIRecipeGeneratorPage />
                 </ProtectedRoute>
               }
             />
