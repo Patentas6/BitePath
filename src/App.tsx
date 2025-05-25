@@ -5,19 +5,19 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes"; // Import ThemeProvider
 
-import Index from "./pages/Index.tsx"; // Added .tsx
-import NotFound from "./pages/NotFound.tsx"; // Added .tsx
-import Auth from "./pages/Auth.tsx"; // Added .tsx
-import Dashboard from "./pages/Dashboard.tsx"; // Added .tsx
-import ProtectedRoute from "./components/ProtectedRoute";
-import ProfilePage from "./pages/Profile.tsx"; // Added .tsx
-import MealsPage from "./pages/MealsPage.tsx"; // Added .tsx
-import DiscoverMealsPage from "./pages/DiscoverMealsPage.tsx"; // Added .tsx
-import BetaDisclaimerBanner from "./components/BetaDisclaimerBanner";
-import FeedbackPage from "./pages/FeedbackPage.tsx"; // Added .tsx
-import PlannerViewPage from "./pages/PlannerViewPage.tsx"; // Added .tsx
-import GroceryListPage from "./pages/GroceryListPage.tsx"; // Added .tsx
-import AIMealGeneratorPage from "./pages/AIMealGeneratorPage.tsx"; // Added .tsx
+import Index from "@/pages/Index.tsx"; // Updated import path
+import NotFound from "@/pages/NotFound.tsx"; // Updated import path
+import Auth from "@/pages/Auth.tsx"; // Updated import path
+import Dashboard from "@/pages/Dashboard.tsx"; // Updated import path
+import ProtectedRoute from "@/components/ProtectedRoute"; // Updated import path
+import ProfilePage from "@/pages/Profile.tsx"; // Updated import path
+import MealsPage from "@/pages/MealsPage.tsx"; // Updated import path
+import DiscoverMealsPage from "@/pages/DiscoverMealsPage.tsx"; // Updated import path
+import BetaDisclaimerBanner from "@/components/BetaDisclaimerBanner"; // Updated import path
+import FeedbackPage from "@/pages/FeedbackPage.tsx"; // Updated import path
+import PlannerViewPage from "@/pages/PlannerViewPage.tsx"; // Updated import path
+import GroceryListPage from "@/pages/GroceryListPage.tsx"; // Updated import path
+import AIMealGeneratorPage from "@/pages/AIMealGeneratorPage.tsx"; // Updated import path
 
 const queryClient = new QueryClient();
 
@@ -65,7 +65,7 @@ const App = () => (
               }
             />
              <Route
-              path="/planner" // Add Planner route
+              path="/planner"
               element={
                 <ProtectedRoute>
                   <PlannerViewPage />
@@ -73,7 +73,7 @@ const App = () => (
               }
             />
              <Route
-              path="/grocery-list" // Add Grocery List route
+              path="/grocery-list"
               element={
                 <ProtectedRoute>
                   <GroceryListPage />
@@ -81,7 +81,7 @@ const App = () => (
               }
             />
              <Route
-              path="/ai-meal" // Add AI Meal Generator route
+              path="/ai-meal"
               element={
                 <ProtectedRoute>
                   <AIMealGeneratorPage />
