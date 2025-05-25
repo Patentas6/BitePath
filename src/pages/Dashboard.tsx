@@ -7,7 +7,7 @@ import WeeklyPlanner from "@/components/WeeklyPlanner";
 import GroceryList from "@/components/GroceryList";
 import type { User } from "@supabase/supabase-js";
 import { startOfWeek, addDays } from "date-fns";
-import { UserCircle, BookOpenText, Sparkles } from "lucide-react";
+import { UserCircle, BookOpenText, Sparkles, Brain } from "lucide-react"; // Import Brain icon
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 
 interface UserProfile {
@@ -89,6 +89,10 @@ const Dashboard = () => {
           </div>
           <div className="flex items-center space-x-2">
             <span className="text-base hidden md:inline">{getWelcomeMessage()}</span>
+             {/* New AI Generate Button */}
+            <Button variant="default" size="sm" asChild>
+              <Link to="/generate-meal"><Brain className="mr-2 h-4 w-4" /> Generate Meal</Link>
+            </Button>
             <Button variant="default" size="sm" asChild>
               <Link to="/discover-meals"><Sparkles className="mr-2 h-4 w-4" /> Discover Meals</Link>
             </Button>
