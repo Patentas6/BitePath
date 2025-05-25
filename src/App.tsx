@@ -15,6 +15,9 @@ import MealsPage from "./pages/MealsPage";
 import DiscoverMealsPage from "./pages/DiscoverMealsPage";
 import BetaDisclaimerBanner from "./components/BetaDisclaimerBanner";
 import FeedbackPage from "./pages/FeedbackPage";
+import PlannerViewPage from "./pages/PlannerViewPage"; // Import PlannerViewPage
+import GroceryListPage from "./pages/GroceryListPage"; // Import GroceryListPage
+import AIMealGeneratorPage from "./pages/AIMealGeneratorPage"; // Import new AI page
 
 const queryClient = new QueryClient();
 
@@ -58,6 +61,30 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <DiscoverMealsPage />
+                </ProtectedRoute>
+              }
+            />
+             <Route
+              path="/planner" // Add Planner route
+              element={
+                <ProtectedRoute>
+                  <PlannerViewPage />
+                </ProtectedRoute>
+              }
+            />
+             <Route
+              path="/grocery-list" // Add Grocery List route
+              element={
+                <ProtectedRoute>
+                  <GroceryListPage />
+                </ProtectedRoute>
+              }
+            />
+             <Route
+              path="/ai-meal" // Add AI Meal Generator route
+              element={
+                <ProtectedRoute>
+                  <AIMealGeneratorPage />
                 </ProtectedRoute>
               }
             />
