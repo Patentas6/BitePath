@@ -18,6 +18,7 @@ interface MealPlan {
   meal_type?: string;
   meals: {
     name: string;
+    image_url?: string | null; // Added image_url
   } | null;
 }
 
@@ -38,7 +39,7 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
       if (!userId) return [];
       const { data, error } = await supabase
         .from("meal_plans")
-        .select("id, meal_id, plan_date, meal_type, meals ( name )")
+        .select("id, meal_id, plan_date, meal_type, meals ( name, image_url )") // Select image_url
         .eq("user_id", userId)
         .eq("plan_date", todayStr); // Filter specifically for today
       if (error) throw error;
@@ -80,12 +81,22 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
         ) : (
           <ul className="space-y-3">
             {sortedMealPlans.map(plannedMeal => (
-              <li key={plannedMeal.id} className="border rounded-md p-3 bg-card shadow-sm">
-                 <div className="font-medium text-gray-600 dark:text-gray-400 text-sm">
-                   {plannedMeal.meal_type || 'Meal'}
-                 </div>
-                 <div className="text-base font-semibold text-foreground mt-1">
-                   {plannedMeal.meals?.name || 'Unknown Meal'}
+              <li key={plannedMeal.id} className="border rounded-md p-3 bg-card shadow-sm flex items-center space-x-3"> {/* Added flex and spacing */}
+                 {plannedMeal.meals?.image_url && (
+                    <img
+                      src={plannedMeal.meals.image_url}
+                      alt={plannedMeal.meals.name || 'Meal image'}
+                      className="h-12 w-12 object-cover rounded-md flex-shrink-0" // Fixed size, object-cover, rounded
+                      onError={(e) => (e.currentTarget.style.display = 'none')} // Hide image on error
+                    />
+                 )}
+                 <div className="flex-grow"> {/* Allow text to take remaining space */}
+                   <div className="font-medium text-gray-600 dark:text-gray-400 text-sm">
+                     {plannedMeal.meal_type || 'Meal'}
+                   </div>
+                   <div className="text-base font-semibold text-foreground mt-1">
+                     {plannedMeal.meals?.name || 'Unknown Meal'}
+                   </div>
                  </div>
               </li>
             ))}
