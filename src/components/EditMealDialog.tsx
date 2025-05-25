@@ -213,7 +213,7 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
                     <div className="mb-4">
                       <FormLabel className="text-base">Meal Tags</FormLabel>
                       <FormDescription>
-                        Select tags that apply to this meal.
+                        Select tags that apply to this meal. These help you filter and find meals easier.
                       </FormDescription>
                     </div>
                     <div className="flex flex-wrap gap-4">

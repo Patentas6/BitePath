@@ -112,7 +112,7 @@ const MealForm = () => {
   const generateImageMutation = useMutation({
     mutationFn: async (mealData: MealFormValues) => {
       // This check is now also done in handleGenerateImage before calling mutate
-      // const { data: { user } } = await supabase.auth.getUser();
+      // const { data: { user } = await supabase.auth.getUser();
       // if (!user) {
       //   throw new Error("User not logged in.");
       // }
@@ -209,7 +209,7 @@ const MealForm = () => {
                     <div className="mb-4">
                       <FormLabel className="text-base">Meal Tags</FormLabel>
                       <FormDescription>
-                        Select tags that apply to this meal (e.g., for breakfast, lunch).
+                        Select tags that apply to this meal. These help you filter and find meals easier.
                       </FormDescription>
                     </div>
                     <div className="flex flex-wrap gap-4">
