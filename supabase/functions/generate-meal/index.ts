@@ -133,11 +133,23 @@ serve(async (req) => {
       }
     );
 
-    // Get the authenticated user from the request header
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    // Explicitly get the JWT from the Authorization header
+    const authHeader = req.headers.get('Authorization');
+    const token = authHeader?.replace('Bearer ', '');
+
+    if (!token) {
+      console.error("Authentication failed: Authorization header missing or malformed.");
+      return new Response(JSON.stringify({ error: "Authentication failed: Authorization header missing." }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Verify the token using the Supabase client
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
     if (userError || !user) {
-      console.error("Authentication failed:", userError?.message);
-      return new Response(JSON.stringify({ error: "Authentication failed." }), {
+      console.error("Authentication failed:", userError?.message || "Invalid token");
+      return new Response(JSON.stringify({ error: "Authentication failed: Invalid or expired token." }), {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
