@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { ArrowLeft, Brain, Save, RefreshCw } from 'lucide-react';
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 import { MEAL_TAG_OPTIONS, MealTag } from "@/lib/constants";
+import { Dialog, DialogContent } from "@/components/ui/dialog"; // Import Dialog components
 
 // Define types for the generated meal structure
 interface GeneratedIngredient {
@@ -47,6 +48,7 @@ const GenerateMealPage = () => {
   const [generatedMeal, setGeneratedMeal] = useState<GeneratedMeal | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null); // State for enlarged image view
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -266,14 +268,17 @@ const GenerateMealPage = () => {
           <Card>
             <CardHeader>
               {generatedMeal.image_url && (
-                <a href={generatedMeal.image_url} target="_blank" rel="noopener noreferrer" className="cursor-pointer">
+                <div 
+                  className="cursor-pointer w-full h-48 flex items-center justify-center overflow-hidden rounded-t-md mb-4 bg-muted" // Added flex centering and background
+                  onClick={() => setViewingImageUrl(generatedMeal.image_url || null)} // Set state on click
+                >
                   <img
                     src={generatedMeal.image_url}
                     alt={`Image of ${generatedMeal.name}`}
-                    className="w-full h-48 object-contain rounded-t-md mb-4" // Adjusted size and object-fit
+                    className="h-full object-contain" // Use h-full and object-contain to fit within container
                     onError={(e) => (e.currentTarget.style.display = 'none')} // Hide image on error
                   />
-                </a>
+                </div>
               )}
               <CardTitle>{generatedMeal.name}</CardTitle>
               <CardDescription>Generated Recipe</CardDescription>
@@ -321,6 +326,19 @@ const GenerateMealPage = () => {
           </Card>
         )}
       </div>
+
+      {/* Image Viewer Dialog */}
+      <Dialog open={!!viewingImageUrl} onOpenChange={(open) => !open && setViewingImageUrl(null)}>
+        <DialogContent className="max-w-screen-md w-[90vw] h-[90vh] p-0 flex items-center justify-center bg-transparent border-none">
+          {viewingImageUrl && (
+            <img
+              src={viewingImageUrl}
+              alt="Enlarged meal image"
+              className="max-w-full max-h-full object-contain" // Ensure image fits within dialog
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -20,6 +20,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge"; 
+import { Dialog, DialogContent } from "@/components/ui/dialog"; // Import Dialog components
 
 interface Meal extends MealForEditing {
   meal_tags?: string[] | null; 
@@ -39,6 +40,7 @@ const MealList = () => {
   const [mealToEdit, setMealToEdit] = useState<MealForEditing | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [mealToDelete, setMealToDelete] = useState<MealForEditing | null>(null);
+  const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null); // State for enlarged image view
   
   const queryClient = useQueryClient();
 
@@ -194,12 +196,17 @@ const MealList = () => {
                 <div key={meal.id} className="border p-4 rounded-lg shadow-sm bg-card hover:shadow-md transition-shadow duration-150 space-y-2">
                   <div className="flex items-start"> {/* Use flex to align image and text */}
                     {meal.image_url && (
-                       <img 
-                         src={meal.image_url} 
-                         alt={meal.name} 
-                         className="h-20 w-20 object-cover rounded-md mr-4 flex-shrink-0" // Added image styling
-                         onError={(e) => (e.currentTarget.style.display = 'none')} // Hide image on error
-                       />
+                       <div 
+                         className="h-20 w-20 object-cover rounded-md mr-4 flex-shrink-0 cursor-pointer flex items-center justify-center overflow-hidden bg-muted" // Added styling and click handler
+                         onClick={() => setViewingImageUrl(meal.image_url || null)}
+                       >
+                         <img 
+                           src={meal.image_url} 
+                           alt={meal.name} 
+                           className="h-full object-contain" // Use h-full and object-contain
+                           onError={(e) => (e.currentTarget.style.display = 'none')} // Hide image on error
+                         />
+                       </div>
                     )}
                     <div className="flex-grow pr-2">
                       <h3 className="text-xl font-semibold text-foreground">{meal.name}</h3>
@@ -273,6 +280,19 @@ const MealList = () => {
           </AlertDialogContent>
         </AlertDialog>
       )}
+
+      {/* Image Viewer Dialog */}
+      <Dialog open={!!viewingImageUrl} onOpenChange={(open) => !open && setViewingImageUrl(null)}>
+        <DialogContent className="max-w-screen-md w-[90vw] h-[90vh] p-0 flex items-center justify-center bg-transparent border-none">
+          {viewingImageUrl && (
+            <img
+              src={viewingImageUrl}
+              alt="Enlarged meal image"
+              className="max-w-full max-h-full object-contain" // Ensure image fits within dialog
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

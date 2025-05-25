@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react"; // Import useState
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -67,6 +67,7 @@ interface EditMealDialogProps {
 
 const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, meal }) => {
   const queryClient = useQueryClient();
+  const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null); // State for enlarged image view
 
   const form = useForm<MealFormValues>({
     resolver: zodResolver(mealFormSchema),
@@ -167,203 +168,223 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
   if (!meal) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Edit Meal</DialogTitle>
-          <DialogDescription>Make changes to your meal here. Click save when you're done.</DialogDescription>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4 max-h-[70vh] overflow-y-auto pr-2">
-             {meal.image_url && (
-                <img
-                  src={meal.image_url}
-                  alt={`Image of ${meal.name}`}
-                  className="w-full h-40 object-contain rounded-md mb-4" // Added image styling
-                  onError={(e) => (e.currentTarget.style.display = 'none')} // Hide image on error
-                />
-              )}
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Meal Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g., Spaghetti Bolognese" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Meal Tags Checkboxes */}
-            <FormField
-              control={form.control}
-              name="meal_tags"
-              render={() => (
-                <FormItem>
-                  <div className="mb-4">
-                    <FormLabel className="text-base">Meal Tags</FormLabel>
-                    <FormDescription>
-                      Select tags that apply to this meal.
-                    </FormDescription>
-                  </div>
-                  <div className="flex flex-wrap gap-4">
-                  {MEAL_TAG_OPTIONS.map((tag) => (
-                    <FormField
-                      key={tag}
-                      control={form.control}
-                      name="meal_tags"
-                      render={({ field }) => {
-                        return (
-                          <FormItem
-                            key={tag}
-                            className="flex flex-row items-start space-x-3 space-y-0"
-                          >
-                            <FormControl>
-                              <Checkbox
-                                checked={field.value?.includes(tag)}
-                                onCheckedChange={(checked) => {
-                                  return checked
-                                    ? field.onChange([...(field.value || []), tag])
-                                    : field.onChange(
-                                        (field.value || []).filter(
-                                          (value) => value !== tag
-                                        )
-                                      );
-                                }}
-                              />
-                            </FormControl>
-                            <FormLabel className="font-normal">
-                              {tag}
-                            </FormLabel>
-                          </FormItem>
-                        );
-                      }}
+    <> {/* Use fragment to wrap the two dialogs */}
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Meal</DialogTitle>
+            <DialogDescription>Make changes to your meal here. Click save when you're done.</DialogDescription>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4 max-h-[70vh] overflow-y-auto pr-2">
+               {meal.image_url && (
+                  <div
+                    className="cursor-pointer w-full h-40 flex items-center justify-center overflow-hidden rounded-md mb-4 bg-muted" // Added styling and click handler
+                    onClick={() => setViewingImageUrl(meal.image_url || null)} // Set state on click
+                  >
+                    <img
+                      src={meal.image_url}
+                      alt={`Image of ${meal.name}`}
+                      className="h-full object-contain" // Use h-full and object-contain
+                      onError={(e) => (e.currentTarget.style.display = 'none')} // Hide image on error
                     />
-                  ))}
                   </div>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                )}
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Meal Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., Spaghetti Bolognese" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <div>
-              <FormLabel>Ingredients</FormLabel>
-              <div className="space-y-4 mt-2">
-                {fields.map((field, index) => (
-                  <Card key={field.id} className="p-3 bg-slate-50">
-                    <div className="grid grid-cols-1 md:grid-cols-10 gap-2 items-end">
-                       <FormField
-                        control={form.control}
-                        name={`ingredients.${index}.name`}
-                        render={({ field: itemField }) => (
-                          <FormItem className="md:col-span-3">
-                            <FormLabel className="text-xs">Name</FormLabel>
-                            <FormControl>
-                              <Input placeholder="e.g., Tomato" {...itemField} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name={`ingredients.${index}.quantity`}
-                        render={({ field: itemField }) => (
-                          <FormItem className="md:col-span-1">
-                            <FormLabel className="text-xs">Qty</FormLabel>
-                            <FormControl>
-                              <Input type="number" placeholder="e.g., 2" {...itemField} step="any"/>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name={`ingredients.${index}.unit`}
-                        render={({ field: itemField }) => (
-                          <FormItem className="md:col-span-2">
-                            <FormLabel className="text-xs">Unit</FormLabel>
-                            <Select onValueChange={itemField.onChange} value={itemField.value || undefined}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select unit" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {UNITS.map(unit => <SelectItem key={unit} value={unit}>{unit}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name={`ingredients.${index}.description`}
-                        render={({ field: itemField }) => (
-                          <FormItem className="md:col-span-3">
-                            <FormLabel className="text-xs">Description (Optional)</FormLabel>
-                            <FormControl>
-                              <Input placeholder="e.g., minced, cored" {...itemField} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => remove(index)}
-                        className="md:col-span-1"
-                        aria-label="Remove ingredient"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+              {/* Meal Tags Checkboxes */}
+              <FormField
+                control={form.control}
+                name="meal_tags"
+                render={() => (
+                  <FormItem>
+                    <div className="mb-4">
+                      <FormLabel className="text-base">Meal Tags</FormLabel>
+                      <FormDescription>
+                        Select tags that apply to this meal.
+                      </FormDescription>
                     </div>
-                  </Card>
-                ))}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => append({ name: "", quantity: "", unit: "", description: "" })}
-                  className="mt-2"
-                >
-                  <PlusCircle className="mr-2 h-4 w-4" /> Add Ingredient
-                </Button>
-              </div>
-            </div>
+                    <div className="flex flex-wrap gap-4">
+                    {MEAL_TAG_OPTIONS.map((tag) => (
+                      <FormField
+                        key={tag}
+                        control={form.control}
+                        name="meal_tags"
+                        render={({ field }) => {
+                          return (
+                            <FormItem
+                              key={tag}
+                              className="flex flex-row items-start space-x-3 space-y-0"
+                            >
+                              <FormControl>
+                                <Checkbox
+                                  checked={field.value?.includes(tag)}
+                                  onCheckedChange={(checked) => {
+                                    return checked
+                                      ? field.onChange([...(field.value || []), tag])
+                                      : field.onChange(
+                                          (field.value || []).filter(
+                                            (value) => value !== tag
+                                          )
+                                        );
+                                  }}
+                                />
+                              </FormControl>
+                              <FormLabel className="font-normal">
+                                {tag}
+                              </FormLabel>
+                            </FormItem>
+                          );
+                        }}
+                      />
+                    ))}
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="instructions"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Instructions</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Cooking steps..." {...field} rows={5} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+              <div>
+                <FormLabel>Ingredients</FormLabel>
+                <div className="space-y-4 mt-2">
+                  {fields.map((field, index) => (
+                    <Card key={field.id} className="p-3 bg-slate-50">
+                      <div className="grid grid-cols-1 md:grid-cols-10 gap-2 items-end">
+                         <FormField
+                          control={form.control}
+                          name={`ingredients.${index}.name`}
+                          render={({ field: itemField }) => (
+                            <FormItem className="md:col-span-3">
+                              <FormLabel className="text-xs">Name</FormLabel>
+                              <FormControl>
+                                <Input placeholder="e.g., Tomato" {...itemField} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`ingredients.${index}.quantity`}
+                          render={({ field: itemField }) => (
+                            <FormItem className="md:col-span-1">
+                              <FormLabel className="text-xs">Qty</FormLabel>
+                              <FormControl>
+                                <Input type="number" placeholder="e.g., 2" {...itemField} step="any"/>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`ingredients.${index}.unit`}
+                          render={({ field: itemField }) => (
+                            <FormItem className="md:col-span-2">
+                              <FormLabel className="text-xs">Unit</FormLabel>
+                              <Select onValueChange={itemField.onChange} value={itemField.value || undefined}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select unit" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {UNITS.map(unit => <SelectItem key={unit} value={unit}>{unit}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`ingredients.${index}.description`}
+                          render={({ field: itemField }) => (
+                            <FormItem className="md:col-span-3">
+                              <FormLabel className="text-xs">Description (Optional)</FormLabel>
+                              <FormControl>
+                                <Input placeholder="e.g., minced, cored" {...itemField} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => remove(index)}
+                          className="md:col-span-1"
+                          aria-label="Remove ingredient"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </Card>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => append({ name: "", quantity: "", unit: "", description: "" })}
+                    className="mt-2"
+                  >
+                    <PlusCircle className="mr-2 h-4 w-4" /> Add Ingredient
+                  </Button>
+                </div>
+              </div>
+
+              <FormField
+                control={form.control}
+                name="instructions"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Instructions</FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Cooking steps..." {...field} rows={5} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter className="mt-6 pt-4 border-t">
+                <Button variant="outline" onClick={() => onOpenChange(false)} disabled={editMealMutation.isPending}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={editMealMutation.isPending}>
+                  {editMealMutation.isPending ? "Saving..." : "Save Changes"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Nested Image Viewer Dialog */}
+      <Dialog open={!!viewingImageUrl} onOpenChange={(open) => !open && setViewingImageUrl(null)}>
+        <DialogContent className="max-w-screen-md w-[90vw] h-[90vh] p-0 flex items-center justify-center bg-transparent border-none">
+          {viewingImageUrl && (
+            <img
+              src={viewingImageUrl}
+              alt="Enlarged meal image"
+              className="max-w-full max-h-full object-contain" // Ensure image fits within dialog
             />
-            <DialogFooter className="mt-6 pt-4 border-t">
-              <Button variant="outline" onClick={() => onOpenChange(false)} disabled={editMealMutation.isPending}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={editMealMutation.isPending}>
-                {editMealMutation.isPending ? "Saving..." : "Save Changes"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 
