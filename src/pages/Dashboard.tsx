@@ -3,11 +3,11 @@ import { supabase } from "@/lib/supabase";
 import { useNavigate, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import WeeklyPlanner from "@/components/WeeklyPlanner";
-import GroceryList from "@/components/GroceryList";
+import TodaysMeals from "@/components/TodaysMeals"; // Import new component
+import TodaysGroceryList from "@/components/TodaysGroceryList"; // Import new component
 import type { User } from "@supabase/supabase-js";
 import { startOfWeek, addDays } from "date-fns";
-import { UserCircle, BookOpenText, Brain, SquarePen, CalendarDays, ShoppingCart } from "lucide-react"; // Added ShoppingCart icon
+import { UserCircle, BookOpenText, Brain, SquarePen, CalendarDays, ShoppingCart } from "lucide-react";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 
 interface UserProfile {
@@ -18,7 +18,7 @@ interface UserProfile {
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const navigate = useNavigate();
-  const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  // Removed currentWeekStart as it's not needed for today's view
 
   useEffect(() => {
     const getSession = async () => {
@@ -56,10 +56,6 @@ const Dashboard = () => {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-  };
-
-  const handleWeekNavigate = (direction: "prev" | "next") => {
-    setCurrentWeekStart(prev => addDays(prev, direction === "next" ? 7 : -7));
   };
 
   const getWelcomeMessage = () => {
@@ -112,8 +108,20 @@ const Dashboard = () => {
             <Button onClick={handleLogout} variant="destructive" size="sm">Logout</Button>
           </div>
         </header>
-        {/* WeeklyPlanner and GroceryList are now on their own pages */}
-        {/* {user && <GroceryList userId={user.id} currentWeekStart={currentWeekStart} />} */}
+
+        {/* Two-column layout for today's info */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Left Column: Today's Meals */}
+          {user && (
+            <TodaysMeals userId={user.id} />
+          )}
+
+          {/* Right Column: Today's Grocery List */}
+          {user && (
+            <TodaysGroceryList userId={user.id} />
+          )}
+        </div>
+
       </div>
     </div>
   );
