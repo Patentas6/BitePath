@@ -241,23 +241,36 @@ serve(async (req) => {
     if (!imagenResponse.ok) {
         const errorBody = await imagenResponse.json();
         console.error(`Vertex AI Imagen API error: ${imagenResponse.status} ${imagenResponse.statusText}`, errorBody);
-        // Decide if you want to throw an error or just proceed without an image
-        // For now, let's proceed without an image if the API call fails, but log the error
         console.warn(`Vertex AI Imagen failed (${imagenResponse.status}): ${errorBody.error?.message || 'Unknown error'}. Proceeding without image.`);
         generatedMealData.image_url = undefined; // Ensure it's not set if image generation failed
     } else {
         const imagenData = await imagenResponse.json();
         console.log("Vertex AI Imagen API response:", imagenData);
 
-        const imageUrl = imagenData.predictions?.[0]?.bytesBase64 ? `data:image/png;base64,${imagenData.predictions[0].bytesBase64}` : imagenData.predictions?.[0]?.urls?.[0];
+        // Check for base64 encoded image data first
+        const base64EncodedImage = imagenData.predictions?.[0]?.bytesBase64Encoded;
+        const imageUrlFromUrls = imagenData.predictions?.[0]?.urls?.[0];
+        const base64Image = imagenData.predictions?.[0]?.bytesBase64; // Keep check for this too
 
-        if (!imageUrl) {
-            console.error("Vertex AI Imagen response did not contain an image URL or data.", imagenData);
-            console.warn("No image URL or data returned from Vertex AI Imagen, proceeding without image.");
-            generatedMealData.image_url = undefined;
+        let imageUrl;
+        if (base64EncodedImage) {
+             imageUrl = `data:image/png;base64,${base64EncodedImage}`;
+             console.log("Extracted base64Encoded image data.");
+        } else if (base64Image) {
+             imageUrl = `data:image/png;base64,${base64Image}`;
+             console.log("Extracted base64 image data.");
+        } else if (imageUrlFromUrls) {
+             imageUrl = imageUrlFromUrls;
+             console.log("Extracted image URL from urls field.");
         } else {
+            console.error("Vertex AI Imagen response did not contain an image URL or data in expected fields.", imagenData);
+            console.warn("No image URL or data returned from Vertex AI Imagen, proceeding without image.");
+            generatedMealData.image_url = undefined; // Ensure it's not set if missing
+        }
+
+        if (imageUrl) {
             generatedMealData.image_url = imageUrl;
-            console.log("Generated Image URL/Data:", imageUrl.substring(0, 50) + "...");
+            console.log("Generated Image URL/Data:", imageUrl.substring(0, 50) + "..."); // Log snippet
         }
     }
 
