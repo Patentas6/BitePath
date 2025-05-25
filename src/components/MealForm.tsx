@@ -154,7 +154,7 @@ const MealForm = () => {
     addMealMutation.mutate(values);
   };
 
-  // Add client-client session check before triggering mutation
+  // Add client-side session check before triggering mutation
   const handleGenerateImageClick = async () => {
      const { data: { user } } = await supabase.auth.getUser();
      if (!user) {
@@ -204,8 +204,8 @@ const MealForm = () => {
               <FormField
                 control={form.control}
                 name="meal_tags"
-                render={({ field }) => (
-                  <FormItem> {/* This is the single FormItem for the group */}
+                render={() => (
+                  <FormItem>
                     <div className="mb-4">
                       <FormLabel className="text-base">Meal Tags</FormLabel>
                       <FormDescription>
@@ -214,29 +214,37 @@ const MealForm = () => {
                     </div>
                     <div className="flex flex-wrap gap-4">
                       {MEAL_TAG_OPTIONS.map((tag) => (
-                        // Render each checkbox item directly, not wrapped in another FormItem
-                        <div
+                        <FormField
                           key={tag}
-                          className="flex flex-row items-start space-x-3 space-y-0"
-                        >
-                          <FormControl>
-                            <Checkbox
-                              checked={field.value?.includes(tag)}
-                              onCheckedChange={(checked) => {
-                                return checked
-                                  ? field.onChange([...(field.value || []), tag])
-                                  : field.onChange(
-                                      (field.value || []).filter(
-                                        (value) => value !== tag
-                                      )
-                                    )
-                              }}
-                            />
-                          </FormControl>
-                          <FormLabel className="font-normal">
-                            {tag}
-                          </FormLabel>
-                        </div>
+                          control={form.control}
+                          name="meal_tags"
+                          render={({ field }) => {
+                            return (
+                              <FormItem
+                                key={tag}
+                                className="flex flex-row items-start space-x-3 space-y-0"
+                              >
+                                <FormControl>
+                                  <Checkbox
+                                    checked={field.value?.includes(tag)}
+                                    onCheckedChange={(checked) => {
+                                      return checked
+                                        ? field.onChange([...(field.value || []), tag])
+                                        : field.onChange(
+                                            (field.value || []).filter(
+                                              (value) => value !== tag
+                                            )
+                                          )
+                                    }}
+                                  />
+                                </FormControl>
+                                <FormLabel className="font-normal">
+                                  {tag}
+                                </FormLabel>
+                              </FormItem>
+                            );
+                          }}
+                        />
                       ))}
                     </div>
                     <FormMessage />

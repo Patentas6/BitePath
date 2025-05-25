@@ -22,7 +22,7 @@ type AuthFormValues = z.infer<typeof authFormSchema>;
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
-  const [isLoading, setIsLoading] = useState(false); // Keep isLoading state if needed elsewhere, but not used in this form
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { theme: appTheme } = useTheme();
@@ -74,50 +74,64 @@ const Auth = () => {
           )}
         </CardHeader>
         <CardContent>
-          {/* Wrap SupabaseAuthUI in a single div within CardContent */}
-          <div>
-            <SupabaseAuthUI
-              supabaseClient={supabase}
-              theme={appTheme === 'dark' ? 'dark' : 'light'}
-              appearance={{
-                theme: ThemeSupa,
-                // Removed custom variables to simplify appearance
-              }}
-              providers={['google']}
-              redirectTo={`${window.location.origin}/dashboard`}
-              localization={{
-                variables: {
-                  sign_in: { email_label: "Email address", password_label: "Password", button_label: "Sign in", social_provider_text: "Sign in with {{provider}}", link_text: "Already have an account? Sign in" },
-                  sign_up: { email_label: "Email address", password_label: "Password", button_label: "Sign up", social_provider_text: "Sign up with {{provider}}", link_text: "Don't have an account? Sign up" },
-                  forgotten_password: { email_label: "Email address", button_label: "Send reset instructions", link_text: "Forgot your password?" },
+          <SupabaseAuthUI
+            supabaseClient={supabase}
+            theme={appTheme === 'dark' ? 'dark' : 'light'}
+            appearance={{
+              theme: ThemeSupa,
+              variables: {
+                default: { 
+                  colors: {
+                    brand: 'hsl(var(--primary))', // Reverted to solid primary green
+                    brandAccent: '#070500', 
+                    inputBackground: 'hsl(var(--input))',
+                    inputText: 'hsl(var(--foreground))',
+                    inputLabelText: 'hsl(var(--foreground))',
+                    inputPlaceholder: 'hsl(var(--muted-foreground))',
+                  },
                 },
-              }}
-              view={isLogin ? 'sign_in' : 'sign_up'}
-              showLinks={false} // Hide default links as we provide our own below
-            />
+                dark: { 
+                  colors: {
+                    brand: 'hsl(var(--primary))', 
+                    brandAccent: 'hsl(var(--primary-foreground))', 
+                    inputBackground: 'hsl(var(--input))',
+                    inputText: 'hsl(var(--foreground))',
+                    inputLabelText: 'hsl(var(--foreground))',
+                    inputPlaceholder: 'hsl(var(--muted-foreground))',
+                  },
+                },
+              },
+            }}
+            providers={['google']}
+            redirectTo={`${window.location.origin}/dashboard`}
+            localization={{
+              variables: {
+                sign_in: { email_label: "Email address", password_label: "Password", button_label: "Sign in", social_provider_text: "Sign in with {{provider}}", link_text: "Already have an account? Sign in" },
+                sign_up: { email_label: "Email address", password_label: "Password", button_label: "Sign up", social_provider_text: "Sign up with {{provider}}", link_text: "Don't have an account? Sign up" },
+                forgotten_password: { email_label: "Email address", button_label: "Send reset instructions", link_text: "Forgot your password?" },
+              },
+            }}
+            view={isLogin ? 'sign_in' : 'sign_up'}
+            showLinks={false}
+          />
+          <div className="mt-6 text-center text-sm">
+            {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
+            <button
+              onClick={() => navigate(`/auth${isLogin ? '?mode=signup' : ''}`, { replace: true })}
+              className="text-blue-600 hover:underline" 
+              disabled={isLoading}
+            >
+              {isLogin ? "Sign Up" : "Login"}
+            </button>
           </div>
         </CardContent>
-        {/* The toggle link div is a sibling of CardContent */}
-        <div className="mt-6 text-center text-sm px-6 pb-6"> {/* Added padding */}
-          {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
-          <button
-            onClick={() => navigate(`/auth${isLogin ? '?mode=signup' : ''}`, { replace: true })}
-            className="text-blue-600 hover:underline"
-            disabled={isLoading} // Use isLoading if applicable, though not currently tied to form submission state
-          >
-            {isLogin ? "Sign Up" : "Login"}
-          </button>
-        </div>
       </Card>
-      {/* Custom toggle link placed outside the Card */}
-      <div className="mt-8 text-center text-sm"> {/* Adjusted margin-top */}
-        <Button variant="link" asChild className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
-          <Link to="/">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Home
-          </Link>
-        </Button>
-      </div>
+      <Button variant="link" asChild className="mt-8 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+        <Link to="/">
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Home
+        </Link>
+      </Button>
     </div>
   );
 };

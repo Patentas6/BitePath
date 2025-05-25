@@ -1,118 +1,35 @@
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
-import { format, startOfToday } from "date-fns";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { useMemo } from "react";
-import { convertToPreferredSystem } from "@/utils/conversionUtils"; // Import conversion utility
-import { ListChecks, ShoppingCart, Utensils } from "lucide-react"; // Import icons
-
-interface PlannedMealWithDetails {
-  plan_date: string;
-  meal_type?: string;
-  meals: {
-    name: string;
-    ingredients: string | null;
-  } | null;
-}
-
-interface ParsedIngredientItem {
-  name: string;
-  quantity: number;
-  unit: string;
-  description?: string;
-}
-
-const NON_SUMMABLE_DISPLAY_UNITS: ReadonlyArray<string> = [
-  "cup", "cups", "tsp", "teaspoon", "teaspoons",
-  "tbsp", "tablespoon", "tablespoons", "pinch", "pinches", "dash", "dashes"
-];
-
-const SUMMABLE_UNITS: ReadonlyArray<string> = [
-  "g", "gram", "grams", "kg", "kgs", "kilogram", "kilograms",
-  "lb", "lbs", "pound", "pounds", "oz", "ounce", "ounces",
-  "ml", "milliliter", "milliliters", "l", "liter", "liters",
-  "piece", "pieces", "can", "cans", "bottle", "bottles", "package", "packages",
-  "slice", "slices", "item", "items", "clove", "cloves", "sprig", "sprigs",
-  'head', 'heads', 'bunch', 'bunches'
-];
-
-const PIECE_UNITS: ReadonlyArray<string> = ['piece', 'pieces', 'item', 'items', 'unit', 'units'];
-const MEASUREMENT_UNITS_FOR_LIGHTER_COLOR: ReadonlyArray<string> = [
-  'tsp', 'teaspoon', 'teaspoons',
-  'tbsp', 'tablespoon', 'tablespoons',
-  'cup', 'cups',
-  'pinch', 'pinches', 'dash', 'dashes',
-  'ml', 'milliliter', 'milliliters',
-  'l', 'liter', 'liters',
-  'fl oz', 'fluid ounce', 'fluid ounces', 'fl-oz',
-  'g', 'gram', 'grams',
-  'oz', 'ounce', 'ounces'
-];
-
-const categoriesMap = {
-  Produce: ['apple', 'banana', 'orange', 'pear', 'grape', 'berry', 'berries', 'strawberry', 'blueberry', 'raspberry', 'avocado', 'tomato', 'potato', 'onion', 'garlic', 'carrot', 'broccoli', 'spinach', 'lettuce', 'salad greens', 'celery', 'cucumber', 'bell pepper', 'pepper', 'zucchini', 'mushroom', 'lemon', 'lime', 'cabbage', 'kale', 'asparagus', 'eggplant', 'corn', 'sweet potato', 'ginger', 'parsley', 'cilantro', 'basil', 'mint', 'rosemary', 'thyme', 'dill', 'leek', 'scallion', 'green bean', 'pea', 'artichoke', 'beet', 'radish', 'squash'],
-  'Meat & Poultry': ['chicken', 'beef', 'pork', 'turkey', 'lamb', 'sausage', 'bacon', 'ham', 'steak', 'mince', 'ground meat', 'veal', 'duck', 'fish', 'salmon', 'tuna', 'shrimp', 'cod', 'tilapia', 'trout', 'sardines', 'halibut', 'catfish', 'crab', 'lobster', 'scallop', 'mussel', 'clam'],
-  'Dairy & Eggs': ['milk', 'cheese', 'cheddar', 'mozzarella', 'parmesan', 'feta', 'goat cheese', 'yogurt', 'butter', 'cream', 'egg', 'sour cream', 'cottage cheese', 'cream cheese', 'half-and-half', 'ghee'],
-  Pantry: ['flour', 'sugar', 'salt', 'black pepper', 'spice', 'herb', 'olive oil', 'vegetable oil', 'coconut oil', 'vinegar', 'rice', 'pasta', 'noodle', 'bread', 'cereal', 'oats', 'oatmeal', 'beans', 'lentils', 'chickpeas', 'nuts', 'almonds', 'walnuts', 'peanuts', 'seeds', 'chia seeds', 'flax seeds', 'canned tomatoes', 'canned beans', 'canned corn', 'soup', 'broth', 'stock', 'bouillon', 'soy sauce', 'worcestershire', 'hot sauce', 'bbq sauce', 'condiment', 'ketchup', 'mustard', 'mayonnaise', 'relish', 'jam', 'jelly', 'honey', 'maple syrup', 'baking soda', 'baking powder', 'yeast', 'vanilla extract', 'chocolate', 'cocoa powder', 'coffee', 'tea', 'crackers', 'pretzels', 'chips', 'popcorn', 'dried fruit', 'protein powder', 'breadcrumbs', 'tortillas', 'tahini', 'peanut butter', 'almond butter'],
-  Frozen: ['ice cream', 'sorbet', 'frozen vegetables', 'frozen fruit', 'frozen meal', 'frozen pizza', 'frozen fries', 'frozen peas', 'frozen corn', 'frozen spinach'],
-  Beverages: ['water', 'sparkling water', 'juice', 'soda', 'cola', 'wine', 'beer', 'spirits', 'kombucha', 'coconut water', 'sports drink', 'energy drink'],
-  Other: [],
-};
-type Category = keyof typeof categoriesMap;
-const categoryOrder: Category[] = ['Produce', 'Meat & Poultry', 'Dairy & Eggs', 'Pantry', 'Frozen', 'Beverages', 'Other'];
-
-interface GroceryListItem {
-  name: string;
-  totalQuantity: number;
-  unit: string | null;
-  isSummable: boolean;
-  originalItems: ParsedIngredientItem[];
-}
-
-interface CategorizedDisplayListItem {
-  itemName: string;
-  itemNameClass: string;
-  detailsPart: string;
-  detailsClass: string;
-  originalItemsTooltip: string;
-  uniqueKey: string;
-}
-
 
 const Index = () => {
-   // Removed today's meal and grocery list logic
-
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="w-full p-4 bg-background shadow-sm">
         <div className="container mx-auto flex justify-between items-center">
           <div className="flex items-center space-x-3">
-            <Link
-              to="/"
+            <Link 
+              to="/" 
               className="text-2xl font-bold group"
             >
               <span className="text-accent dark:text-foreground transition-opacity duration-150 ease-in-out group-hover:opacity-80">Bite</span>
               <span className="text-primary dark:text-primary transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
             </Link>
+            {/* ThemeToggleButton removed from here */}
           </div>
-          <nav className="flex items-center space-x-4">
+          <nav className="flex items-center space-x-4"> {/* Added flex items-center for vertical alignment */}
             <a href="#features" className="hover:underline">Features</a>
             <a href="#pricing" className="hover:underline">Pricing</a>
             <a href="#testimonials" className="hover:underline">Testimonials</a>
             <Link to="/auth" className="hover:underline">Login</Link>
-            <Button
-              size="sm"
+            <Button 
+              size="sm" 
               variant="default"
               asChild
             >
               <Link to="/auth?mode=signup"><span>Sign Up</span></Link>
             </Button>
-            <ThemeToggleButton />
+            <ThemeToggleButton /> {/* ThemeToggleButton added here */}
           </nav>
         </div>
       </header>
@@ -132,14 +49,11 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Today's Preview Section - REMOVED */}
-
-
       {/* Features Section Placeholder */}
       <section id="features" className="w-full py-16 bg-background text-center">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold mb-8">Core Features</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4"> {/* Adjusted grid for responsiveness */}
+          <div className="grid grid-cols-3 gap-4"> 
             <div className="p-6 border rounded-lg shadow-sm dark:border-gray-700 bg-card">
               <h3 className="text-xl font-semibold mb-2">Minimalist Planning</h3>
               <p className="text-muted-foreground">Easily place meals onto your weekly calendar.</p>
@@ -172,7 +86,7 @@ const Index = () => {
       <section id="pricing" className="w-full py-16 bg-background text-center">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold mb-8">Simple Pricing</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-lg mx-auto"> {/* Adjusted grid for responsiveness */}
+          <div className="grid grid-cols-2 gap-4 max-w-lg mx-auto"> 
             <div className="p-6 border rounded-lg shadow-sm flex flex-col dark:border-gray-700 bg-card">
               <h3 className="text-2xl font-bold mb-4">Free</h3>
               <p className="text-muted-foreground mb-4">Limited features to get you started.</p>

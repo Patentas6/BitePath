@@ -37,7 +37,7 @@ interface AddMealToPlanDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   planDate: Date | null;
-  initialMealType?: PlanningMealType; // Added optional initialMealType prop
+  // mealType: string | null; // Removed mealType prop
   userId: string | null;
 }
 
@@ -45,11 +45,11 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
   open,
   onOpenChange,
   planDate,
-  initialMealType, // Use the new prop
+  // mealType, // Removed mealType prop
   userId,
 }) => {
   const [selectedMealId, setSelectedMealId] = useState<string | undefined>(undefined);
-  const [selectedMealType, setSelectedMealType] = useState<PlanningMealType | undefined>(initialMealType); // Initialize with prop
+  const [selectedMealType, setSelectedMealType] = useState<PlanningMealType | undefined>(undefined); // State for selected meal type
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTags, setSelectedTags] = useState<MealTag[]>([]);
   const queryClient = useQueryClient();
@@ -73,9 +73,9 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
       setSelectedTags([]);
       setSearchTerm("");
       setSelectedMealId(undefined);
-      setSelectedMealType(initialMealType); // Reset selected meal type on open, using initial prop
+      setSelectedMealType(undefined); // Reset selected meal type on open
     }
-  }, [open, initialMealType]); // Add initialMealType to dependency array
+  }, [open]);
 
 
   const filteredMeals = useMemo(() => {
@@ -164,7 +164,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
             <Label htmlFor="meal-type-select" className="text-sm font-medium">
               Meal Type
             </Label>
-            <Select value={selectedMealType} onValueChange={setSelectedMealType} disabled={!!initialMealType}> {/* Disable if initialMealType is set */}
+            <Select value={selectedMealType} onValueChange={setSelectedMealType}>
               <SelectTrigger id="meal-type-select" className="w-full">
                 <SelectValue placeholder="Select meal type (e.g., Breakfast, Dinner)" />
               </SelectTrigger>
@@ -174,9 +174,6 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
                 ))}
               </SelectContent>
             </Select>
-            {!!initialMealType && (
-              <p className="text-xs text-muted-foreground">Meal type is fixed when adding from a specific slot.</p>
-            )}
           </div>
 
           <div className="relative">
