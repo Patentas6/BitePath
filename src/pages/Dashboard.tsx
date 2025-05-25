@@ -3,8 +3,8 @@ import { supabase } from "@/lib/supabase";
 import { useNavigate, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import TodaysMeals from "@/components/TodaysMeals"; // Keep TodaysMeals
-import TodaysGroceryList from "@/components/TodaysGroceryList"; // Keep TodaysGroceryList
+// import TodaysMeals from "@/components/TodaysMeals"; // Keep TodaysMeals
+// import TodaysGroceryList from "@/components/TodaysGroceryList"; // Keep TodaysGroceryList
 import type { User } from "@supabase/supabase-js";
 import { startOfWeek, addDays } from "date-fns";
 import { UserCircle, BookOpenText, Brain, SquarePen, CalendarDays, ShoppingCart } from "lucide-react";
@@ -111,15 +111,10 @@ const Dashboard = () => {
 
         {/* Two-column layout for today's info */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Left Column: Today's Meals */}
-          {user && (
-            <TodaysMeals userId={user.id} />
-          )}
-
-          {/* Right Column: Today's Grocery List */}
-          {user && (
-            <TodaysGroceryList userId={user.id} />
-          )}
+          {/* {user && <TodaysMeals userId={user.id} />} */}
+          {/* {user && <TodaysGroceryList userId={user.id} />} */}
+          <div>TodaysMeals component commented out for testing.</div>
+          <div>TodaysGroceryList component commented out for testing.</div>
         </div>
 
       </div>
