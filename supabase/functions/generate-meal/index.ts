@@ -119,111 +119,163 @@ serve(async (req) => {
 
   try {
     console.log(`[${format(new Date(), "yyyy-MM-dd HH:mm:ss")}] Edge Function received request for AI meal generation (Vertex AI).`);
-    const { mealType, kinds, styles, preferences } = await req.json();
-    console.log("Request body:", { mealType, kinds, styles, preferences });
+    const requestBody = await req.json();
+    const { mealType, kinds, styles, preferences, mealData } = requestBody; // Destructure mealData
 
+    let generatedMealData: GeneratedMeal;
+    let mealNameForImage: string;
+
+    if (mealData) {
+        // If mealData is provided, skip Gemini and use provided data
+        console.log("Received existing meal data for image generation:", mealData.name);
+        generatedMealData = mealData as GeneratedMeal; // Use provided data structure
+        mealNameForImage = mealData.name;
+        // Ensure ingredients is an array if it was null/string from DB
+        if (typeof generatedMealData.ingredients === 'string') {
+             try {
+                 generatedMealData.ingredients = JSON.parse(generatedMealData.ingredients);
+             } catch (e) {
+                 console.warn("Failed to parse ingredients string from mealData:", e);
+                 generatedMealData.ingredients = [];
+             }
+        } else if (!Array.isArray(generatedMealData.ingredients)) {
+             generatedMealData.ingredients = [];
+        }
+         // Ensure meal_tags is an array if it was null from DB
+        if (!Array.isArray(generatedMealData.meal_tags)) {
+            generatedMealData.meal_tags = [];
+        }
+
+    } else {
+        // Otherwise, proceed with full generation using Gemini
+        console.log("Request body for full generation:", { mealType, kinds, styles, preferences });
+
+        const serviceAccountJsonString = Deno.env.get("VERTEX_SERVICE_ACCOUNT_KEY_JSON");
+        if (!serviceAccountJsonString) {
+          console.error("VERTEX_SERVICE_ACCOUNT_KEY_JSON secret not set.");
+          return new Response(JSON.stringify({ error: "AI service not configured. Please set VERTEX_SERVICE_ACCOUNT_KEY_JSON secret." }), {
+            status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const accessToken = await getAccessToken(serviceAccountJsonString);
+        console.log("Obtained access token for Gemini.");
+
+        const sa = JSON.parse(serviceAccountJsonString);
+        const projectId = sa.project_id;
+        const region = "us-central1"; // Specify your Vertex AI region
+
+        // --- Step 1: Generate Recipe using Vertex AI Gemini ---
+        const geminiModelId = "gemini-2.5-flash-preview-05-20";
+        const geminiEndpoint = `https://${region}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${region}/publishers/google/models/${geminiModelId}:generateContent`;
+
+        console.log("Attempting to call Gemini endpoint:", geminiEndpoint);
+
+        let prompt = `Generate a detailed meal recipe in JSON format. The JSON object should have the following structure:
+        {
+          "name": string, // Name of the meal
+          "ingredients": [ // Array of ingredients
+            {
+              "name": string, // Ingredient name (e.g., "chicken breast")
+              "quantity": number, // Quantity (e.g., 2, 500)
+              "unit": string, // Unit (e.g., "pieces", "g", "cup", "tbsp") - use common units
+              "description": string | undefined // Optional description (e.g., "diced", "freshly ground")
+            }
+          ],
+          "instructions": string, // Step-by-step cooking instructions (use \\n for new lines)
+          "meal_tags": string[] // Array of relevant tags (e.g., "Breakfast", "Lunch", "Dinner", "Snack", "High Protein", "Vegan", etc.)
+        }
+
+        The meal should be a ${mealType || 'general'} meal.`;
+
+        if (kinds && kinds.length > 0) {
+          prompt += ` It should be ${kinds.join(', ')}.`;
+        }
+        if (styles && styles.length > 0) {
+          prompt += ` It should be ${styles.join(', ')}.`;
+        }
+        if (preferences) {
+          prompt += ` Consider these ingredient preferences: ${preferences}.`;
+        }
+
+        prompt += ` Ensure the response is ONLY the JSON object, nothing else.`;
+
+        console.log("Sending prompt to Vertex AI Gemini:", prompt);
+
+        const geminiResponse = await fetch(geminiEndpoint, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [{ text: prompt }] }], // Explicitly set role to "user"
+            generationConfig: { response_mime_type: "application/json" }
+          }),
+        });
+
+        if (!geminiResponse.ok) {
+          const errorBody = await geminiResponse.text();
+          console.error(`Vertex AI Gemini API error: ${geminiResponse.status} ${geminiResponse.statusText}`, errorBody);
+          throw new Error(`AI API error (Vertex Gemini): ${geminiResponse.statusText}`);
+        }
+
+        const geminiData = await geminiResponse.json();
+        const generatedContentString = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        if (!generatedContentString) {
+           console.error("Vertex AI Gemini response did not contain expected content.", geminiData);
+           throw new Error("Vertex AI Gemini did not return a valid recipe.");
+        }
+
+        try {
+            // Attempt to extract JSON from markdown code block if present
+            const jsonMatch = generatedContentString.match(/```json\n([\s\S]*?)\n```/);
+            const jsonString = jsonMatch ? jsonMatch[1] : generatedContentString;
+            generatedMealData = JSON.parse(jsonString);
+            if (!generatedMealData.name || !Array.isArray(generatedMealData.ingredients) || !generatedMealData.instructions || !Array.isArray(generatedMealData.meal_tags)) {
+                 console.error("Parsed Vertex AI Gemini JSON does not match expected structure:", generatedMealData);
+                 throw new Error("Vertex AI Gemini returned invalid recipe format.");
+            }
+        } catch (parseError) {
+            console.error("Failed to parse Vertex AI Gemini response JSON:", generatedContentString, parseError);
+            throw new Error(`Failed to parse Vertex AI Gemini response: ${(parseError as Error).message}`);
+        }
+
+        console.log("Generated Recipe:", generatedMealData.name);
+        mealNameForImage = generatedMealData.name; // Use the generated name for the image prompt
+    }
+
+    // --- Step 2: Generate Image using Vertex AI Imagen ---
+    // This step runs whether mealData was provided or a new recipe was generated
     const serviceAccountJsonString = Deno.env.get("VERTEX_SERVICE_ACCOUNT_KEY_JSON");
-    if (!serviceAccountJsonString) {
-      console.error("VERTEX_SERVICE_ACCOUNT_KEY_JSON secret not set.");
-      return new Response(JSON.stringify({ error: "AI service not configured. Please set VERTEX_SERVICE_ACCOUNT_KEY_JSON secret." }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+     if (!serviceAccountJsonString) {
+      console.error("VERTEX_SERVICE_ACCOUNT_KEY_JSON secret not set for Imagen.");
+      // If we already generated a recipe, we can still return it without an image
+      if (mealData) { // If only image was requested, this is a failure
+         throw new Error("AI service not configured for image generation. Please set VERTEX_SERVICE_ACCOUNT_KEY_JSON secret.");
+      } else { // If full generation was requested, return recipe without image
+         generatedMealData.image_url = undefined;
+         return new Response(
+            JSON.stringify(generatedMealData),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+         );
+      }
     }
 
     const accessToken = await getAccessToken(serviceAccountJsonString);
-    console.log("Obtained access token.");
+    console.log("Obtained access token for Imagen.");
 
     const sa = JSON.parse(serviceAccountJsonString);
     const projectId = sa.project_id;
     const region = "us-central1"; // Specify your Vertex AI region
 
-    // --- Step 1: Generate Recipe using Vertex AI Gemini ---
-    const geminiModelId = "gemini-2.5-flash-preview-05-20"; 
-    const geminiEndpoint = `https://${region}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${region}/publishers/google/models/${geminiModelId}:generateContent`;
-
-    console.log("Attempting to call Gemini endpoint:", geminiEndpoint);
-
-    let prompt = `Generate a detailed meal recipe in JSON format. The JSON object should have the following structure:
-    {
-      "name": string, // Name of the meal
-      "ingredients": [ // Array of ingredients
-        {
-          "name": string, // Ingredient name (e.g., "chicken breast")
-          "quantity": number, // Quantity (e.g., 2, 500)
-          "unit": string, // Unit (e.g., "pieces", "g", "cup", "tbsp") - use common units
-          "description": string | undefined // Optional description (e.g., "diced", "freshly ground")
-        }
-      ],
-      "instructions": string, // Step-by-step cooking instructions (use \\n for new lines)
-      "meal_tags": string[] // Array of relevant tags (e.g., "Breakfast", "Lunch", "Dinner", "Snack", "High Protein", "Vegan", etc.)
-    }
-
-    The meal should be a ${mealType || 'general'} meal.`;
-
-    if (kinds && kinds.length > 0) {
-      prompt += ` It should be ${kinds.join(', ')}.`;
-    }
-    if (styles && styles.length > 0) {
-      prompt += ` It should be ${styles.join(', ')}.`;
-    }
-    if (preferences) {
-      prompt += ` Consider these ingredient preferences: ${preferences}.`;
-    }
-
-    prompt += ` Ensure the response is ONLY the JSON object, nothing else.`;
-
-    console.log("Sending prompt to Vertex AI Gemini:", prompt);
-
-    const geminiResponse = await fetch(geminiEndpoint, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: prompt }] }], // Explicitly set role to "user"
-        generationConfig: { response_mime_type: "application/json" }
-      }),
-    });
-
-    if (!geminiResponse.ok) {
-      const errorBody = await geminiResponse.text();
-      console.error(`Vertex AI Gemini API error: ${geminiResponse.status} ${geminiResponse.statusText}`, errorBody);
-      throw new Error(`AI API error (Vertex Gemini): ${geminiResponse.statusText}`);
-    }
-
-    const geminiData = await geminiResponse.json();
-    const generatedContentString = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    if (!generatedContentString) {
-       console.error("Vertex AI Gemini response did not contain expected content.", geminiData);
-       throw new Error("Vertex AI Gemini did not return a valid recipe.");
-    }
-
-    let generatedMealData: GeneratedMeal;
-    try {
-        // Attempt to extract JSON from markdown code block if present
-        const jsonMatch = generatedContentString.match(/```json\n([\s\S]*?)\n```/);
-        const jsonString = jsonMatch ? jsonMatch[1] : generatedContentString;
-        generatedMealData = JSON.parse(jsonString);
-        if (!generatedMealData.name || !Array.isArray(generatedMealData.ingredients) || !generatedMealData.instructions || !Array.isArray(generatedMealData.meal_tags)) {
-             console.error("Parsed Vertex AI Gemini JSON does not match expected structure:", generatedMealData);
-             throw new Error("Vertex AI Gemini returned invalid recipe format.");
-        }
-    } catch (parseError) {
-        console.error("Failed to parse Vertex AI Gemini response JSON:", generatedContentString, parseError);
-        throw new Error(`Failed to parse Vertex AI Gemini response: ${(parseError as Error).message}`);
-    }
-
-    console.log("Generated Recipe:", generatedMealData.name);
-
-    // --- Step 2: Generate Image using Vertex AI Imagen ---
     const imagenModelId = "imagegeneration@002"; // Using a suitable Imagen model on Vertex
     const imagenEndpoint = `https://${region}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${region}/publishers/google/models/${imagenModelId}:predict`;
 
     console.log("Attempting to call Imagen endpoint:", imagenEndpoint);
 
-    const imagePrompt = `A realistic photo of the meal "${generatedMealData.name}". Focus on the finished dish presented nicely.`;
+    const imagePrompt = `A realistic photo of the meal "${mealNameForImage}". Focus on the finished dish presented nicely.`;
     console.log("Sending prompt to Vertex AI Imagen:", imagePrompt);
 
     const imagenResponse = await fetch(imagenEndpoint, {
@@ -276,10 +328,20 @@ serve(async (req) => {
 
 
     // --- Step 3: Return Combined Data ---
-    return new Response(
-      JSON.stringify(generatedMealData),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
-    );
+    // If mealData was provided, we only return the image_url
+    if (mealData) {
+         return new Response(
+            JSON.stringify({ image_url: generatedMealData.image_url }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+         );
+    } else {
+        // If full generation was done, return the full meal data
+        return new Response(
+          JSON.stringify(generatedMealData),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+        );
+    }
+
 
   } catch (error) {
     console.error("Error in Edge Function during AI generation:", error);
