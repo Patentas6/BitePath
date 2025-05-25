@@ -24,13 +24,13 @@ const queryClient = new QueryClient();
 const App = () => (
   <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
     <QueryClientProvider client={queryClient}>
-      {/* Toaster, Sonner, and BetaDisclaimerBanner should be outside BrowserRouter */}
+      {/* Toaster and Sonner are global and can be outside */}
       <Toaster />
       <Sonner />
-      <BetaDisclaimerBanner />
       <TooltipProvider>
-        {/* BrowserRouter should wrap the routing logic */}
         <BrowserRouter>
+          {/* BetaDisclaimerBanner needs to be inside BrowserRouter because it uses Link */}
+          <BetaDisclaimerBanner />
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
@@ -74,7 +74,6 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-            {/* Re-added Weekly Plan route */}
             <Route
               path="/weekly-plan"
               element={
@@ -83,7 +82,6 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-            {/* Re-added Grocery List route */}
             <Route
               path="/grocery-list"
               element={
@@ -92,7 +90,6 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-
             <Route path="/feedback" element={<FeedbackPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
