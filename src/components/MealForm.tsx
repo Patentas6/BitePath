@@ -204,8 +204,8 @@ const MealForm = () => {
               <FormField
                 control={form.control}
                 name="meal_tags"
-                render={({ field }) => ( // Pass field to the render prop
-                  <FormItem>
+                render={({ field }) => (
+                  <FormItem> {/* This is the single FormItem for the group */}
                     <div className="mb-4">
                       <FormLabel className="text-base">Meal Tags</FormLabel>
                       <FormDescription>
@@ -214,7 +214,8 @@ const MealForm = () => {
                     </div>
                     <div className="flex flex-wrap gap-4">
                       {MEAL_TAG_OPTIONS.map((tag) => (
-                        <FormItem
+                        // Render each checkbox item directly, not wrapped in another FormItem
+                        <div
                           key={tag}
                           className="flex flex-row items-start space-x-3 space-y-0"
                         >
@@ -235,7 +236,7 @@ const MealForm = () => {
                           <FormLabel className="font-normal">
                             {tag}
                           </FormLabel>
-                        </FormItem>
+                        </div>
                       ))}
                     </div>
                     <FormMessage />
