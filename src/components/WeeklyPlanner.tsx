@@ -4,6 +4,7 @@ import { showError, showSuccess } from "@/utils/toast";
 import { format, addDays, isSameDay, isToday, isPast, startOfToday, parseISO } from "date-fns";
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
+import { PLANNING_MEAL_TYPES } from "@/lib/constants"; // Import PLANNING_MEAL_TYPES
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,18 +22,18 @@ interface MealPlan {
   } | null;
 }
 
-// Removed mealTypes array as it's now handled in the dialog
-
 interface WeeklyPlannerProps {
   userId: string;
   currentWeekStart: Date;
   onWeekNavigate: (direction: "prev" | "next") => void;
 }
 
+// Define the desired display order for meal types
+const MEAL_TYPE_DISPLAY_ORDER: PlanningMealType[] = ["Breakfast", "Brunch Snack", "Lunch", "Afternoon Snack", "Dinner", "Snack"];
+
 const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart, onWeekNavigate }) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedDateForDialog, setSelectedDateForDialog] = useState<Date | null>(null);
-  // Removed selectedMealTypeForDialog state
 
   const queryClient = useQueryClient();
   const today = startOfToday();
@@ -84,7 +85,6 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart,
     return Array.from({ length: 7 }).map((_, i) => addDays(currentWeekStart, i));
   }, [currentWeekStart]);
 
-  // Modified handler to open dialog for a specific day
   const handleAddMealClick = (day: Date) => {
     if (isPast(day) && !isToday(day)) {
         console.log("Cannot plan for a past date (excluding today).");
@@ -94,16 +94,30 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart,
     setIsDialogOpen(true);
   };
 
-  // Group meal plans by date
+  // Group meal plans by date and sort by meal type display order
   const mealPlansByDate = useMemo(() => {
     const grouped = new Map<string, MealPlan[]>();
     mealPlans?.forEach(plan => {
-      const dateKey = plan.plan_date; // Use the date string from the plan
+      const dateKey = format(parseISO(plan.plan_date), 'yyyy-MM-dd'); // Ensure consistent date key format
       if (!grouped.has(dateKey)) {
         grouped.set(dateKey, []);
       }
       grouped.get(dateKey)?.push(plan);
     });
+
+    // Sort meals within each day by the defined display order
+    grouped.forEach((plans, dateKey) => {
+        plans.sort((a, b) => {
+            const aIndex = MEAL_TYPE_DISPLAY_ORDER.indexOf(a.meal_type as PlanningMealType);
+            const bIndex = MEAL_TYPE_DISPLAY_ORDER.indexOf(b.meal_type as PlanningMealType);
+            // Handle cases where meal_type might not be in the defined order (put them at the end)
+            if (aIndex === -1 && bIndex === -1) return 0;
+            if (aIndex === -1) return 1;
+            if (bIndex === -1) return -1;
+            return aIndex - bIndex;
+        });
+    });
+
     return grouped;
   }, [mealPlans]);
 
@@ -222,7 +236,6 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart,
           }
         }}
         planDate={selectedDateForDialog}
-        // mealType={selectedMealTypeForDialog} // Removed mealType prop
         userId={userId}
       />
     </>
