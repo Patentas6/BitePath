@@ -1,10 +1,10 @@
-import MealList from "@/components/MealList";
+import MealForm from "@/components/MealForm";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 
-const MealsPage = () => {
+const AddMealPage = () => {
   return (
     <div className="min-h-screen bg-background text-foreground p-4">
       <div className="container mx-auto space-y-6">
@@ -16,7 +16,7 @@ const MealsPage = () => {
             </Link>
             <ThemeToggleButton />
           </div>
-          <h1 className="text-xl sm:text-3xl font-bold">My Meals</h1>
+          <h1 className="text-xl sm:text-3xl font-bold">Add New Meal</h1>
           <Button variant="default" asChild>
             <Link to="/dashboard">
               <ArrowLeft className="mr-2 h-4 w-4" />
@@ -26,11 +26,11 @@ const MealsPage = () => {
         </header>
 
         <div className="space-y-6">
-          <MealList />
+          <MealForm />
         </div>
       </div>
     </div>
   );
 };
 
-export default MealsPage;
+export default AddMealPage;

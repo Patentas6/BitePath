@@ -7,7 +7,7 @@ import WeeklyPlanner from "@/components/WeeklyPlanner";
 import GroceryList from "@/components/GroceryList";
 import type { User } from "@supabase/supabase-js";
 import { startOfWeek, addDays } from "date-fns";
-import { UserCircle, BookOpenText, Sparkles, Brain } from "lucide-react"; // Sparkles icon is no longer needed for Discover Meals
+import { UserCircle, BookOpenText, Brain, SquarePen } from "lucide-react"; // Added SquarePen icon
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 
 interface UserProfile {
@@ -93,10 +93,10 @@ const Dashboard = () => {
             <Button variant="default" size="sm" asChild>
               <Link to="/generate-meal"><Brain className="mr-2 h-4 w-4" /> Generate Meal</Link>
             </Button>
-            {/* Removed Discover Meals Button */}
-            {/* <Button variant="default" size="sm" asChild>
-              <Link to="/discover-meals"><Sparkles className="mr-2 h-4 w-4" /> Discover Meals</Link>
-            </Button> */}
+             {/* New Add Meal Button */}
+            <Button variant="default" size="sm" asChild>
+              <Link to="/add-meal"><SquarePen className="mr-2 h-4 w-4" /> Add Meal</Link>
+            </Button>
             <Button variant="default" size="sm" asChild>
               <Link to="/meals"><BookOpenText className="mr-2 h-4 w-4" /> My Meals</Link>
             </Button>

@@ -12,10 +12,10 @@ import Dashboard from "./pages/Dashboard";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ProfilePage from "./pages/Profile";
 import MealsPage from "./pages/MealsPage";
-// import DiscoverMealsPage from "./pages/DiscoverMealsPage"; // Removed import
 import BetaDisclaimerBanner from "./components/BetaDisclaimerBanner";
 import FeedbackPage from "./pages/FeedbackPage";
-import GenerateMealPage from "./pages/GenerateMealPage"; // Import the new page
+import GenerateMealPage from "./pages/GenerateMealPage";
+import AddMealPage from "./pages/AddMealPage"; // Import the new page
 
 const queryClient = new QueryClient();
 
@@ -54,20 +54,19 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-            {/* Removed Discover Meals Route */}
-            {/* <Route
-              path="/discover-meals"
+             <Route
+              path="/generate-meal"
               element={
                 <ProtectedRoute>
-                  <DiscoverMealsPage />
+                  <GenerateMealPage />
                 </ProtectedRoute>
               }
-            /> */}
+            />
              <Route
-              path="/generate-meal" // New route path
+              path="/add-meal" // New route path
               element={
                 <ProtectedRoute>
-                  <GenerateMealPage /> {/* Render the new page */}
+                  <AddMealPage /> {/* Render the new page */}
                 </ProtectedRoute>
               }
             />
