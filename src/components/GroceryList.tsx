@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react"; // Import useEffect
 import { supabase } from "@/lib/supabase";
 import { format, endOfWeek, isBefore, startOfToday, parseISO, addDays } from "date-fns"; // Import addDays
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,13 +20,14 @@ interface PlannedMealWithIngredients {
 
 interface ParsedIngredientItem {
   name: string;
-  quantity: number;
+  quantity: number | string;
   unit: string;
   description?: string;
 }
 
 const NON_SUMMABLE_DISPLAY_UNITS: ReadonlyArray<string> = [
-  "cup", "cups", "tsp", "teaspoon", "teaspoons",
+  "cup", "cups",
+  "tsp", "teaspoon", "teaspoons",
   "tbsp", "tablespoon", "tablespoons", "pinch", "pinches", "dash", "dashes"
 ];
 
@@ -267,41 +268,44 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
 
   return (
     <Card className="hover:shadow-lg transition-shadow duration-200">
-      <CardHeader className="flex flex-row justify-between items-center">
-        <div className="flex items-center">
-          <ListChecks className="mr-2 h-5 w-5" />
-          <CardTitle className="text-lg font-semibold">
-            Grocery List for {format(queryStartDate, 'MMM dd')} - {format(queryEndDate, 'MMM dd')}
-          </CardTitle>
-        </div>
-        <div className="flex items-center space-x-2">
-           <Select value={selectedDays} onValueChange={setSelectedDays}>
-              <SelectTrigger className="w-[120px] h-8 text-sm">
-                <SelectValue placeholder="Select days" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1">Next 1 Day</SelectItem>
-                <SelectItem value="2">Next 2 Days</SelectItem>
-                <SelectItem value="3">Next 3 Days</SelectItem>
-                <SelectItem value="4">Next 4 Days</SelectItem>
-                <SelectItem value="5">Next 5 Days</SelectItem>
-                <SelectItem value="6">Next 6 Days</SelectItem>
-                <SelectItem value="7">Next 7 Days</SelectItem>
-                <SelectItem value="15">Next 15 Days</SelectItem>
-                <SelectItem value="30">Next 30 Days</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button
-                variant="default"
-                size="sm"
-                onClick={() => setDisplaySystem(prev => prev === 'imperial' ? 'metric' : 'imperial')}
-            >
-                <RefreshCw className="mr-2 h-4 w-4" />
-                {displaySystem === 'imperial' ? 'Metric' : 'Imperial'}
-            </Button>
-        </div>
-      </CardHeader>
+      {/* Removed Card Header */}
       <CardContent>
+        {/* Moved Controls here */}
+        <div className="flex flex-col sm:flex-row gap-4 items-center mb-4">
+           <div className="flex items-center">
+             <ListChecks className="mr-2 h-5 w-5" />
+             <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+               Grocery List for {format(queryStartDate, 'MMM dd')} - {format(queryEndDate, 'MMM dd')}
+             </h2>
+           </div>
+           <div className="flex items-center space-x-2 ml-auto"> {/* Added ml-auto to push controls to the right */}
+              <Select value={selectedDays} onValueChange={setSelectedDays}>
+                 <SelectTrigger className="w-[120px] h-8 text-sm">
+                   <SelectValue placeholder="Select days" />
+                 </SelectTrigger>
+                 <SelectContent>
+                   <SelectItem value="1">Next 1 Day</SelectItem>
+                   <SelectItem value="2">Next 2 Days</SelectItem>
+                   <SelectItem value="3">Next 3 Days</SelectItem>
+                   <SelectItem value="4">Next 4 Days</SelectItem>
+                   <SelectItem value="5">Next 5 Days</SelectItem>
+                   <SelectItem value="6">Next 6 Days</SelectItem>
+                   <SelectItem value="7">Next 7 Days</SelectItem>
+                   <SelectItem value="15">Next 15 Days</SelectItem>
+                   <SelectItem value="30">Next 30 Days</SelectItem>
+                 </SelectContent>
+               </Select>
+               <Button
+                   variant="default"
+                   size="sm"
+                   onClick={() => setDisplaySystem(prev => prev === 'imperial' ? 'metric' : 'imperial')}
+               >
+                   <RefreshCw className="mr-2 h-4 w-4" />
+                   {displaySystem === 'imperial' ? 'Metric' : 'Imperial'}
+               </Button>
+           </div>
+         </div>
+
         {isEmptyList ? (
           <div className="text-center py-6 text-muted-foreground">
             <ShoppingCart className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500 mb-4" />

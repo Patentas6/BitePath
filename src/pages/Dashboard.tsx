@@ -95,13 +95,11 @@ const Dashboard = () => {
             <Button variant="default" size="sm" asChild>
               <Link to="/add-meal"><SquarePen className="mr-2 h-4 w-4" /> Add Meal</Link>
             </Button>
+            {/* Updated button for the combined Planning page */}
             <Button variant="default" size="sm" asChild>
-              <Link to="/weekly-plan"><CalendarDays className="mr-2 h-4 w-4" /> Weekly Plan</Link>
+              <Link to="/planning"><CalendarDays className="mr-2 h-4 w-4" /> Planning</Link> {/* Changed text and link */}
             </Button>
-             {/* New Grocery List Button */}
-            <Button variant="default" size="sm" asChild>
-              <Link to="/grocery-list"><ShoppingCart className="mr-2 h-4 w-4" /> Grocery List</Link>
-            </Button>
+            {/* Removed separate Grocery List button */}
             <Button variant="default" size="sm" asChild>
               <Link to="/profile"><UserCircle className="mr-2 h-4 w-4" /> Profile</Link>
             </Button>

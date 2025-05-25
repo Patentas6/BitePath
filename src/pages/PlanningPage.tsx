@@ -1,35 +1,31 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import WeeklyPlanner from "@/components/WeeklyPlanner";
 import GroceryList from "@/components/GroceryList";
-import { ArrowLeft, ShoppingCart } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, CalendarDays, ShoppingCart } from "lucide-react";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
-import { startOfWeek } from "date-fns"; // Import startOfWeek
-import { supabase } from "@/lib/supabase"; // Import supabase client
+import { startOfWeek, addDays, format } from "date-fns";
+import { supabase } from "@/lib/supabase";
 
-const GroceryListPage = () => {
+const PlanningPage = () => {
   const navigate = useNavigate();
   const [userId, setUserId] = useState<string | null>(null);
-  // GroceryList needs currentWeekStart for context, even if it calculates its own date range
-  const [currentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
 
-  // Fetch user ID on component mount
   useEffect(() => {
     const fetchUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setUserId(user.id);
       } else {
-        // This page should be protected, but as a fallback, redirect if user is somehow null
         navigate("/auth");
       }
     };
     fetchUser();
 
-    // Listen for auth state changes (e.g., logout from another tab)
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session) {
-        // User logged out
         setUserId(null);
         navigate("/auth", { replace: true });
       } else {
@@ -42,7 +38,10 @@ const GroceryListPage = () => {
     };
   }, [navigate]);
 
-  // Show loading state or null while user ID is being fetched
+  const handleWeekNavigate = (direction: "prev" | "next") => {
+    setCurrentWeekStart(prev => addDays(prev, direction === "next" ? 7 : -7));
+  };
+
   if (userId === null) {
     return <div className="min-h-screen flex items-center justify-center">Loading user data...</div>;
   }
@@ -58,7 +57,7 @@ const GroceryListPage = () => {
             </Link>
             <ThemeToggleButton />
           </div>
-          <h1 className="text-xl sm:text-3xl font-bold flex items-center"><ShoppingCart className="mr-2 h-6 w-6" /> Grocery List</h1>
+          <h1 className="text-xl sm:text-3xl font-bold flex items-center"><CalendarDays className="mr-2 h-6 w-6" /> Meal Planning & Grocery List</h1> {/* Updated Title */}
           <Button variant="default" asChild>
             <Link to="/dashboard">
               <ArrowLeft className="mr-2 h-4 w-4" />
@@ -67,13 +66,25 @@ const GroceryListPage = () => {
           </Button>
         </header>
 
-        {/* Grocery List Component */}
-        {/* Pass the fetched userId and currentWeekStart to the GroceryList */}
-        <GroceryList userId={userId} currentWeekStart={currentWeekStart} />
+        {/* Weekly Navigation */}
+        <div className="flex justify-between items-center mb-4">
+          <Button variant="default" size="sm" onClick={() => handleWeekNavigate("prev")}><ChevronLeft className="h-4 w-4 mr-1" /> Previous</Button>
+          <h3 className="text-lg font-semibold text-center text-foreground">{format(currentWeekStart, 'MMM dd')} - {format(addDays(currentWeekStart, 6), 'MMM dd, yyyy')}</h3>
+          <Button variant="default" size="sm" onClick={() => handleWeekNavigate("next")}>Next <ChevronRight className="h-4 w-4 ml-1" /></Button>
+        </div>
+
+        {/* Two-column layout for Planner and Grocery List */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Left Column: Weekly Planner */}
+          <WeeklyPlanner userId={userId} currentWeekStart={currentWeekStart} />
+
+          {/* Right Column: Grocery List */}
+          <GroceryList userId={userId} currentWeekStart={currentWeekStart} /> {/* Pass currentWeekStart, GroceryList will use startOfToday internally */}
+        </div>
 
       </div>
     </div>
   );
 };
 
-export default GroceryListPage;
+export default PlanningPage;
