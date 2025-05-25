@@ -1,13 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { format, endOfWeek, isBefore, startOfToday, parseISO } from "date-fns";
+import { format, endOfWeek, isBefore, startOfToday, parseISO, isAfter } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { ListChecks, RefreshCw, ShoppingCart } from "lucide-react";
+import { ListChecks, RefreshCw, ShoppingCart, X } from "lucide-react";
 import { convertToPreferredSystem } from "@/utils/conversionUtils";
+import { DatePicker } from "@/components/ui/date-picker"; // Import DatePicker
 
 interface PlannedMealWithIngredients {
   plan_date: string;
@@ -82,21 +83,26 @@ interface CategorizedDisplayListItem {
 
 interface GroceryListProps {
   userId: string;
-  currentWeekStart: Date;
+  currentWeekStart: Date; // This is the start of the week displayed in the planner
 }
 
 const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) => {
-  const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
   const [struckItems, setStruckItems] = useState<Set<string>>(new Set());
   const [displaySystem, setDisplaySystem] = useState<'imperial' | 'metric'>('imperial');
   const today = startOfToday();
+
+  // State for custom date range selection
+  const [customStartDate, setCustomStartDate] = useState<Date | undefined>(undefined);
+  const [customEndDate, setCustomEndDate] = useState<Date | undefined>(undefined);
+
+  const plannerWeekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
 
   const { data: plannedMealsData, isLoading, error: plannedMealsError } = useQuery<PlannedMealWithIngredients[]>({ 
     queryKey: ["groceryListSource", userId, format(currentWeekStart, 'yyyy-MM-dd')],
     queryFn: async () => {
       if (!userId) return [];
       const startDateStr = format(currentWeekStart, 'yyyy-MM-dd');
-      const endDateStr = format(weekEnd, 'yyyy-MM-dd');
+      const endDateStr = format(plannerWeekEnd, 'yyyy-MM-dd');
       const { data, error } = await supabase
         .from("meal_plans")
         .select("plan_date, meals ( name, ingredients )")
@@ -108,25 +114,37 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
     },
     enabled: !!userId,
   });
+  
+  // Reset custom dates when the main week view changes
+  useEffect(() => {
+    setCustomStartDate(undefined);
+    setCustomEndDate(undefined);
+  }, [currentWeekStart]);
+
+  // Validate and adjust customEndDate if customStartDate changes
+  useEffect(() => {
+    if (customStartDate && customEndDate && isBefore(customEndDate, customStartDate)) {
+      setCustomEndDate(customStartDate);
+    }
+  }, [customStartDate, customEndDate]);
+
+
+  const effectiveStartDate = useMemo(() => customStartDate || today, [customStartDate, today]);
+  const effectiveEndDate = useMemo(() => customEndDate || plannerWeekEnd, [customEndDate, plannerWeekEnd]);
 
   const aggregatedIngredients = useMemo(() => {
     if (!plannedMealsData) return [];
 
-    const futurePlannedMeals = plannedMealsData.filter(pm => {
-      if (!pm.plan_date || typeof pm.plan_date !== 'string') {
-        return false;
-      }
+    const mealsInSelectedRange = plannedMealsData.filter(pm => {
+      if (!pm.plan_date || typeof pm.plan_date !== 'string') return false;
       try {
         const planDate = parseISO(pm.plan_date);
-        const isFutureOrToday = !isBefore(planDate, today);
-        return isFutureOrToday;
-      } catch (e) {
-        return false;
-      }
+        return !isBefore(planDate, effectiveStartDate) && !isAfter(planDate, effectiveEndDate);
+      } catch (e) { return false; }
     });
 
     const ingredientMap = new Map<string, GroceryListItem>();
-    futurePlannedMeals.forEach(pm => {
+    mealsInSelectedRange.forEach(pm => {
       const ingredientsBlock = pm.meals?.ingredients;
       if (ingredientsBlock && typeof ingredientsBlock === 'string') {
         try {
@@ -159,7 +177,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
       }
     });
     return Array.from(ingredientMap.values());
-  }, [plannedMealsData, today]);
+  }, [plannedMealsData, effectiveStartDate, effectiveEndDate]);
 
   const categorizedDisplayList = useMemo(() => {
     const grouped: Record<Category, CategorizedDisplayListItem[]> = 
@@ -268,6 +286,17 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
     });
   };
 
+  const resetDateRange = () => {
+    setCustomStartDate(undefined);
+    setCustomEndDate(undefined);
+  };
+
+  const getGroceryListTitle = () => {
+    const start = customStartDate ? customStartDate : today;
+    const end = customEndDate ? customEndDate : plannerWeekEnd;
+    return `Grocery List for ${format(start, 'MMM dd')} - ${format(end, 'MMM dd')}`;
+  };
+
   if (isLoading) return <Card className="hover:shadow-lg transition-shadow duration-200"><CardHeader><CardTitle>Grocery List</CardTitle></CardHeader><CardContent><Skeleton className="h-40 w-full" /></CardContent></Card>;
   if (plannedMealsError) return <Card className="hover:shadow-lg transition-shadow duration-200"><CardHeader><CardTitle>Grocery List</CardTitle></CardHeader><CardContent><Alert variant="destructive"><AlertTitle>Error</AlertTitle><AlertDescription>Could not load grocery list: {plannedMealsError.message}</AlertDescription></Alert></CardContent></Card>;
   
@@ -275,24 +304,52 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
 
   return (
     <Card className="hover:shadow-lg transition-shadow duration-200">
-      <CardHeader className="flex flex-row justify-between items-center">
-        <CardTitle className="flex items-center"><ListChecks className="mr-2 h-5 w-5" />Grocery List for {format(currentWeekStart, 'MMM dd')} - {format(weekEnd, 'MMM dd')}</CardTitle>
-        <Button 
-            variant="default" /* Changed to default */
-            size="sm" 
-            onClick={() => setDisplaySystem(prev => prev === 'imperial' ? 'metric' : 'imperial')}
-            className="ml-auto"
-        >
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Switch to {displaySystem === 'imperial' ? 'Metric' : 'Imperial'}
-        </Button>
+      <CardHeader className="space-y-3">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+          <CardTitle className="flex items-center"><ListChecks className="mr-2 h-5 w-5" />{getGroceryListTitle()}</CardTitle>
+          <Button 
+              variant="default"
+              size="sm" 
+              onClick={() => setDisplaySystem(prev => prev === 'imperial' ? 'metric' : 'imperial')}
+          >
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Switch to {displaySystem === 'imperial' ? 'Metric' : 'Imperial'}
+          </Button>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-2 items-center">
+          <div className="flex gap-2 items-center">
+            <span className="text-sm">Shop from:</span>
+            <DatePicker 
+              date={customStartDate} 
+              setDate={setCustomStartDate} 
+              placeholder="Start Date"
+              disabled={(date) => isAfter(date, customEndDate || plannerWeekEnd) || isAfter(date, plannerWeekEnd) }
+            />
+            <span className="text-sm">until:</span>
+            <DatePicker 
+              date={customEndDate} 
+              setDate={setCustomEndDate} 
+              placeholder="End Date"
+              disabled={(date) => isBefore(date, customStartDate || currentWeekStart) || isAfter(date, plannerWeekEnd)}
+            />
+          </div>
+          {(customStartDate || customEndDate) && (
+            <Button variant="ghost" size="sm" onClick={resetDateRange} className="text-xs">
+              <X className="mr-1 h-3 w-3" /> Reset to Full Range
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         {isEmptyList ? (
           <div className="text-center py-6 text-muted-foreground">
             <ShoppingCart className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500 mb-4" />
-            <p className="text-lg font-semibold mb-1">Your List is Empty</p>
-            <p className="text-sm">Plan some meals from today onwards for this week to see ingredients here.</p>
+            <p className="text-lg font-semibold mb-1">Your List is Empty for this Period</p>
+            <p className="text-sm">
+              {customStartDate || customEndDate 
+                ? "No meals planned in your selected date range." 
+                : "Plan some meals from today onwards for this week to see ingredients here."}
+            </p>
           </div>
         ) : (
           categoryOrder.map(category => {
