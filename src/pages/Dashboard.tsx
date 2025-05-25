@@ -3,8 +3,8 @@ import { supabase } from "@/lib/supabase";
 import { useNavigate, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import TodaysMeals from "@/components/TodaysMeals"; // Uncommented
-// import TodaysGroceryList from "@/components/TodaysGroceryList";
+import TodaysMeals from "@/components/TodaysMeals";
+import TodaysGroceryList from "@/components/TodaysGroceryList"; // Uncommented
 import type { User } from "@supabase/supabase-js";
 import { UserCircle, BookOpenText, Brain, SquarePen, CalendarDays } from "lucide-react";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
@@ -39,7 +39,7 @@ const Dashboard = () => {
 
   const { data: userProfile, isLoading: isUserProfileLoading } = useQuery<UserProfile | null>({
     queryKey: ["userProfile", user?.id],
-    queryFn: async () => {
+    fn: async () => {
       if (!user?.id) return null;
       const { data, error } = await supabase
         .from("profiles")
@@ -103,9 +103,8 @@ const Dashboard = () => {
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {user && <TodaysMeals userId={user.id} />} {/* Uncommented */}
-          {/* {user && <TodaysGroceryList userId={user.id} />} */}
-          <div>TodaysGroceryList component will be re-added next.</div>
+          {user && <TodaysMeals userId={user.id} />}
+          {user && <TodaysGroceryList userId={user.id} />} {/* Uncommented */}
         </div>
 
       </div>
