@@ -27,15 +27,15 @@ serve(async (req) => {
   }
 
   try {
-    console.log("Edge Function received request for AI meal generation.");
+    console.log("Edge Function received request for AI meal generation (Gemini).");
     const { mealType, kinds, styles, preferences } = await req.json();
     console.log("Request body:", { mealType, kinds, styles, preferences });
 
-    // Get the OpenAI API key from environment variables
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    if (!OPENAI_API_KEY) {
-      console.error("OPENAI_API_KEY secret not set.");
-      return new Response(JSON.stringify({ error: "AI service not configured. Please set OPENAI_API_KEY secret." }), {
+    // Get the Gemini API key from environment variables
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) {
+      console.error("GEMINI_API_KEY secret not set.");
+      return new Response(JSON.stringify({ error: "AI service not configured. Please set GEMINI_API_KEY secret." }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -72,41 +72,47 @@ serve(async (req) => {
 
     console.log("Sending prompt to AI:", prompt);
 
-    // Call the OpenAI API
-    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+    // Call the Google Gemini API
+    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini', // Or another suitable model like 'gpt-3.5-turbo'
-        messages: [{ role: 'user', content: prompt }],
-        response_format: { type: "json_object" }, // Request JSON output
-        temperature: 0.7, // Adjust creativity
+        contents: [{
+          parts: [{ text: prompt }]
+        }],
+        generationConfig: {
+           response_mime_type: "application/json" // Request JSON output
+        }
       }),
     });
 
-    if (!openaiResponse.ok) {
-      const errorBody = await openaiResponse.text();
-      console.error(`OpenAI API error: ${openaiResponse.status} ${openaiResponse.statusText}`, errorBody);
-      throw new Error(`AI API error: ${openaiResponse.statusText}`);
+    if (!geminiResponse.ok) {
+      const errorBody = await geminiResponse.text();
+      console.error(`Gemini API error: ${geminiResponse.status} ${geminiResponse.statusText}`, errorBody);
+      throw new Error(`AI API error: ${geminiResponse.statusText}`);
     }
 
-    const openaiData = await openaiResponse.json();
-    console.log("OpenAI API response:", openaiData);
+    const geminiData = await geminiResponse.json();
+    console.log("Gemini API response:", geminiData);
 
     // Extract and parse the JSON content from the AI's response
-    const generatedContentString = openaiData.choices?.[0]?.message?.content;
+    // Gemini's response structure is different from OpenAI's
+    const generatedContentString = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (!generatedContentString) {
-       console.error("AI response did not contain expected content.");
+       console.error("AI response did not contain expected content.", geminiData);
        throw new Error("AI did not return a valid recipe.");
     }
 
     let generatedMealData: GeneratedMeal;
     try {
-        generatedMealData = JSON.parse(generatedContentString);
+        // Gemini might wrap the JSON in markdown code blocks, so try to extract it
+        const jsonMatch = generatedContentString.match(/```json\n([\s\S]*?)\n```/);
+        const jsonString = jsonMatch ? jsonMatch[1] : generatedContentString;
+
+        generatedMealData = JSON.parse(jsonString);
         // Basic validation to ensure it has the expected structure
         if (!generatedMealData.name || !Array.isArray(generatedMealData.ingredients) || !generatedMealData.instructions || !Array.isArray(generatedMealData.meal_tags)) {
              console.error("Parsed JSON does not match expected structure:", generatedMealData);
@@ -116,7 +122,6 @@ serve(async (req) => {
         console.error("Failed to parse AI response JSON:", generatedContentString, parseError);
         throw new Error(`Failed to parse AI response: ${(parseError as Error).message}`);
     }
-
 
     console.log("Returning generated meal data:", generatedMealData);
 
