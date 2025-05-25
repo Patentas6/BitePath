@@ -74,49 +74,48 @@ const Auth = () => {
           )}
         </CardHeader>
         <CardContent>
-          {/* Ensure Supabase Auth UI component is the ONLY child here */}
-          <div>
-            <SupabaseAuthUI
-              supabaseClient={supabase}
-              theme={appTheme === 'dark' ? 'dark' : 'light'}
-              appearance={{
-                theme: ThemeSupa,
-                variables: {
-                  default: {
-                    colors: {
-                      brand: 'hsl(var(--primary))', // Reverted to solid primary green
-                      brandAccent: '#070500',
-                      inputBackground: 'hsl(var(--input))',
-                      inputText: 'hsl(var(--foreground))',
-                      inputLabelText: 'hsl(var(--foreground))',
-                      inputPlaceholder: 'hsl(var(--muted-foreground))',
-                    },
-                  },
-                  dark: {
-                    colors: {
-                      brand: 'hsl(var(--primary))',
-                      brandAccent: 'hsl(var(--primary-foreground))',
-                      inputBackground: 'hsl(var(--input))',
-                      inputText: 'hsl(var(--foreground))',
-                      inputLabelText: 'hsl(var(--foreground))',
-                      inputPlaceholder: 'hsl(var(--muted-foreground))',
-                    },
+          {/* Place Supabase Auth UI component directly here */}
+          <SupabaseAuthUI
+            supabaseClient={supabase}
+            theme={appTheme === 'dark' ? 'dark' : 'light'}
+            appearance={{
+              theme: ThemeSupa,
+              variables: {
+                default: {
+                  colors: {
+                    brand: 'hsl(var(--primary))', // Reverted to solid primary green
+                    brandAccent: '#070500',
+                    inputBackground: 'hsl(var(--input))',
+                    inputText: 'hsl(var(--foreground))',
+                    inputLabelText: 'hsl(var(--foreground))',
+                    inputPlaceholder: 'hsl(var(--muted-foreground))',
                   },
                 },
-              }}
-              providers={['google']}
-              redirectTo={`${window.location.origin}/dashboard`}
-              localization={{
-                variables: {
-                  sign_in: { email_label: "Email address", password_label: "Password", button_label: "Sign in", social_provider_text: "Sign in with {{provider}}", link_text: "Already have an account? Sign in" },
-                  sign_up: { email_label: "Email address", password_label: "Password", button_label: "Sign up", social_provider_text: "Sign up with {{provider}}", link_text: "Don't have an account? Sign up" },
-                  forgotten_password: { email_label: "Email address", button_label: "Send reset instructions", link_text: "Forgot your password?" },
+                dark: {
+                  colors: {
+                    brand: 'hsl(var(--primary))',
+                    brandAccent: 'hsl(var(--primary-foreground))',
+                    inputBackground: 'hsl(var(--input))',
+                    inputText: 'hsl(var(--foreground))',
+                    inputLabelText: 'hsl(var(--foreground))',
+                    inputPlaceholder: 'hsl(var(--muted-foreground))',
+                  },
                 },
-              }}
-              view={isLogin ? 'sign_in' : 'sign_up'}
-              showLinks={false} // We handle the link toggle manually
-            />
-          </div>
+              },
+            }}
+            providers={['google']}
+            redirectTo={`${window.location.origin}/dashboard`}
+            localization={{
+              variables: {
+                sign_in: { email_label: "Email address", password_label: "Password", button_label: "Sign in", social_provider_text: "Sign in with {{provider}}", link_text: "Already have an account? Sign in" },
+                sign_up: { email_label: "Email address", password_label: "Password", button_label: "Sign up", social_provider_text: "Sign up with {{provider}}", link_text: "Don't have an account? Sign up" },
+                forgotten_password: { email_label: "Email address", button_label: "Send reset instructions", link_text: "Forgot your password?" },
+              },
+            }}
+            view={isLogin ? 'sign_in' : 'sign_up'}
+            showLinks={false}
+          />
+          {/* Keep other elements outside the CardContent */}
         </CardContent>
       </Card>
       {/* Moved the toggle link/button outside the Card */}
