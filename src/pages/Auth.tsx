@@ -74,7 +74,7 @@ const Auth = () => {
           )}
         </CardHeader>
         <CardContent>
-          {/* Wrap the Supabase Auth UI component in a div */}
+          {/* Ensure Supabase Auth UI component is the ONLY child here */}
           <div>
             <SupabaseAuthUI
               supabaseClient={supabase}
@@ -114,22 +114,22 @@ const Auth = () => {
                 },
               }}
               view={isLogin ? 'sign_in' : 'sign_up'}
-              showLinks={false}
+              showLinks={false} // We handle the link toggle manually
             />
-          </div>
-          {/* Keep other elements outside the Auth component's container */}
-          <div className="mt-6 text-center text-sm">
-            {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
-            <button
-              onClick={() => navigate(`/auth${isLogin ? '?mode=signup' : ''}`, { replace: true })}
-              className="text-blue-600 hover:underline"
-              disabled={isLoading}
-            >
-              {isLogin ? "Sign Up" : "Login"}
-            </button>
           </div>
         </CardContent>
       </Card>
+      {/* Moved the toggle link/button outside the Card */}
+      <div className="mt-6 text-center text-sm">
+        {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
+        <button
+          onClick={() => navigate(`/auth${isLogin ? '?mode=signup' : ''}`, { replace: true })}
+          className="text-blue-600 hover:underline"
+          disabled={isLoading}
+        >
+          {isLogin ? "Sign Up" : "Login"}
+        </button>
+      </div>
       <Button variant="link" asChild className="mt-8 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
         <Link to="/">
           <ArrowLeft className="mr-2 h-4 w-4" />
