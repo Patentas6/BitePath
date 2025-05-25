@@ -1,3 +1,4 @@
+// Trigger re-evaluation
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -34,12 +35,12 @@ const ProfilePage = () => {
   useEffect(() => {
     const getSessionAndUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) { setUser(session.user); setUserId(session.user.id); } 
+      if (session?.user) { setUser(session.user); setUserId(session.user.id); }
       else { navigate("/auth"); }
     };
     getSessionAndUser();
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_OUT" || !session?.user) { setUser(null); setUserId(null); navigate("/auth"); } 
+      if (event === "SIGNED_OUT" || !session?.user) { setUser(null); setUserId(null); navigate("/auth"); }
       else if (session?.user) { setUser(session.user); setUserId(session.user.id); }
     });
     return () => authListener?.subscription.unsubscribe();
@@ -58,9 +59,9 @@ const ProfilePage = () => {
       if (error && error.code !== 'PGRST116') throw error;
       return data;
     },
-    enabled: !!userId, 
+    enabled: !!userId,
   });
-  
+
   useEffect(() => {
     if (profile) form.reset({ first_name: profile.first_name || "", last_name: profile.last_name || "" });
     else if (!isLoadingProfile && userId) form.reset({ first_name: "", last_name: "" });

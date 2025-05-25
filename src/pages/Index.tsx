@@ -1,3 +1,4 @@
+// Trigger re-evaluation
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
@@ -8,8 +9,8 @@ const Index = () => {
       <header className="w-full p-4 bg-background shadow-sm">
         <div className="container mx-auto flex justify-between items-center">
           <div className="flex items-center space-x-3">
-            <Link 
-              to="/" 
+            <Link
+              to="/"
               className="text-2xl font-bold group"
             >
               <span className="text-accent dark:text-foreground transition-opacity duration-150 ease-in-out group-hover:opacity-80">Bite</span>
@@ -22,8 +23,8 @@ const Index = () => {
             <a href="#pricing" className="hover:underline">Pricing</a>
             <a href="#testimonials" className="hover:underline">Testimonials</a>
             <Link to="/auth" className="hover:underline">Login</Link>
-            <Button 
-              size="sm" 
+            <Button
+              size="sm"
               variant="default"
               asChild
             >
@@ -53,7 +54,7 @@ const Index = () => {
       <section id="features" className="w-full py-16 bg-background text-center">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold mb-8">Core Features</h2>
-          <div className="grid grid-cols-3 gap-4"> 
+          <div className="grid grid-cols-3 gap-4">
             <div className="p-6 border rounded-lg shadow-sm dark:border-gray-700 bg-card">
               <h3 className="text-xl font-semibold mb-2">Minimalist Planning</h3>
               <p className="text-muted-foreground">Easily place meals onto your weekly calendar.</p>
@@ -86,7 +87,7 @@ const Index = () => {
       <section id="pricing" className="w-full py-16 bg-background text-center">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold mb-8">Simple Pricing</h2>
-          <div className="grid grid-cols-2 gap-4 max-w-lg mx-auto"> 
+          <div className="grid grid-cols-2 gap-4 max-w-lg mx-auto">
             <div className="p-6 border rounded-lg shadow-sm flex flex-col dark:border-gray-700 bg-card">
               <h3 className="text-2xl font-bold mb-4">Free</h3>
               <p className="text-muted-foreground mb-4">Limited features to get you started.</p>
