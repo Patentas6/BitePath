@@ -23,10 +23,12 @@ export const MEAL_TAG_OPTIONS = [
   "Instant Pot",
   "Grilling",
   "Baking",
+  "Brunch", // Added Brunch
+  "Afternoon Snack", // Added Afternoon Snack
 ] as const;
 
 export type MealTag = typeof MEAL_TAG_OPTIONS[number];
 
 // Define a subset of tags typically used for planning slots
-export const PLANNING_MEAL_TYPES = ["Breakfast", "Lunch", "Dinner", "Snack"] as const;
+export const PLANNING_MEAL_TYPES = ["Breakfast", "Brunch", "Snack", "Lunch", "Afternoon Snack", "Dinner"] as const; // Updated order and added types
 export type PlanningMealType = typeof PLANNING_MEAL_TYPES[number];

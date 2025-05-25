@@ -240,9 +240,8 @@ const MealForm = () => {
                                 </FormControl>
                                 <FormLabel className="font-normal">
                                   {tag}
-                                </FormLabel>
-                              </FormItem>
-                            );
+                                </FormItem>
+                              );
                           }}
                         />
                       ))}
