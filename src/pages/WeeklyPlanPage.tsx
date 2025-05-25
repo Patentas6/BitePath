@@ -1,17 +1,55 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react"; // Import useEffect
+import { Link, useNavigate } from "react-router-dom"; // Import useNavigate
 import { Button } from "@/components/ui/button";
 import WeeklyPlanner from "@/components/WeeklyPlanner";
 import { ArrowLeft, ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 import { startOfWeek, addDays, format } from "date-fns";
+import { supabase } from "@/lib/supabase"; // Import supabase client
 
 const WeeklyPlanPage = () => {
+  const navigate = useNavigate(); // Initialize useNavigate
+  const [userId, setUserId] = useState<string | null>(null); // State to hold user ID
   const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
+
+  // Fetch user ID on component mount
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserId(user.id);
+      } else {
+        // This page is protected, but as a fallback, redirect if user is somehow null
+        navigate("/auth");
+      }
+    };
+    fetchUser();
+
+    // Listen for auth state changes (e.g., logout from another tab)
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        // User logged out
+        setUserId(null);
+        navigate("/auth", { replace: true });
+      } else {
+        setUserId(session.user.id);
+      }
+    });
+
+    return () => {
+      authListener?.subscription.unsubscribe();
+    };
+  }, [navigate]); // Add navigate to dependency array
 
   const handleWeekNavigate = (direction: "prev" | "next") => {
     setCurrentWeekStart(prev => addDays(prev, direction === "next" ? 7 : -7));
   };
+
+  // Show loading state or null while user ID is being fetched
+  if (userId === null) {
+    return <div className="min-h-screen flex items-center justify-center">Loading user data...</div>;
+  }
+
 
   return (
     <div className="min-h-screen bg-background text-foreground p-4">
@@ -41,7 +79,8 @@ const WeeklyPlanPage = () => {
         </div>
 
         {/* Weekly Planner Component */}
-        <WeeklyPlanner currentWeekStart={currentWeekStart} /> {/* Pass currentWeekStart */}
+        {/* Pass the fetched userId to the WeeklyPlanner */}
+        <WeeklyPlanner userId={userId} currentWeekStart={currentWeekStart} onWeekNavigate={handleWeekNavigate} />
 
       </div>
     </div>
