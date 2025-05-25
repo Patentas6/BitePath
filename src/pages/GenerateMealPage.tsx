@@ -75,7 +75,8 @@ const GenerateMealPage = () => {
 
   const generateMealMutation = useMutation({
     mutationFn: async () => {
-      if (!userId) throw new Error("User not authenticated.");
+      // This check is now also done in handleGenerateMeal before calling mutate
+      // if (!userId) throw new Error("User not authenticated.");
       if (!selectedMealType) {
         showError("Please select a meal type.");
         return null;
@@ -168,6 +169,19 @@ const GenerateMealPage = () => {
     // setIngredientPreferences('');
   };
 
+  // Add client-side session check before triggering mutation
+  const handleGenerateMealClick = async () => {
+     const { data: { user } } = await supabase.auth.getUser();
+     if (!user) {
+       showError("You must be logged in to generate meals.");
+       navigate("/auth"); // Redirect if session is lost
+       return;
+     }
+     // If user exists, proceed with mutation
+     generateMealMutation.mutate();
+  };
+
+
   return (
     <div className="min-h-screen bg-background text-foreground p-4">
       <div className="container mx-auto space-y-6">
@@ -254,7 +268,7 @@ const GenerateMealPage = () => {
             </div>
 
             <Button
-              onClick={() => generateMealMutation.mutate()}
+              onClick={handleGenerateMealClick} // Use the new handler
               disabled={!selectedMealType || isGenerating || generateMealMutation.isPending}
               className="w-full"
             >

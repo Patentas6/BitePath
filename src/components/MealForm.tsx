@@ -111,6 +111,12 @@ const MealForm = () => {
 
   const generateImageMutation = useMutation({
     mutationFn: async (mealData: MealFormValues) => {
+      // This check is now also done in handleGenerateImage before calling mutate
+      // const { data: { user } } = await supabase.auth.getUser();
+      // if (!user) {
+      //   throw new Error("User not logged in.");
+      // }
+
       if (!mealData.name) {
         showError("Please enter a meal name before generating an image.");
         return null;
@@ -148,10 +154,22 @@ const MealForm = () => {
     addMealMutation.mutate(values);
   };
 
-  const handleGenerateImage = () => {
-    const currentMealData = form.getValues(); // Get current form values
-    generateImageMutation.mutate(currentMealData);
+  // Add client-side session check before triggering mutation
+  const handleGenerateImageClick = async () => {
+     const { data: { user } } = await supabase.auth.getUser();
+     if (!user) {
+       showError("You must be logged in to generate images.");
+       // Note: Not redirecting here, assuming ProtectedRoute handles overall auth state
+       return;
+     }
+     if (!form.watch('name')) {
+       showError("Please enter a meal name before generating an image.");
+       return;
+     }
+     const currentMealData = form.getValues();
+     generateImageMutation.mutate(currentMealData);
   };
+
 
   const handleClearImage = () => {
     form.setValue('image_url', ''); // Clear the image URL in the form
@@ -376,7 +394,7 @@ const MealForm = () => {
                             />
                             <Button
                               type="button"
-                              onClick={handleGenerateImage}
+                              onClick={handleGenerateImageClick} // Use the new handler
                               disabled={!form.watch('name') || generateImageMutation.isPending} // Disable if no name or generating
                               variant="outline"
                             >
