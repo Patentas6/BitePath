@@ -1,27 +1,28 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { format, endOfWeek, isBefore, startOfToday, parseISO } from "date-fns";
+import { format, endOfWeek, isBefore, startOfToday, parseISO, addDays } from "date-fns"; // Import addDays
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ListChecks, RefreshCw, ShoppingCart } from "lucide-react";
 import { convertToPreferredSystem } from "@/utils/conversionUtils";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Import Select components
 
 interface PlannedMealWithIngredients {
   plan_date: string;
   meals: {
     name: string;
-    ingredients: string | null; 
+    ingredients: string | null;
   } | null;
 }
 
 interface ParsedIngredientItem {
   name: string;
-  quantity: number; 
+  quantity: number;
   unit: string;
-  description?: string; 
+  description?: string;
 }
 
 const NON_SUMMABLE_DISPLAY_UNITS: ReadonlyArray<string> = [
@@ -47,8 +48,8 @@ const MEASUREMENT_UNITS_FOR_LIGHTER_COLOR: ReadonlyArray<string> = [
   'ml', 'milliliter', 'milliliters',
   'l', 'liter', 'liters',
   'fl oz', 'fluid ounce', 'fluid ounces', 'fl-oz',
-  'g', 'gram', 'grams', 
-  'oz', 'ounce', 'ounces' 
+  'g', 'gram', 'grams',
+  'oz', 'ounce', 'ounces'
 ];
 
 const categoriesMap = {
@@ -58,7 +59,7 @@ const categoriesMap = {
   Pantry: ['flour', 'sugar', 'salt', 'black pepper', 'spice', 'herb', 'olive oil', 'vegetable oil', 'coconut oil', 'vinegar', 'rice', 'pasta', 'noodle', 'bread', 'cereal', 'oats', 'oatmeal', 'beans', 'lentils', 'chickpeas', 'nuts', 'almonds', 'walnuts', 'peanuts', 'seeds', 'chia seeds', 'flax seeds', 'canned tomatoes', 'canned beans', 'canned corn', 'soup', 'broth', 'stock', 'bouillon', 'soy sauce', 'worcestershire', 'hot sauce', 'bbq sauce', 'condiment', 'ketchup', 'mustard', 'mayonnaise', 'relish', 'jam', 'jelly', 'honey', 'maple syrup', 'baking soda', 'baking powder', 'yeast', 'vanilla extract', 'chocolate', 'cocoa powder', 'coffee', 'tea', 'crackers', 'pretzels', 'chips', 'popcorn', 'dried fruit', 'protein powder', 'breadcrumbs', 'tortillas', 'tahini', 'peanut butter', 'almond butter'],
   Frozen: ['ice cream', 'sorbet', 'frozen vegetables', 'frozen fruit', 'frozen meal', 'frozen pizza', 'frozen fries', 'frozen peas', 'frozen corn', 'frozen spinach'],
   Beverages: ['water', 'sparkling water', 'juice', 'soda', 'cola', 'wine', 'beer', 'spirits', 'kombucha', 'coconut water', 'sports drink', 'energy drink'],
-  Other: [], 
+  Other: [],
 };
 type Category = keyof typeof categoriesMap;
 const categoryOrder: Category[] = ['Produce', 'Meat & Poultry', 'Dairy & Eggs', 'Pantry', 'Frozen', 'Beverages', 'Other'];
@@ -66,43 +67,46 @@ const categoryOrder: Category[] = ['Produce', 'Meat & Poultry', 'Dairy & Eggs', 
 interface GroceryListItem {
   name: string;
   totalQuantity: number;
-  unit: string | null; 
-  isSummable: boolean; 
-  originalItems: ParsedIngredientItem[]; 
+  unit: string | null;
+  isSummable: boolean;
+  originalItems: ParsedIngredientItem[];
 }
 
 interface CategorizedDisplayListItem {
   itemName: string;
-  itemNameClass: string; 
+  itemNameClass: string;
   detailsPart: string;
-  detailsClass: string; 
+  detailsClass: string;
   originalItemsTooltip: string;
-  uniqueKey: string; 
+  uniqueKey: string;
 }
 
 interface GroceryListProps {
   userId: string;
-  currentWeekStart: Date;
+  currentWeekStart: Date; // Keep this prop, but query uses startOfToday
 }
 
 const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) => {
-  const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
   const [struckItems, setStruckItems] = useState<Set<string>>(new Set());
   const [displaySystem, setDisplaySystem] = useState<'imperial' | 'metric'>('imperial');
+  const [selectedDays, setSelectedDays] = useState<string>('7'); // State for selected days, default to 7
   const today = startOfToday();
 
-  const { data: plannedMealsData, isLoading, error: plannedMealsError } = useQuery<PlannedMealWithIngredients[]>({ 
-    queryKey: ["groceryListSource", userId, format(currentWeekStart, 'yyyy-MM-dd')],
+  const queryStartDate = today;
+  const queryEndDate = addDays(today, parseInt(selectedDays) - 1); // Calculate end date based on selectedDays
+
+  const { data: plannedMealsData, isLoading, error: plannedMealsError } = useQuery<PlannedMealWithIngredients[]>({
+    queryKey: ["groceryListSource", userId, format(queryStartDate, 'yyyy-MM-dd'), selectedDays], // Add selectedDays to queryKey
     queryFn: async () => {
       if (!userId) return [];
-      const startDateStr = format(currentWeekStart, 'yyyy-MM-dd');
-      const endDateStr = format(weekEnd, 'yyyy-MM-dd');
+      const startDateStr = format(queryStartDate, 'yyyy-MM-dd');
+      const endDateStr = format(queryEndDate, 'yyyy-MM-dd'); // Use calculated end date
       const { data, error } = await supabase
         .from("meal_plans")
         .select("plan_date, meals ( name, ingredients )")
         .eq("user_id", userId)
         .gte("plan_date", startDateStr)
-        .lte("plan_date", endDateStr);
+        .lte("plan_date", endDateStr); // Filter by the new date range
       if (error) throw error;
       return data || [];
     },
@@ -112,21 +116,9 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
   const aggregatedIngredients = useMemo(() => {
     if (!plannedMealsData) return [];
 
-    const futurePlannedMeals = plannedMealsData.filter(pm => {
-      if (!pm.plan_date || typeof pm.plan_date !== 'string') {
-        return false;
-      }
-      try {
-        const planDate = parseISO(pm.plan_date);
-        const isFutureOrToday = !isBefore(planDate, today);
-        return isFutureOrToday;
-      } catch (e) {
-        return false;
-      }
-    });
-
+    // The query already filters by date range from today, so no need for isBefore check here
     const ingredientMap = new Map<string, GroceryListItem>();
-    futurePlannedMeals.forEach(pm => {
+    plannedMealsData.forEach(pm => {
       const ingredientsBlock = pm.meals?.ingredients;
       if (ingredientsBlock && typeof ingredientsBlock === 'string') {
         try {
@@ -159,10 +151,10 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
       }
     });
     return Array.from(ingredientMap.values());
-  }, [plannedMealsData, today]);
+  }, [plannedMealsData]); // Depend on plannedMealsData
 
   const categorizedDisplayList = useMemo(() => {
-    const grouped: Record<Category, CategorizedDisplayListItem[]> = 
+    const grouped: Record<Category, CategorizedDisplayListItem[]> =
       categoryOrder.reduce((acc, cat) => { acc[cat] = []; return acc; }, {} as Record<Category, CategorizedDisplayListItem[]>);
 
     aggregatedIngredients.forEach(aggItem => {
@@ -176,12 +168,12 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
       }
 
       const itemName = aggItem.name;
-      const itemNameClass = "text-foreground"; 
+      const itemNameClass = "text-foreground";
 
       let currentQuantity = aggItem.totalQuantity;
       let currentUnit = aggItem.unit || "";
       const originalUnitForLogic = aggItem.unit?.toLowerCase() || '';
-      
+
       let detailsClass = "text-gray-700 dark:text-gray-300";
       let detailsPart = "";
 
@@ -201,7 +193,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
       if (isOriginalUnitPiece) {
         detailsClass = "text-gray-700 dark:text-gray-300";
       } else if (isOriginalUnitMeasurement) {
-        detailsClass = "text-gray-500 dark:text-gray-400"; 
+        detailsClass = "text-gray-500 dark:text-gray-400";
       }
 
       if (aggItem.isSummable && currentQuantity > 0) {
@@ -209,7 +201,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
         if (isOriginalUnitPiece) {
           detailsPart = `${roundedDisplayQty}`;
         } else {
-          let unitStr = currentUnit; 
+          let unitStr = currentUnit;
           if (roundedDisplayQty > 1 && !['L', 'ml', 'g', 'kg'].includes(unitStr) && !unitStr.endsWith('s') && unitStr.length > 0) {
              if (unitStr.endsWith('y') && !['day', 'key', 'way', 'toy', 'boy', 'guy'].includes(unitStr.toLowerCase())) {
                 unitStr = unitStr.slice(0, -1) + 'ies';
@@ -228,15 +220,15 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
               u = convertedPart.unit;
             }
           }
-          if (PIECE_UNITS.includes(orig.unit.toLowerCase())) return `${q}`; 
+          if (PIECE_UNITS.includes(orig.unit.toLowerCase())) return `${q}`;
           return `${q} ${u}`;
         }).join('; ');
         detailsClass = "text-gray-500 dark:text-gray-400";
       }
-      
+
       const uniqueKey = `${itemName}:${detailsPart}-${foundCategory}-${displaySystem}`;
       const originalItemsTooltip = aggItem.originalItems.map(oi => `${oi.quantity} ${oi.unit} ${oi.name}${oi.description ? ` (${oi.description})` : ''}`).join('\n');
-      
+
       if (detailsPart.trim() !== "" || itemName.trim() !== "") {
         grouped[foundCategory].push({ itemName, itemNameClass, detailsPart, detailsClass, originalItemsTooltip, uniqueKey });
       }
@@ -262,37 +254,53 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
   const handleItemClick = (uniqueKey: string) => {
     setStruckItems(prevStruckItems => {
       const newStruckItems = new Set(prevStruckItems);
-      if (newStruckItems.has(uniqueKey)) { newStruckItems.delete(uniqueKey); } 
-      else { newStruckItems.add(uniqueKey); }
+      if (newStruckItems.has(uniqueKey)) { newStruckItems.delete(uniqueKey); }
+      else { newStruckItems.add(uniqueItems.add(uniqueKey); } // Corrected typo
       return newStruckItems;
     });
   };
 
   if (isLoading) return <Card className="hover:shadow-lg transition-shadow duration-200"><CardHeader><CardTitle>Grocery List</CardTitle></CardHeader><CardContent><Skeleton className="h-40 w-full" /></CardContent></Card>;
   if (plannedMealsError) return <Card className="hover:shadow-lg transition-shadow duration-200"><CardHeader><CardTitle>Grocery List</CardTitle></CardHeader><CardContent><Alert variant="destructive"><AlertTitle>Error</AlertTitle><AlertDescription>Could not load grocery list: {plannedMealsError.message}</AlertDescription></Alert></CardContent></Card>;
-  
+
   const isEmptyList = Object.values(categorizedDisplayList).every(list => list.length === 0);
 
   return (
     <Card className="hover:shadow-lg transition-shadow duration-200">
       <CardHeader className="flex flex-row justify-between items-center">
-        <CardTitle className="flex items-center"><ListChecks className="mr-2 h-5 w-5" />Grocery List for {format(currentWeekStart, 'MMM dd')} - {format(weekEnd, 'MMM dd')}</CardTitle>
-        <Button 
-            variant="default" /* Changed to default */
-            size="sm" 
-            onClick={() => setDisplaySystem(prev => prev === 'imperial' ? 'metric' : 'imperial')}
-            className="ml-auto"
-        >
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Switch to {displaySystem === 'imperial' ? 'Metric' : 'Imperial'}
-        </Button>
+        <div className="flex items-center">
+          <ListChecks className="mr-2 h-5 w-5" />
+          <CardTitle className="text-lg font-semibold">
+            Grocery List for {format(queryStartDate, 'MMM dd')} - {format(queryEndDate, 'MMM dd')}
+          </CardTitle>
+        </div>
+        <div className="flex items-center space-x-2">
+           <Select value={selectedDays} onValueChange={setSelectedDays}>
+              <SelectTrigger className="w-[120px] h-8 text-sm">
+                <SelectValue placeholder="Select days" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="3">Next 3 Days</SelectItem>
+                <SelectItem value="5">Next 5 Days</SelectItem>
+                <SelectItem value="7">Next 7 Days</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+                variant="default"
+                size="sm"
+                onClick={() => setDisplaySystem(prev => prev === 'imperial' ? 'metric' : 'imperial')}
+            >
+                <RefreshCw className="mr-2 h-4 w-4" />
+                {displaySystem === 'imperial' ? 'Metric' : 'Imperial'}
+            </Button>
+        </div>
       </CardHeader>
       <CardContent>
         {isEmptyList ? (
           <div className="text-center py-6 text-muted-foreground">
             <ShoppingCart className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500 mb-4" />
             <p className="text-lg font-semibold mb-1">Your List is Empty</p>
-            <p className="text-sm">Plan some meals from today onwards for this week to see ingredients here.</p>
+            <p className="text-sm">Plan some meals from today onwards for the next {selectedDays} days to see ingredients here.</p>
           </div>
         ) : (
           categoryOrder.map(category => {
@@ -310,7 +318,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
                         key={item.uniqueKey}
                         onClick={() => handleItemClick(item.uniqueKey)}
                         className={`cursor-pointer p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${struckItems.has(item.uniqueKey) ? 'line-through text-gray-400 dark:text-gray-600' : ''}`}
-                        title={item.originalItemsTooltip} 
+                        title={item.originalItemsTooltip}
                       >
                         <span className={struckItems.has(item.uniqueKey) ? '' : item.itemNameClass}>{item.itemName}: </span>
                         {item.detailsPart && <span className={struckItems.has(item.uniqueKey) ? '' : item.detailsClass}>{item.detailsPart}</span>}
