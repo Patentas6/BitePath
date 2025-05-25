@@ -255,7 +255,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
     setStruckItems(prevStruckItems => {
       const newStruckItems = new Set(prevStruckItems);
       if (newStruckItems.has(uniqueKey)) { newStruckItems.delete(uniqueKey); }
-      else { newStruckItems.add(uniqueKey); } // Corrected typo here
+      else { newStruckItems.add(uniqueKey); }
       return newStruckItems;
     });
   };
@@ -280,9 +280,15 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
                 <SelectValue placeholder="Select days" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="1">Next 1 Day</SelectItem>
+                <SelectItem value="2">Next 2 Days</SelectItem>
                 <SelectItem value="3">Next 3 Days</SelectItem>
+                <SelectItem value="4">Next 4 Days</SelectItem>
                 <SelectItem value="5">Next 5 Days</SelectItem>
+                <SelectItem value="6">Next 6 Days</SelectItem>
                 <SelectItem value="7">Next 7 Days</SelectItem>
+                <SelectItem value="15">Next 15 Days</SelectItem>
+                <SelectItem value="30">Next 30 Days</SelectItem>
               </SelectContent>
             </Select>
             <Button
