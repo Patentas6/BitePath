@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-// import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'; // Not needed for this mock
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -7,9 +6,20 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-// This is a MOCK Edge Function for AI meal generation.
-// It does NOT actually use AI yet, but returns a predefined structure.
-// Replace this with actual AI integration later.
+// Define the expected structure for the AI's JSON response
+interface GeneratedIngredient {
+  name: string;
+  quantity: number;
+  unit: string;
+  description?: string;
+}
+
+interface GeneratedMeal {
+  name: string;
+  ingredients: GeneratedIngredient[];
+  instructions: string;
+  meal_tags: string[];
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -17,45 +27,98 @@ serve(async (req) => {
   }
 
   try {
-    console.log("Edge Function received request for meal generation.");
-    const body = await req.json();
-    console.log("Request body:", body);
+    console.log("Edge Function received request for AI meal generation.");
+    const { mealType, kinds, styles, preferences } = await req.json();
+    console.log("Request body:", { mealType, kinds, styles, preferences });
 
-    // --- MOCK AI GENERATION LOGIC ---
-    // This is where your actual AI call would go.
-    // For now, we return a consistent mock structure.
-
-    let generatedName = "AI Generated Delight";
-    let generatedInstructions = "Follow these simple steps:\n1. Combine ingredients.\n2. Cook thoroughly.\n3. Enjoy!";
-    let generatedIngredients = [
-      { name: "Mock Ingredient 1", quantity: 1, unit: "cup", description: "chopped" },
-      { name: "Mock Ingredient 2", quantity: 2, unit: "pieces" },
-      { name: "Mock Ingredient 3", quantity: 500, unit: "g" },
-    ];
-    let generatedTags = ["Mock", "Generated"];
-
-    // You could add some basic logic here based on the input 'body'
-    if (body.mealType) {
-      generatedName = `${body.mealType} ${generatedName}`;
-      generatedTags.push(body.mealType);
+    // Get the OpenAI API key from environment variables
+    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    if (!OPENAI_API_KEY) {
+      console.error("OPENAI_API_KEY secret not set.");
+      return new Response(JSON.stringify({ error: "AI service not configured. Please set OPENAI_API_KEY secret." }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
-    if (body.kinds && body.kinds.length > 0) {
-       generatedTags = [...generatedTags, ...body.kinds];
-    }
-     if (body.styles && body.styles.length > 0) {
-       generatedTags = [...generatedTags, ...body.styles];
-    }
-    generatedTags = Array.from(new Set(generatedTags)); // Remove duplicates
 
-    const generatedMealData = {
-      name: generatedName,
-      ingredients: generatedIngredients,
-      instructions: generatedInstructions,
-      meal_tags: generatedTags,
-    };
-    // --- END MOCK LOGIC ---
+    // Construct the prompt for the AI
+    let prompt = `Generate a detailed meal recipe in JSON format. The JSON object should have the following structure:
+    {
+      "name": string, // Name of the meal
+      "ingredients": [ // Array of ingredients
+        {
+          "name": string, // Ingredient name (e.g., "chicken breast")
+          "quantity": number, // Quantity (e.g., 2, 500)
+          "unit": string, // Unit (e.g., "pieces", "g", "cup", "tbsp") - use common units
+          "description": string | undefined // Optional description (e.g., "diced", "freshly ground")
+        }
+      ],
+      "instructions": string, // Step-by-step cooking instructions (use \\n for new lines)
+      "meal_tags": string[] // Array of relevant tags (e.g., "Breakfast", "Lunch", "Dinner", "Snack", "High Protein", "Vegan", etc.)
+    }
 
-    console.log("Returning mock generated meal:", generatedMealData);
+    The meal should be a ${mealType || 'general'} meal.`;
+
+    if (kinds && kinds.length > 0) {
+      prompt += ` It should be ${kinds.join(', ')}.`;
+    }
+    if (styles && styles.length > 0) {
+      prompt += ` It should be ${styles.join(', ')}.`;
+    }
+    if (preferences) {
+      prompt += ` Consider these ingredient preferences: ${preferences}.`;
+    }
+
+    prompt += ` Ensure the response is ONLY the JSON object, nothing else.`;
+
+    console.log("Sending prompt to AI:", prompt);
+
+    // Call the OpenAI API
+    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini', // Or another suitable model like 'gpt-3.5-turbo'
+        messages: [{ role: 'user', content: prompt }],
+        response_format: { type: "json_object" }, // Request JSON output
+        temperature: 0.7, // Adjust creativity
+      }),
+    });
+
+    if (!openaiResponse.ok) {
+      const errorBody = await openaiResponse.text();
+      console.error(`OpenAI API error: ${openaiResponse.status} ${openaiResponse.statusText}`, errorBody);
+      throw new Error(`AI API error: ${openaiResponse.statusText}`);
+    }
+
+    const openaiData = await openaiResponse.json();
+    console.log("OpenAI API response:", openaiData);
+
+    // Extract and parse the JSON content from the AI's response
+    const generatedContentString = openaiData.choices?.[0]?.message?.content;
+
+    if (!generatedContentString) {
+       console.error("AI response did not contain expected content.");
+       throw new Error("AI did not return a valid recipe.");
+    }
+
+    let generatedMealData: GeneratedMeal;
+    try {
+        generatedMealData = JSON.parse(generatedContentString);
+        // Basic validation to ensure it has the expected structure
+        if (!generatedMealData.name || !Array.isArray(generatedMealData.ingredients) || !generatedMealData.instructions || !Array.isArray(generatedMealData.meal_tags)) {
+             console.error("Parsed JSON does not match expected structure:", generatedMealData);
+             throw new Error("AI returned invalid recipe format.");
+        }
+    } catch (parseError) {
+        console.error("Failed to parse AI response JSON:", generatedContentString, parseError);
+        throw new Error(`Failed to parse AI response: ${(parseError as Error).message}`);
+    }
+
+
+    console.log("Returning generated meal data:", generatedMealData);
 
     return new Response(
       JSON.stringify(generatedMealData),
@@ -63,9 +126,9 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error("Error in Edge Function during mock generation:", error);
+    console.error("Error in Edge Function during AI generation:", error);
     return new Response(
-      JSON.stringify({ error: `Failed during mock generation: ${error.message || 'Unknown error'}` }),
+      JSON.stringify({ error: `Failed to generate meal: ${error.message || 'Unknown error'}` }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
     );
   }
