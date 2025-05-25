@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { create, getNumericDate } from "djwt"; // Import JWT functions
+import { create, getNumericDate } from "https://deno.land/x/djwt@v2.4/mod.ts"; // Corrected import path for djwt
 import { parse } from "https://deno.land/std@0.224.0/yaml/parse.ts"; // Using parse for PEM key
 import { format } from "https://deno.land/std@0.224.0/datetime/format.ts"; // For logging timestamps
 
@@ -22,7 +22,7 @@ interface GeneratedMeal {
   ingredients: GeneratedIngredient[];
   instructions: string;
   meal_tags: string[];
-  image_url?: string;
+  image_url?: string; // Added image_url field
 }
 
 // Helper function to get an OAuth2 access token using a service account key
