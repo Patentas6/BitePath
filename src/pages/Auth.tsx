@@ -74,27 +74,26 @@ const Auth = () => {
           )}
         </CardHeader>
         <CardContent>
-          {/* Place Supabase Auth UI component directly here */}
           <SupabaseAuthUI
             supabaseClient={supabase}
             theme={appTheme === 'dark' ? 'dark' : 'light'}
             appearance={{
               theme: ThemeSupa,
               variables: {
-                default: {
+                default: { 
                   colors: {
                     brand: 'hsl(var(--primary))', // Reverted to solid primary green
-                    brandAccent: '#070500',
+                    brandAccent: '#070500', 
                     inputBackground: 'hsl(var(--input))',
                     inputText: 'hsl(var(--foreground))',
                     inputLabelText: 'hsl(var(--foreground))',
                     inputPlaceholder: 'hsl(var(--muted-foreground))',
                   },
                 },
-                dark: {
+                dark: { 
                   colors: {
-                    brand: 'hsl(var(--primary))',
-                    brandAccent: 'hsl(var(--primary-foreground))',
+                    brand: 'hsl(var(--primary))', 
+                    brandAccent: 'hsl(var(--primary-foreground))', 
                     inputBackground: 'hsl(var(--input))',
                     inputText: 'hsl(var(--foreground))',
                     inputLabelText: 'hsl(var(--foreground))',
@@ -115,20 +114,18 @@ const Auth = () => {
             view={isLogin ? 'sign_in' : 'sign_up'}
             showLinks={false}
           />
-          {/* Keep other elements outside the CardContent */}
+          <div className="mt-6 text-center text-sm">
+            {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
+            <button
+              onClick={() => navigate(`/auth${isLogin ? '?mode=signup' : ''}`, { replace: true })}
+              className="text-blue-600 hover:underline" 
+              disabled={isLoading}
+            >
+              {isLogin ? "Sign Up" : "Login"}
+            </button>
+          </div>
         </CardContent>
       </Card>
-      {/* Moved the toggle link/button outside the Card */}
-      <div className="mt-6 text-center text-sm">
-        {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
-        <button
-          onClick={() => navigate(`/auth${isLogin ? '?mode=signup' : ''}`, { replace: true })}
-          className="text-blue-600 hover:underline"
-          disabled={isLoading}
-        >
-          {isLogin ? "Sign Up" : "Login"}
-        </button>
-      </div>
       <Button variant="link" asChild className="mt-8 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
         <Link to="/">
           <ArrowLeft className="mr-2 h-4 w-4" />
