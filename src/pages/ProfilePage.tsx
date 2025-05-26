@@ -49,9 +49,6 @@ const ProfilePage = () => {
       if (event === "SIGNED_OUT" || !session?.user) { 
         setUser(null); 
         setUserId(null); 
-        // No need to navigate here, Auth.tsx or ProtectedRoute will handle it
-        // or the main App.tsx onAuthStateChange if that's where global logout redirect is.
-        // For ProfilePage, if user becomes null, the loading/redirect logic at the start of render will kick in.
       }
       else if (session?.user) { setUser(session.user); setUserId(session.user.id); }
     });
@@ -114,17 +111,14 @@ const ProfilePage = () => {
       showError(`Logout failed: ${error.message}`);
     } else {
       showSuccess("Logged out successfully.");
-      // The onAuthStateChange listener will handle navigation to /auth
     }
   };
 
-  if (!userId && !user && !isLoadingProfile) { // Ensure we don't flash loading if profile is just about to load
-     // If after checks, still no user, then redirect or show loading.
-     // This might be redundant if ProtectedRoute wraps this page, but good for standalone safety.
+  if (!userId && !user && !isLoadingProfile) { 
      navigate("/auth", { replace: true });
      return <div className="min-h-screen flex items-center justify-center">Redirecting...</div>;
   }
-  if (isLoadingProfile && !profile) { // Show loading only if profile is truly loading and not yet available
+  if (isLoadingProfile && !profile) { 
     return <div className="min-h-screen flex items-center justify-center">Loading profile...</div>;
   }
   if (profileError) return <div>Error loading profile. Please try refreshing.</div>;
@@ -217,7 +211,7 @@ const ProfilePage = () => {
                               <RadioGroupItem value="imperial" />
                             </FormControl>
                             <FormLabel className="font-normal">
-                              Imperial (e.g., lb, oz, cup)
+                              Imperial (e.g., lb, oz)
                             </FormLabel>
                           </FormItem>
                           <FormItem className="flex items-center space-x-3 space-y-0">
@@ -247,7 +241,7 @@ const ProfilePage = () => {
                     onClick={handleLogout} 
                     disabled={updateProfileMutation.isPending}
                     className="w-full sm:w-auto"
-                    type="button" // Ensure it's not treated as a submit button
+                    type="button" 
                   >
                     <LogOut className="mr-2 h-4 w-4" /> Logout
                   </Button>
