@@ -3,8 +3,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { showSuccess, showError, showLoading, dismissToast } from "@/utils/toast"; // Import toast utilities
-import { MEAL_TAG_OPTIONS, MealTag } from "@/lib/constants"; // Import tags
+import { showSuccess, showError, showLoading, dismissToast } from "@/utils/toast";
+import { MEAL_TAG_OPTIONS, IMAGE_GENERATION_LIMIT_PER_MONTH } from "@/lib/constants"; // Import IMAGE_GENERATION_LIMIT_PER_MONTH
 
 import { Button } from "@/components/ui/button";
 import {
@@ -14,16 +14,16 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-  FormDescription, // Added for tag description
+  FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Trash2, Brain, XCircle } from "lucide-react"; // Import Brain and XCircle icons
+import { PlusCircle, Trash2, Brain, XCircle, Info } from "lucide-react"; // Import Info
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox"; // Import Checkbox
-import { Dialog, DialogContent } from "@/components/ui/dialog"; // Import Dialog components for image viewer
-import { useState } from "react"; // Import useState
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { useState } from "react";
 
 export const UNITS = ['piece', 'g', 'kg', 'ml', 'l', 'tsp', 'tbsp', 'cup', 'oz', 'lb', 'pinch', 'dash', 'clove', 'can', 'bottle', 'package', 'slice', 'item', 'sprig', 'head', 'bunch'] as const;
 
@@ -31,18 +31,16 @@ const ingredientSchema = z.object({
   name: z.string().min(1, { message: "Ingredient name is required." }),
   quantity: z.union([
     z.coerce.number().positive({ message: "Quantity must be a positive number." }),
-    z.literal("").transform(() => undefined), // Allow empty string, transform to undefined
-    z.null().transform(() => undefined) // Allow null, transform to undefined
+    z.literal("").transform(() => undefined), 
+    z.null().transform(() => undefined) 
   ]).optional(),
-  unit: z.string().min(1, { message: "Unit is required." }), // Unit remains required if quantity is present, consider conditional logic if unit should also be optional
+  unit: z.string().min(1, { message: "Unit is required." }),
   description: z.string().optional(),
 }).refine(data => {
-  // If quantity is provided (not undefined), unit must also be provided.
-  // If quantity is undefined (empty), unit can be anything (it won't be saved meaningfully without quantity).
   return data.quantity === undefined || (data.quantity !== undefined && data.unit && data.unit.trim() !== "");
 }, {
   message: "Unit is required if quantity is specified.",
-  path: ["unit"], // Point error to unit field
+  path: ["unit"],
 });
 
 
@@ -50,15 +48,26 @@ const mealFormSchema = z.object({
   name: z.string().min(1, { message: "Meal name is required." }),
   ingredients: z.array(ingredientSchema).optional(),
   instructions: z.string().optional(),
-  meal_tags: z.array(z.string()).optional(), // Added meal_tags
-  image_url: z.string().optional(), // Added image_url field
+  meal_tags: z.array(z.string()).optional(),
+  image_url: z.string().optional(),
 });
 
 type MealFormValues = z.infer<typeof mealFormSchema>;
 
-const MealForm = () => {
+export interface GenerationStatusInfo {
+  generationsUsedThisMonth: number;
+  limitReached: boolean;
+  isAdmin: boolean;
+}
+
+interface MealFormProps {
+  generationStatus?: GenerationStatusInfo;
+  isLoadingProfile?: boolean;
+}
+
+const MealForm: React.FC<MealFormProps> = ({ generationStatus, isLoadingProfile }) => {
   const queryClient = useQueryClient();
-  const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null); // State for enlarged image view
+  const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
 
   const form = useForm<MealFormValues>({
     resolver: zodResolver(mealFormSchema),
@@ -66,8 +75,8 @@ const MealForm = () => {
       name: "",
       ingredients: [{ name: "", quantity: "", unit: "", description: "" }],
       instructions: "",
-      meal_tags: [], // Default to empty array
-      image_url: "", // Default image_url
+      meal_tags: [],
+      image_url: "",
     },
   });
 
@@ -86,9 +95,9 @@ const MealForm = () => {
       const ingredientsToSave = values.ingredients?.map(ing => ({
         name: ing.name,
         quantity: (ing.quantity === undefined || ing.quantity === "") ? null : parseFloat(ing.quantity as any),
-        unit: (ing.quantity === undefined || ing.quantity === "") ? "" : ing.unit, // Store empty unit if quantity is empty/undefined
+        unit: (ing.quantity === undefined || ing.quantity === "") ? "" : ing.unit,
         description: ing.description,
-      })).filter(ing => ing.name.trim() !== ""); // Filter out ingredients with no name
+      })).filter(ing => ing.name.trim() !== ""); 
 
       const ingredientsJSON = ingredientsToSave && ingredientsToSave.length > 0 ? JSON.stringify(ingredientsToSave) : null;
 
@@ -100,8 +109,8 @@ const MealForm = () => {
             name: values.name,
             ingredients: ingredientsJSON,
             instructions: values.instructions,
-            meal_tags: values.meal_tags, // Save tags
-            image_url: values.image_url, // Save the image URL from the form
+            meal_tags: values.meal_tags,
+            image_url: values.image_url,
           },
         ])
         .select();
@@ -117,10 +126,13 @@ const MealForm = () => {
         name: "",
         ingredients: [{ name: "", quantity: "", unit: "", description: "" }],
         instructions: "",
-        meal_tags: [], // Reset tags
-        image_url: "", // Reset image URL
+        meal_tags: [],
+        image_url: "",
       });
       queryClient.invalidateQueries({ queryKey: ["meals"] });
+      // Invalidate profile query to refresh generation count if an image was generated
+      queryClient.invalidateQueries({ queryKey: ['userProfileForAddMealLimits'] });
+      queryClient.invalidateQueries({ queryKey: ['userProfileForGenerationLimits'] });
     },
     onError: (error) => {
       console.error("Error adding meal:", error);
@@ -134,6 +146,12 @@ const MealForm = () => {
         showError("Please enter a meal name before generating an image.");
         return null;
       }
+      // Check limit before calling function
+      if (generationStatus && !generationStatus.isAdmin && generationStatus.limitReached) {
+        showError(`You have reached your monthly image generation limit of ${IMAGE_GENERATION_LIMIT_PER_MONTH}.`);
+        return null;
+      }
+
       const loadingToastId = showLoading("Generating image...");
       try {
         const { data, error } = await supabase.functions.invoke('generate-meal', {
@@ -154,13 +172,13 @@ const MealForm = () => {
       if (data?.image_url) {
         form.setValue('image_url', data.image_url); 
         showSuccess("Image generated!");
+        // Invalidate profile query to refresh generation count
+        queryClient.invalidateQueries({ queryKey: ['userProfileForAddMealLimits'] });
+        queryClient.invalidateQueries({ queryKey: ['userProfileForGenerationLimits'] });
       } else {
         showError("Image generation succeeded but no image URL was returned.");
       }
     },
-    onError: (error) => {
-       // Error handled in mutationFn catch block with toast
-    }
   });
 
   const onSubmit = (values: MealFormValues) => {
@@ -180,7 +198,6 @@ const MealForm = () => {
      const currentMealData = form.getValues();
      generateImageMutation.mutate(currentMealData);
   };
-
 
   const handleClearImage = () => {
     form.setValue('image_url', ''); 
@@ -404,7 +421,12 @@ const MealForm = () => {
                             <Button
                               type="button"
                               onClick={handleGenerateImageClick} 
-                              disabled={!form.watch('name') || generateImageMutation.isPending} 
+                              disabled={
+                                !form.watch('name') || 
+                                generateImageMutation.isPending || 
+                                isLoadingProfile || 
+                                (generationStatus && !generationStatus.isAdmin && generationStatus.limitReached)
+                              }
                               variant="outline"
                             >
                               <Brain className="mr-2 h-4 w-4" /> Generate Image
@@ -413,14 +435,22 @@ const MealForm = () => {
                       )}
                     </div>
                   </FormControl>
-                  <FormDescription>
-                    Add an image URL or use AI to generate one based on the meal name.
+                  <FormDescription className="flex items-center space-x-1 text-xs mt-1">
+                    <Info size={14} className="flex-shrink-0 text-muted-foreground" />
+                    <span>
+                      Add an image URL or use AI to generate one.
+                      {generationStatus && !isLoadingProfile && (
+                        generationStatus.isAdmin
+                          ? " Admin: Limits bypassed."
+                          : ` Used: ${generationStatus.generationsUsedThisMonth}/${IMAGE_GENERATION_LIMIT_PER_MONTH}.`
+                      )}
+                      {isLoadingProfile && " Loading limit..."}
+                    </span>
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
-
 
             <Button type="submit" disabled={addMealMutation.isPending || generateImageMutation.isPending} className="w-full">
               {addMealMutation.isPending ? "Adding..." : "Add Meal"}

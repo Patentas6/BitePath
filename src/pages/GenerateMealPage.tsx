@@ -12,7 +12,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Brain, Save, RefreshCw, Info } from 'lucide-react';
 import AppHeader from "@/components/AppHeader";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { format as formatDateFns } from "date-fns"; // For date formatting
+import { format as formatDateFns } from "date-fns"; 
+import { IMAGE_GENERATION_LIMIT_PER_MONTH } from '@/lib/constants'; // Updated import
 
 interface GeneratedIngredient {
   name: string;
@@ -40,7 +41,7 @@ const mealKinds = ["High Protein", "Vegan", "Vegetarian", "Gluten-Free", "Low Ca
 const mealStyles = ["Simple", "Fast (under 30 min)", "1 Pan", "Chef Inspired", "Comfort Food", "Healthy"];
 
 const PREFERENCES_MAX_LENGTH = 300;
-const IMAGE_GENERATION_LIMIT_PER_MONTH = 30;
+// const IMAGE_GENERATION_LIMIT_PER_MONTH = 30; // Removed from here
 
 interface GenerationStatus {
   generationsUsedThisMonth: number;
