@@ -42,6 +42,12 @@ const mealStyles = ["Simple", "Fast (under 30 min)", "1 Pan", "Chef Inspired", "
 const PREFERENCES_MAX_LENGTH = 300;
 const IMAGE_GENERATION_LIMIT_PER_MONTH = 30;
 
+interface GenerationStatus {
+  generationsUsedThisMonth: number;
+  limitReached: boolean;
+  isAdmin: boolean;
+}
+
 const GenerateMealPage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -74,32 +80,29 @@ const GenerateMealPage = () => {
         .select('is_admin, image_generation_count, last_image_generation_reset')
         .eq('id', userId)
         .single();
-      if (error && error.code !== 'PGRST116') throw error; // PGRST116 means no row, which is fine
+      if (error && error.code !== 'PGRST116') throw error;
       return data;
     },
     enabled: !!userId,
   });
 
-  const calculateRemainingGenerations = () => {
-    if (!userProfile) return { count: 0, limitReached: true, isAdmin: false };
-    if (userProfile.is_admin) return { count: Infinity, limitReached: false, isAdmin: true };
+  const generationStatus = useMemo((): GenerationStatus => {
+    if (!userProfile) return { generationsUsedThisMonth: 0, limitReached: true, isAdmin: false }; // Default to limit reached if no profile
+    if (userProfile.is_admin) return { generationsUsedThisMonth: 0, limitReached: false, isAdmin: true };
 
     const currentMonthYear = formatDateFns(new Date(), "yyyy-MM");
-    let currentCount = userProfile.image_generation_count || 0;
+    let generationsUsedThisMonth = userProfile.image_generation_count || 0;
 
     if (userProfile.last_image_generation_reset !== currentMonthYear) {
-      currentCount = 0; // Count resets for the new month
+      generationsUsedThisMonth = 0; // Count resets for the new month
     }
     
-    const remaining = IMAGE_GENERATION_LIMIT_PER_MONTH - currentCount;
     return { 
-      count: remaining > 0 ? remaining : 0, 
-      limitReached: currentCount >= IMAGE_GENERATION_LIMIT_PER_MONTH,
+      generationsUsedThisMonth,
+      limitReached: generationsUsedThisMonth >= IMAGE_GENERATION_LIMIT_PER_MONTH,
       isAdmin: false
     };
-  };
-
-  const generationStatus = calculateRemainingGenerations();
+  }, [userProfile]);
 
   const handleKindChange = (kind: string, checked: boolean) => {
     setSelectedKinds(prev =>
@@ -138,18 +141,19 @@ const GenerateMealPage = () => {
         });
         dismissToast(loadingToastId);
         if (error) throw error;
-        if (data?.error) { // Check for error message from edge function itself (e.g. limit reached)
+        if (data?.error) {
             showError(data.error);
-            if (data.mealData) { // If limit reached but recipe was generated
+            if (data.mealData) {
                 setGeneratedMeal(data.mealData as GeneratedMeal);
             } else {
                 setGeneratedMeal(null);
             }
+            queryClient.invalidateQueries({ queryKey: ['userProfileForGenerationLimits', userId] });
             return null; 
         }
         setGeneratedMeal(data as GeneratedMeal);
         showSuccess("Meal and image generated!");
-        queryClient.invalidateQueries({ queryKey: ['userProfileForGenerationLimits', userId] }); // Refetch profile to update count
+        queryClient.invalidateQueries({ queryKey: ['userProfileForGenerationLimits', userId] });
         return data;
       } catch (error: any) {
         dismissToast(loadingToastId);
@@ -205,7 +209,7 @@ const GenerateMealPage = () => {
   };
 
   const handleGenerateMealClick = async () => {
-     const { data: authData } = await supabase.auth.getUser(); // Re-check auth just in case
+     const { data: authData } = await supabase.auth.getUser();
      if (!authData.user) {
        showError("You must be logged in to generate meals.");
        navigate("/auth");
@@ -227,7 +231,7 @@ const GenerateMealPage = () => {
             <Info size={16} className="mr-2 flex-shrink-0 text-primary" />
             {generationStatus.isAdmin 
               ? "Admin account: Image generation limits bypassed."
-              : `Image Generations Remaining This Month: ${generationStatus.count} / ${IMAGE_GENERATION_LIMIT_PER_MONTH}.`}
+              : `Image Generations Used This Month: ${generationStatus.generationsUsedThisMonth} / ${IMAGE_GENERATION_LIMIT_PER_MONTH}.`}
           </div>
         )}
 
