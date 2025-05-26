@@ -197,7 +197,7 @@ serve(async (req) => {
         const saGemini = JSON.parse(serviceAccountJsonStringForGemini);
         const projectIdGemini = saGemini.project_id;
         const regionGemini = "us-central1";
-        const geminiModelId = "gemini-2.5-flash-preview-05-20"; // Updated model ID
+        const geminiModelId = "gemini-2.5-flash-preview-05-20"; 
         const geminiEndpoint = `https://${regionGemini}-aiplatform.googleapis.com/v1/projects/${projectIdGemini}/locations/${regionGemini}/publishers/google/models/${geminiModelId}:generateContent`;
         
         let prompt = `Generate a detailed meal recipe in JSON format. The JSON object should have the following structure:
@@ -217,7 +217,7 @@ serve(async (req) => {
         prompt += ` Ensure the response is ONLY the JSON object, nothing else. Do not wrap it in markdown backticks.`;
 
         const geminiPayload = {
-          contents: [{ parts: [{ text: prompt }] }],
+          contents: [{ role: "user", parts: [{ text: prompt }] }], // Added role: "user"
           generationConfig: {
             responseMimeType: "application/json",
             temperature: 0.7,
@@ -233,8 +233,14 @@ serve(async (req) => {
 
         if (!geminiResponse.ok) { 
             const errorText = await geminiResponse.text();
-            console.error("Gemini API error:", errorText);
-            throw new Error(`Gemini API request failed: ${geminiResponse.status} ${errorText}`);
+            console.error("Gemini API error:", errorText); // Log the actual error text
+            // Try to parse the errorText if it's JSON, otherwise use it directly
+            let errorMessage = errorText;
+            try {
+                const errorJson = JSON.parse(errorText);
+                errorMessage = errorJson.error?.message || errorText;
+            } catch (e) { /* ignore parsing error, use raw text */ }
+            throw new Error(`Gemini API request failed: ${geminiResponse.status} ${errorMessage}`);
         }
         const geminiData = await geminiResponse.json();
         const generatedContentString = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -364,7 +370,7 @@ serve(async (req) => {
     }
 
   } catch (error) {
-    console.error("Error in Edge Function:", error);
+    console.error("Error in Edge Function:", error); // Log the full error object
     return new Response(
       JSON.stringify({ error: `Failed to process request: ${error.message || 'Unknown error'}` }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
