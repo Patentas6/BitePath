@@ -53,7 +53,7 @@ const Index = () => {
       <section id="features" className="w-full py-16 bg-background text-center">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold mb-8">Core Features</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4"> 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8"> 
             <div className="p-6 border rounded-lg shadow-sm dark:border-gray-700 bg-card">
               <h3 className="text-xl font-semibold mb-2">AI-Powered Meal Ideas</h3>
               <p className="text-muted-foreground">Discover new recipes with AI-generated meal suggestions, complete with ingredients, instructions, and even an image.</p>
@@ -65,6 +65,10 @@ const Index = () => {
             <div className="p-6 border rounded-lg shadow-sm dark:border-gray-700 bg-card">
               <h3 className="text-xl font-semibold mb-2">Automated Grocery Lists</h3>
               <p className="text-muted-foreground">Instantly generate a categorized grocery list from your weekly meal plan, saving you time and effort.</p>
+            </div>
+            <div className="p-6 border rounded-lg shadow-sm dark:border-gray-700 bg-card">
+              <h3 className="text-xl font-semibold mb-2">Personalize Your Recipes</h3>
+              <p className="text-muted-foreground">Add your own custom meals and recipes. You can even generate a unique AI image to bring your culinary creations to life!</p>
             </div>
           </div>
         </div>
