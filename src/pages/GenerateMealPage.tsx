@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import { Brain, Save, RefreshCw, Info, Image as ImageIcon } from 'lucide-react';
+import { Brain, Save, RefreshCw, Info, Image as ImageIcon, Edit2 } from 'lucide-react'; // Added Edit2
 import AppHeader from "@/components/AppHeader";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { format as formatDateFns } from "date-fns"; 
@@ -41,6 +41,7 @@ const mealKinds = ["High Protein", "Vegan", "Vegetarian", "Gluten-Free", "Low Ca
 const mealStyles = ["Simple", "Fast (under 30 min)", "1 Pan", "Chef Inspired", "Comfort Food", "Healthy"];
 
 const PREFERENCES_MAX_LENGTH = 300;
+const REFINEMENT_MAX_LENGTH = 200;
 const MOCK_RECIPE_GENERATION_LIMIT = 100; // Placeholder
 
 interface GenerationStatus {
@@ -58,6 +59,7 @@ const GenerateMealPage = () => {
   const [selectedKinds, setSelectedKinds] = useState<string[]>([]);
   const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
   const [ingredientPreferences, setIngredientPreferences] = useState('');
+  const [refinementPrompt, setRefinementPrompt] = useState('');
 
   const [generatedMeal, setGeneratedMeal] = useState<GeneratedMeal | null>(null);
   const [isGeneratingRecipe, setIsGeneratingRecipe] = useState(false);
@@ -118,39 +120,52 @@ const GenerateMealPage = () => {
     );
   };
 
-  const generateRecipeMutation = useMutation({
-    mutationFn: async () => {
+  const recipeGenerationMutation = useMutation({ // Renamed for clarity
+    mutationFn: async (params: { isRefinement: boolean; currentMeal?: GeneratedMeal | null; refinementText?: string }) => {
       if (!userId) throw new Error("User not authenticated.");
-      if (!selectedMealType) {
-        showError("Please select a meal type.");
+      if (!params.isRefinement && !selectedMealType) {
+        showError("Please select a meal type for initial generation.");
         return null;
       }
+      if (params.isRefinement && (!params.currentMeal || !params.refinementText)) {
+        showError("Cannot refine without a current meal and refinement instructions.");
+        return null;
+      }
+
       setIsGeneratingRecipe(true);
-      const loadingToastId = showLoading("Generating recipe...");
+      const loadingToastId = showLoading(params.isRefinement ? "Refining recipe..." : "Generating recipe...");
+      
+      const bodyPayload: any = {
+        mealType: selectedMealType, // Send original selections even for refinement
+        kinds: selectedKinds,
+        styles: selectedStyles,
+        preferences: ingredientPreferences, // User's general preferences from profile/initial form
+      };
+
+      if (params.isRefinement && params.currentMeal && params.refinementText) {
+        bodyPayload.existingRecipeText = params.currentMeal;
+        bodyPayload.refinementInstructions = params.refinementText;
+      }
+
       try {
-        const { data, error } = await supabase.functions.invoke('generate-meal', {
-          body: { 
-            mealType: selectedMealType,
-            kinds: selectedKinds,
-            styles: selectedStyles,
-            preferences: ingredientPreferences,
-          },
-        });
+        const { data, error } = await supabase.functions.invoke('generate-meal', { body: bodyPayload });
         dismissToast(loadingToastId);
         if (error) throw error;
         if (data?.error) { 
             showError(data.error);
-            setGeneratedMeal(null);
+            // Don't clear generatedMeal on error if it was a refinement attempt, user might want to try again
+            // setGeneratedMeal(null); 
             return null; 
         }
-        setGeneratedMeal(data as GeneratedMeal); 
-        showSuccess("Recipe generated!");
+        setGeneratedMeal({ ...data, image_url: undefined }); // New/refined recipe, clear any old image
+        setRefinementPrompt(''); // Clear refinement prompt after use
+        showSuccess(params.isRefinement ? "Recipe refined!" : "Recipe generated!");
         return data;
       } catch (error: any) {
         dismissToast(loadingToastId);
-        console.error('Error generating recipe:', error);
-        showError(`Failed to generate recipe: ${error.message || 'Please try again.'}`);
-        setGeneratedMeal(null);
+        console.error('Error in recipe generation/refinement:', error);
+        showError(`Failed to ${params.isRefinement ? 'refine' : 'generate'} recipe: ${error.message || 'Please try again.'}`);
+        // setGeneratedMeal(null); // Potentially clear on error
         throw error;
       } finally {
         setIsGeneratingRecipe(false);
@@ -171,7 +186,7 @@ const GenerateMealPage = () => {
       const loadingToastId = showLoading("Generating image...");
       try {
         const { data, error } = await supabase.functions.invoke('generate-meal', {
-          body: { mealData: mealToGetImageFor },
+          body: { mealData: mealToGetImageFor }, // mealData implies image generation for this content
         });
         dismissToast(loadingToastId);
         if (error) throw error;
@@ -222,6 +237,7 @@ const GenerateMealPage = () => {
       showSuccess(`"${vars.name}" saved to My Meals!`);
       queryClient.invalidateQueries({ queryKey: ["meals"] });
       setGeneratedMeal(null); 
+      setRefinementPrompt('');
     },
     onError: (error: any, vars) => {
       console.error("Error saving meal:", error);
@@ -239,18 +255,24 @@ const GenerateMealPage = () => {
     }
   };
 
-  const handleGenerateNewRecipe = () => {
+  const handleGenerateNewRecipeRequest = () => { // Renamed to avoid conflict
     setGeneratedMeal(null); 
+    setRefinementPrompt('');
+    // Optionally reset other form fields like selectedMealType, kinds, styles if desired
   };
 
-  const handleGenerateRecipeClick = async () => {
+  const handleInitialGenerateRecipeClick = async () => {
      const { data: authData } = await supabase.auth.getUser();
-     if (!authData.user) {
-       showError("You must be logged in to generate meals.");
-       navigate("/auth");
-       return;
-     }
-     generateRecipeMutation.mutate();
+     if (!authData.user) { showError("You must be logged in to generate meals."); navigate("/auth"); return; }
+     recipeGenerationMutation.mutate({ isRefinement: false });
+  };
+  
+  const handleRefineRecipeClick = async () => {
+    if (!generatedMeal || !refinementPrompt.trim()) {
+      showError("Please provide refinement instructions.");
+      return;
+    }
+    recipeGenerationMutation.mutate({ isRefinement: true, currentMeal: generatedMeal, refinementText: refinementPrompt });
   };
 
   const handleGenerateImageClick = () => {
@@ -330,11 +352,11 @@ const GenerateMealPage = () => {
                 </p>
               </div>
               <Button
-                onClick={handleGenerateRecipeClick}
-                disabled={!selectedMealType || isGeneratingRecipe || generateRecipeMutation.isPending}
+                onClick={handleInitialGenerateRecipeClick}
+                disabled={!selectedMealType || isGeneratingRecipe || recipeGenerationMutation.isPending}
                 className="w-full"
               >
-                {isGeneratingRecipe || generateRecipeMutation.isPending ? 'Generating Recipe...' : 'Generate Recipe'}
+                {isGeneratingRecipe || recipeGenerationMutation.isPending ? 'Generating Recipe...' : 'Generate Recipe'}
               </Button>
               <div className="text-xs text-muted-foreground text-center pt-2">
                 <Info size={14} className="inline mr-1 flex-shrink-0" />
@@ -381,6 +403,31 @@ const GenerateMealPage = () => {
                 <p className="text-muted-foreground whitespace-pre-line">{generatedMeal.instructions}</p>
               </div>
 
+              {/* Refinement Section */}
+              <div className="pt-4 border-t">
+                <Label htmlFor="refinement-prompt" className="text-base">Want to change something?</Label>
+                <Textarea
+                  id="refinement-prompt"
+                  placeholder="e.g., 'Replace chicken with tofu', 'Make it spicier', 'Add mushrooms'"
+                  value={refinementPrompt}
+                  onChange={(e) => setRefinementPrompt(e.target.value)}
+                  className="mt-2"
+                  maxLength={REFINEMENT_MAX_LENGTH}
+                />
+                <p className="text-xs text-muted-foreground mt-1 text-right">
+                  {refinementPrompt.length}/{REFINEMENT_MAX_LENGTH} characters
+                </p>
+                <Button
+                  onClick={handleRefineRecipeClick}
+                  disabled={!refinementPrompt.trim() || isGeneratingRecipe || recipeGenerationMutation.isPending}
+                  className="w-full mt-2"
+                  variant="secondary"
+                >
+                  <Edit2 className="mr-2 h-4 w-4" />
+                  {isGeneratingRecipe && recipeGenerationMutation.isLoading && recipeGenerationMutation.variables?.isRefinement ? 'Refining...' : 'Refine Recipe'}
+                </Button>
+              </div>
+
               {!generatedMeal.image_url && (
                 <div className="pt-4 border-t">
                   <Button
@@ -413,9 +460,9 @@ const GenerateMealPage = () => {
                   {isSaving || saveMealMutation.isPending ? 'Saving...' : 'Save to My Meals'}
                 </Button>
                 <Button
-                  onClick={handleGenerateNewRecipe}
+                  onClick={handleGenerateNewRecipeRequest}
                   variant="outline"
-                  disabled={isGeneratingRecipe || generateRecipeMutation.isPending || isSaving || saveMealMutation.isPending || isGeneratingImage || generateImageMutation.isPending}
+                  disabled={isGeneratingRecipe || recipeGenerationMutation.isPending || isSaving || saveMealMutation.isPending || isGeneratingImage || generateImageMutation.isPending}
                   className="flex-grow"
                 >
                   <RefreshCw className="mr-2 h-4 w-4" />

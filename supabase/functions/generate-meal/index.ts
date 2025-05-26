@@ -165,33 +165,30 @@ serve(async (req) => {
     console.log(`User profile for ${user.id}: admin=${userIsAdmin}, count=${userImageGenerationCount}, resetMonth='${userLastImageGenerationReset}'`);
 
     const requestBody = await req.json();
-    const { mealType, kinds, styles, preferences, mealData } = requestBody;
+    // New fields for refinement: existingRecipeText, refinementInstructions
+    const { mealType, kinds, styles, preferences, mealData, existingRecipeText, refinementInstructions } = requestBody;
 
     let generatedMealData: GeneratedMeal | undefined;
     let mealNameForImage: string;
-    let anImageShouldBeGenerated = false; // Default to false
+    let anImageShouldBeGenerated = false; 
 
     if (mealData) { // Case 1: mealData is provided (request is for image generation for existing text)
         console.log("Received existing meal data for image generation:", mealData.name);
-        generatedMealData = mealData as GeneratedMeal; // Trust client structure for now
+        generatedMealData = mealData as GeneratedMeal; 
         mealNameForImage = mealData.name;
-        // Ensure ingredients are parsed if they are a string
         if (typeof generatedMealData.ingredients === 'string') {
              try { generatedMealData.ingredients = JSON.parse(generatedMealData.ingredients); } 
              catch (e) { console.warn("Failed to parse ingredients string from mealData:", e); generatedMealData.ingredients = []; }
         } else if (!Array.isArray(generatedMealData.ingredients)) { generatedMealData.ingredients = []; }
         if (!Array.isArray(generatedMealData.meal_tags)) { generatedMealData.meal_tags = []; }
         
-        if (!mealData.image_url) { // If mealData is given AND it doesn't have an image_url
-            anImageShouldBeGenerated = true; // Then we are generating an image for existing text
+        if (!mealData.image_url) { 
+            anImageShouldBeGenerated = true; 
             console.log("Proceeding to generate image for:", mealNameForImage);
         } else {
-            // mealData already has an image_url, so we're just passing it through, no new generation.
             console.log("MealData already contains an image_url. Skipping new image generation.");
-            // generatedMealData.image_url is already set from mealData
         }
-    } else { // Case 2: No mealData, generate recipe text ONLY
-        console.log("Request body for recipe text generation:", { mealType, kinds, styles, preferences });
+    } else { // Case 2: No mealData, generate recipe text (either initial or refinement)
         const serviceAccountJsonStringForGemini = Deno.env.get("VERTEX_SERVICE_ACCOUNT_KEY_JSON");
         if (!serviceAccountJsonStringForGemini) { 
             console.error("VERTEX_SERVICE_ACCOUNT_KEY_JSON secret not set for Gemini.");
@@ -201,7 +198,7 @@ serve(async (req) => {
         const saGemini = JSON.parse(serviceAccountJsonStringForGemini);
         const projectIdGemini = saGemini.project_id;
         const regionGemini = "us-central1";
-        const geminiModelId = "gemini-2.5-flash-preview-05-20"; // UPDATED MODEL ID
+        const geminiModelId = "gemini-2.5-flash-preview-05-20";
         const geminiEndpoint = `https://${regionGemini}-aiplatform.googleapis.com/v1/projects/${projectIdGemini}/locations/${regionGemini}/publishers/google/models/${geminiModelId}:generateContent`;
         
         let prompt = `Generate a detailed meal recipe in JSON format. The JSON object should have the following structure:
@@ -212,19 +209,39 @@ serve(async (req) => {
           ],
           "instructions": "Detailed cooking instructions (string, newline separated steps).",
           "meal_tags": ["Tag1 (string)", "Tag2 (string)"] 
+        }`;
+
+        if (existingRecipeText && refinementInstructions) {
+            console.log("Request body for recipe refinement:", { mealType, kinds, styles, preferences, existingRecipeTextName: existingRecipeText.name, refinementInstructions });
+            prompt += `\n\nYou previously generated the following recipe:
+Name: ${existingRecipeText.name}
+Ingredients: ${typeof existingRecipeText.ingredients === 'string' ? existingRecipeText.ingredients : JSON.stringify(existingRecipeText.ingredients)}
+Instructions: ${existingRecipeText.instructions}
+Original Tags: ${JSON.stringify(existingRecipeText.meal_tags)}
+
+Now, please refine this recipe based on the following request: "${refinementInstructions}".
+Ensure the output is a *complete new recipe* in the specified JSON format, incorporating the changes.
+The meal should still generally be a ${mealType || 'general'} type.`;
+            if (kinds && kinds.length > 0) prompt += ` It should still generally fit these kinds: ${kinds.join(', ')}.`;
+            if (styles && styles.length > 0) prompt += ` The style should still generally be: ${styles.join(', ')}.`;
+        } else {
+            console.log("Request body for initial recipe text generation:", { mealType, kinds, styles, preferences });
+            prompt += `\nThe meal should be a ${mealType || 'general'} type.`;
+            if (kinds && kinds.length > 0) prompt += ` It should fit these kinds: ${kinds.join(', ')}.`;
+            if (styles && styles.length > 0) prompt += ` The style should be: ${styles.join(', ')}.`;
         }
-        The meal should be a ${mealType || 'general'} type.`;
-        if (kinds && kinds.length > 0) prompt += ` It should fit these kinds: ${kinds.join(', ')}.`;
-        if (styles && styles.length > 0) prompt += ` The style should be: ${styles.join(', ')}.`;
-        if (userAiPreferences) prompt += ` Consider these user preferences: ${userAiPreferences}.`;
-        if (preferences) prompt += ` Also consider these specific request preferences: ${preferences}.`;
-        prompt += ` Ensure the response is ONLY the JSON object, nothing else. Do not wrap it in markdown backticks.`;
+        
+        if (userAiPreferences) prompt += ` Consider these user profile preferences: ${userAiPreferences}.`;
+        if (preferences && !existingRecipeText) { // Only add initial request preferences if not a refinement (refinement prompt includes them implicitly)
+             prompt += ` Also consider these specific request preferences: ${preferences}.`;
+        }
+        prompt += `\nEnsure the response is ONLY the JSON object, nothing else. Do not wrap it in markdown backticks.`;
 
         const geminiPayload = {
           contents: [{ role: "user", parts: [{ text: prompt }] }],
           generationConfig: {
             responseMimeType: "application/json",
-            temperature: 0.7,
+            temperature: 0.7, // Could be slightly lower for refinement if needed
             maxOutputTokens: 2048,
           },
         };
@@ -259,13 +276,11 @@ serve(async (req) => {
             console.error("Failed to parse Gemini JSON response:", parseError, "Raw content:", generatedContentString);
             throw new Error("Failed to parse recipe from AI.");
         }
-        console.log("Generated Recipe Text:", generatedMealData.name);
-        // mealNameForImage = generatedMealData.name; // Not needed here as image is not generated
+        console.log(existingRecipeText ? "Refined Recipe Text:" : "Generated Recipe Text:", generatedMealData.name);
     }
 
-    // Image generation logic only runs if anImageShouldBeGenerated is true
     if (anImageShouldBeGenerated) {
-        if (!userIsAdmin) { // Check limit only if generating image and not admin
+        if (!userIsAdmin) { 
             const currentMonthYear = formatDate(new Date(), "yyyy-MM");
             if (userLastImageGenerationReset !== currentMonthYear) {
                 console.log(`User ${user.id}: New month detected for image generation. Resetting count. Old: '${userLastImageGenerationReset}', New: '${currentMonthYear}'`);
@@ -275,21 +290,18 @@ serve(async (req) => {
 
             if (userImageGenerationCount >= IMAGE_GENERATION_LIMIT_PER_MONTH) {
                 console.log(`User ${user.id} has reached the monthly image generation limit of ${IMAGE_GENERATION_LIMIT_PER_MONTH}. Current count: ${userImageGenerationCount}`);
-                // Return the meal data without image_url if limit is hit during image generation request
                 return new Response(JSON.stringify({ 
                     error: `You have reached your monthly image generation limit of ${IMAGE_GENERATION_LIMIT_PER_MONTH}.`,
-                    mealData: mealData // Send back the original mealData
+                    mealData: mealData 
                 }), {
                     status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
                 });
             }
         }
         
-        // Proceed with image generation
         const serviceAccountJsonStringForImagen = Deno.env.get("VERTEX_SERVICE_ACCOUNT_KEY_JSON");
         if (!serviceAccountJsonStringForImagen) {
             console.error("VERTEX_SERVICE_ACCOUNT_KEY_JSON secret not set for Imagen.");
-            // If image gen fails due to config, return meal data without image
             if (generatedMealData) generatedMealData.image_url = undefined; 
             return new Response(JSON.stringify(generatedMealData || mealData), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
         }
@@ -333,7 +345,7 @@ serve(async (req) => {
         
         if (generatedMealData) generatedMealData.image_url = imageUrl;
         
-        if (!userIsAdmin) { // Increment count only if image was attempted (even if it failed but limit wasn't hit before)
+        if (!userIsAdmin) { 
             userImageGenerationCount += 1;
             const { error: updateError } = await serviceSupabaseClient
                 .from('profiles')
@@ -348,20 +360,18 @@ serve(async (req) => {
                 console.log(`Successfully updated image generation count for user ${user.id} to ${userImageGenerationCount}. Reset month: ${userLastImageGenerationReset}`);
             }
         }
-    } // End of if (anImageShouldBeGenerated)
+    } 
 
-    // Determine response based on original request type
-    if (mealData) { // Request was for image generation (mealData was initially passed)
+    if (mealData) { 
          return new Response(
-            JSON.stringify({ image_url: generatedMealData?.image_url }), // Only return image_url
+            JSON.stringify({ image_url: generatedMealData?.image_url }), 
             { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
          );
-    } else { // Request was for recipe text generation
+    } else { 
         if (!generatedMealData) { 
-            console.error("Critical error: generatedMealData is undefined before final response for recipe text.");
+            console.error("Critical error: generatedMealData is undefined before final response for recipe text/refinement.");
             throw new Error("Failed to generate meal data."); 
         }
-        // image_url will be undefined here as it's not generated in this path
         return new Response(
           JSON.stringify(generatedMealData), 
           { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
