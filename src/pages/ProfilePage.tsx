@@ -14,6 +14,7 @@ import { useNavigate, Link } from "react-router-dom";
 import type { User } from "@supabase/supabase-js";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 import { Textarea } from "@/components/ui/textarea";
+import { LogOut } from "lucide-react"; // Import LogOut icon
 
 const profileFormSchema = z.object({
   first_name: z.string().min(1, "First name is required.").max(50, "First name cannot exceed 50 characters."),
@@ -45,7 +46,13 @@ const ProfilePage = () => {
     };
     getSessionAndUser();
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_OUT" || !session?.user) { setUser(null); setUserId(null); navigate("/auth"); }
+      if (event === "SIGNED_OUT" || !session?.user) { 
+        setUser(null); 
+        setUserId(null); 
+        // No need to navigate here, Auth.tsx or ProtectedRoute will handle it
+        // or the main App.tsx onAuthStateChange if that's where global logout redirect is.
+        // For ProfilePage, if user becomes null, the loading/redirect logic at the start of render will kick in.
+      }
       else if (session?.user) { setUser(session.user); setUserId(session.user.id); }
     });
     return () => authListener?.subscription.unsubscribe();
@@ -94,15 +101,34 @@ const ProfilePage = () => {
       queryClient.invalidateQueries({ queryKey: ["userProfileForAddMealLimits"] });
       queryClient.invalidateQueries({ queryKey: ["groceryListSource"] });
       queryClient.invalidateQueries({ queryKey: ["todaysGroceryListSource"] });
-      navigate("/dashboard"); // Navigate to dashboard on success
+      navigate("/dashboard"); 
     },
     onError: (error: Error) => { showError(`Failed to update profile: ${error.message}`); },
   });
 
   const onSubmit = (values: ProfileFormValues) => updateProfileMutation.mutate(values);
 
-  if (!userId && !user) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
-  if (profileError) return <div>Error loading profile.</div>;
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      showError(`Logout failed: ${error.message}`);
+    } else {
+      showSuccess("Logged out successfully.");
+      // The onAuthStateChange listener will handle navigation to /auth
+    }
+  };
+
+  if (!userId && !user && !isLoadingProfile) { // Ensure we don't flash loading if profile is just about to load
+     // If after checks, still no user, then redirect or show loading.
+     // This might be redundant if ProtectedRoute wraps this page, but good for standalone safety.
+     navigate("/auth", { replace: true });
+     return <div className="min-h-screen flex items-center justify-center">Redirecting...</div>;
+  }
+  if (isLoadingProfile && !profile) { // Show loading only if profile is truly loading and not yet available
+    return <div className="min-h-screen flex items-center justify-center">Loading profile...</div>;
+  }
+  if (profileError) return <div>Error loading profile. Please try refreshing.</div>;
+
 
   return (
     <div className="min-h-screen bg-background text-foreground p-4">
@@ -119,7 +145,7 @@ const ProfilePage = () => {
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle>Your Profile</CardTitle>
-            <ShadcnCardDescription>Update your display name, AI preferences, and unit system. Saving will take you to the dashboard.</ShadcnCardDescription>
+            <ShadcnCardDescription>Update your display name, AI preferences, and unit system. Saving will take you to the home screen.</ShadcnCardDescription>
           </CardHeader>
           <CardContent>
             <Form {...form}>
@@ -208,10 +234,22 @@ const ProfilePage = () => {
                     </FormItem>
                   )}
                 />
-                <div className="flex space-x-2 justify-end">
-                  {/* "Back to Dashboard" button removed */}
-                  <Button type="submit" disabled={!userId || updateProfileMutation.isPending || isLoadingProfile} className="w-full">
-                    {updateProfileMutation.isPending ? "Saving..." : "Save Changes & Go to Dashboard"}
+                <div className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-2 pt-2">
+                  <Button 
+                    type="submit" 
+                    disabled={!userId || updateProfileMutation.isPending || isLoadingProfile} 
+                    className="w-full sm:flex-grow"
+                  >
+                    {updateProfileMutation.isPending ? "Saving..." : "Save Changes & Go to Home"}
+                  </Button>
+                  <Button 
+                    variant="destructive" 
+                    onClick={handleLogout} 
+                    disabled={updateProfileMutation.isPending}
+                    className="w-full sm:w-auto"
+                    type="button" // Ensure it's not treated as a submit button
+                  >
+                    <LogOut className="mr-2 h-4 w-4" /> Logout
                   </Button>
                 </div>
               </form>
