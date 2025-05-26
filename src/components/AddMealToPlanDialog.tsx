@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { format, addDays, isSameDay, isToday, isPast, startOfToday, parseISO } from "date-fns"; // Removed startOfWeek
+import { format, addDays, isSameDay, isToday, isPast, startOfToday, parseISO } from "date-fns"; 
 import { showError, showSuccess } from "@/utils/toast";
-import { MEAL_TAG_OPTIONS, MealTag, PLANNING_MEAL_TYPES, PlanningMealType } from "@/lib/constants"; // Import PLANNING_MEAL_TYPES
+import { MEAL_TAG_OPTIONS, MealTag, PLANNING_MEAL_TYPES, PlanningMealType } from "@/lib/constants"; 
 
 import { Button } from "@/components/ui/button";
 import {
@@ -37,19 +37,19 @@ interface AddMealToPlanDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   planDate: Date | null;
-  // mealType: string | null; // Removed mealType prop
   userId: string | null;
+  initialMealType?: PlanningMealType | string | null; // Allow string for flexibility from DB
 }
 
 const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
   open,
   onOpenChange,
   planDate,
-  // mealType, // Removed mealType prop
   userId,
+  initialMealType,
 }) => {
   const [selectedMealId, setSelectedMealId] = useState<string | undefined>(undefined);
-  const [selectedMealType, setSelectedMealType] = useState<PlanningMealType | undefined>(undefined); // State for selected meal type
+  const [selectedMealType, setSelectedMealType] = useState<PlanningMealType | undefined>(undefined);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTags, setSelectedTags] = useState<MealTag[]>([]);
   const queryClient = useQueryClient();
@@ -73,9 +73,11 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
       setSelectedTags([]);
       setSearchTerm("");
       setSelectedMealId(undefined);
-      setSelectedMealType(undefined); // Reset selected meal type on open
+      // Ensure initialMealType is valid before setting
+      const validInitialType = PLANNING_MEAL_TYPES.find(type => type === initialMealType);
+      setSelectedMealType(validInitialType || undefined);
     }
-  }, [open]);
+  }, [open, initialMealType]);
 
 
   const filteredMeals = useMemo(() => {
@@ -98,7 +100,6 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
     mutationFn: async ({ meal_id, plan_date_str, meal_type_str }: { meal_id: string; plan_date_str: string; meal_type_str: string }) => {
       if (!userId) throw new Error("User not authenticated.");
 
-      // This mutation replaces any existing meal plan entry for the selected date and meal type
       const { error: deleteError } = await supabase
         .from("meal_plans")
         .delete()
@@ -109,7 +110,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
         });
 
       if (deleteError) {
-        console.error("Error deleting existing meal plan, attempting to insert new one anyway:", deleteError);
+        console.warn("Error deleting existing meal plan entry, attempting to insert new one anyway:", deleteError.message);
       }
 
       const { data, error: insertError } = await supabase
@@ -128,7 +129,9 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
     onSuccess: () => {
       showSuccess("Meal plan updated!");
       queryClient.invalidateQueries({ queryKey: ["mealPlans"] });
+      queryClient.invalidateQueries({ queryKey: ["todaysMealPlans"] });
       queryClient.invalidateQueries({ queryKey: ["groceryListSource"] });
+      queryClient.invalidateQueries({ queryKey: ["todaysGroceryListSource"] });
       onOpenChange(false);
     },
     onError: (error) => {
@@ -138,33 +141,32 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
   });
 
   const handleSave = () => {
-    if (!selectedMealId || !planDate || !selectedMealType) { // Check for selectedMealType
+    if (!selectedMealId || !planDate || !selectedMealType) { 
       showError("Please select a meal and a meal type.");
       return;
     }
     const plan_date_str = format(planDate, "yyyy-MM-dd");
-    addMealToPlanMutation.mutate({ meal_id: selectedMealId, plan_date_str, meal_type_str: selectedMealType }); // Use selectedMealType
+    addMealToPlanMutation.mutate({ meal_id: selectedMealId, plan_date_str, meal_type_str: selectedMealType }); 
   };
 
-  if (!planDate) return null; // Only need planDate prop now
+  if (!planDate) return null; 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add / Change Meal</DialogTitle> {/* Updated title */}
+          <DialogTitle>Add / Change Meal</DialogTitle> 
           <DialogDescription>
-            Select a meal and a meal type for {format(planDate, "EEEE, MMM dd, yyyy")}. {/* Updated description */}
+            Select a meal and a meal type for {format(planDate, "EEEE, MMM dd, yyyy")}. 
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
-           {/* New Meal Type Selector */}
            <div className="grid grid-cols-1 items-center gap-4">
             <Label htmlFor="meal-type-select" className="text-sm font-medium">
               Meal Type
             </Label>
-            <Select value={selectedMealType} onValueChange={setSelectedMealType}>
+            <Select value={selectedMealType} onValueChange={(value) => setSelectedMealType(value as PlanningMealType)}>
               <SelectTrigger id="meal-type-select" className="w-full">
                 <SelectValue placeholder="Select meal type (e.g., Breakfast, Dinner)" />
               </SelectTrigger>
@@ -251,7 +253,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={addMealToPlanMutation.isPending}>
             Cancel
           </Button>
-          <Button type="submit" onClick={handleSave} disabled={isLoadingMeals || addMealToPlanMutation.isPending || !selectedMealId || !selectedMealType}> {/* Disable if meal type not selected */}
+          <Button type="submit" onClick={handleSave} disabled={isLoadingMeals || addMealToPlanMutation.isPending || !selectedMealId || !selectedMealType}> 
             {addMealToPlanMutation.isPending ? "Saving..." : "Save Meal"}
           </Button>
         </DialogFooter>

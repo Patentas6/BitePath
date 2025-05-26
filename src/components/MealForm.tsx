@@ -29,10 +29,22 @@ export const UNITS = ['piece', 'g', 'kg', 'ml', 'l', 'tsp', 'tbsp', 'cup', 'oz',
 
 const ingredientSchema = z.object({
   name: z.string().min(1, { message: "Ingredient name is required." }),
-  quantity: z.coerce.number().positive({ message: "Quantity must be a positive number." }),
-  unit: z.string().min(1, { message: "Unit is required." }),
+  quantity: z.union([
+    z.coerce.number().positive({ message: "Quantity must be a positive number." }),
+    z.literal("").transform(() => undefined), // Allow empty string, transform to undefined
+    z.null().transform(() => undefined) // Allow null, transform to undefined
+  ]).optional(),
+  unit: z.string().min(1, { message: "Unit is required." }), // Unit remains required if quantity is present, consider conditional logic if unit should also be optional
   description: z.string().optional(),
+}).refine(data => {
+  // If quantity is provided (not undefined), unit must also be provided.
+  // If quantity is undefined (empty), unit can be anything (it won't be saved meaningfully without quantity).
+  return data.quantity === undefined || (data.quantity !== undefined && data.unit && data.unit.trim() !== "");
+}, {
+  message: "Unit is required if quantity is specified.",
+  path: ["unit"], // Point error to unit field
 });
+
 
 const mealFormSchema = z.object({
   name: z.string().min(1, { message: "Meal name is required." }),
@@ -71,7 +83,14 @@ const MealForm = () => {
         throw new Error("User not logged in.");
       }
 
-      const ingredientsJSON = values.ingredients ? JSON.stringify(values.ingredients) : null;
+      const ingredientsToSave = values.ingredients?.map(ing => ({
+        name: ing.name,
+        quantity: (ing.quantity === undefined || ing.quantity === "") ? null : parseFloat(ing.quantity as any),
+        unit: (ing.quantity === undefined || ing.quantity === "") ? "" : ing.unit, // Store empty unit if quantity is empty/undefined
+        description: ing.description,
+      })).filter(ing => ing.name.trim() !== ""); // Filter out ingredients with no name
+
+      const ingredientsJSON = ingredientsToSave && ingredientsToSave.length > 0 ? JSON.stringify(ingredientsToSave) : null;
 
       const { data, error } = await supabase
         .from("meals")
@@ -111,12 +130,6 @@ const MealForm = () => {
 
   const generateImageMutation = useMutation({
     mutationFn: async (mealData: MealFormValues) => {
-      // This check is now also done in handleGenerateImage before calling mutate
-      // const { data: { user } = await supabase.auth.getUser();
-      // if (!user) {
-      //   throw new Error("User not logged in.");
-      // }
-
       if (!mealData.name) {
         showError("Please enter a meal name before generating an image.");
         return null;
@@ -124,22 +137,22 @@ const MealForm = () => {
       const loadingToastId = showLoading("Generating image...");
       try {
         const { data, error } = await supabase.functions.invoke('generate-meal', {
-          body: { mealData: mealData }, // Send mealData to the function
+          body: { mealData: mealData }, 
         });
         dismissToast(loadingToastId);
         if (error) throw error;
         if (data?.error) throw new Error(data.error);
-        return data as { image_url?: string }; // Expecting just the image_url back
+        return data as { image_url?: string }; 
       } catch (error: any) {
         dismissToast(loadingToastId);
         console.error('Error generating image:', error);
         showError(`Failed to generate image: ${error.message || 'Please try again.'}`);
-        throw error; // Re-throw to let useMutation handle it
+        throw error; 
       }
     },
     onSuccess: (data) => {
       if (data?.image_url) {
-        form.setValue('image_url', data.image_url); // Set the generated image URL in the form
+        form.setValue('image_url', data.image_url); 
         showSuccess("Image generated!");
       } else {
         showError("Image generation succeeded but no image URL was returned.");
@@ -154,12 +167,10 @@ const MealForm = () => {
     addMealMutation.mutate(values);
   };
 
-  // Add client-side session check before triggering mutation
   const handleGenerateImageClick = async () => {
      const { data: { user } } = await supabase.auth.getUser();
      if (!user) {
        showError("You must be logged in to generate images.");
-       // Note: Not redirecting here, assuming ProtectedRoute handles overall auth state
        return;
      }
      if (!form.watch('name')) {
@@ -172,10 +183,10 @@ const MealForm = () => {
 
 
   const handleClearImage = () => {
-    form.setValue('image_url', ''); // Clear the image URL in the form
+    form.setValue('image_url', ''); 
   };
 
-  const currentImageUrl = form.watch('image_url'); // Watch the image_url field
+  const currentImageUrl = form.watch('image_url'); 
 
   return (
     <>
@@ -200,7 +211,6 @@ const MealForm = () => {
                 )}
               />
 
-              {/* Meal Tags Checkboxes */}
               <FormField
                 control={form.control}
                 name="meal_tags"
@@ -256,7 +266,7 @@ const MealForm = () => {
                 <FormLabel>Ingredients</FormLabel>
                 <div className="space-y-4 mt-2">
                   {fields.map((field, index) => (
-                    <Card key={field.id} className="p-3 bg-muted"> {/* Changed bg-slate-50 to bg-muted */}
+                    <Card key={field.id} className="p-3 bg-muted">
                       <div className="grid grid-cols-1 md:grid-cols-10 gap-2 items-end">
                         <FormField
                           control={form.control}
@@ -276,9 +286,9 @@ const MealForm = () => {
                           name={`ingredients.${index}.quantity`}
                           render={({ field: itemField }) => (
                             <FormItem className="md:col-span-1">
-                              <FormLabel className="text-xs">Qty</FormLabel>
+                              <FormLabel className="text-xs">Qty (Optional)</FormLabel>
                               <FormControl>
-                                <Input type="number" placeholder="e.g., 2" {...itemField} step="any" />
+                                <Input type="number" placeholder="e.g., 2" {...itemField} value={itemField.value === undefined ? "" : itemField.value} step="any" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -290,7 +300,7 @@ const MealForm = () => {
                           render={({ field: itemField }) => (
                             <FormItem className="md:col-span-2">
                               <FormLabel className="text-xs">Unit</FormLabel>
-                              <Select onValueChange={itemField.onChange} defaultValue={itemField.value}>
+                              <Select onValueChange={itemField.onChange} value={itemField.value || undefined} >
                                 <FormControl>
                                   <SelectTrigger>
                                     <SelectValue placeholder="Select unit" />
@@ -356,7 +366,6 @@ const MealForm = () => {
               )}
             />
 
-            {/* Image Generation and Preview */}
             <FormField
               control={form.control}
               name="image_url"
@@ -379,7 +388,7 @@ const MealForm = () => {
                               variant="ghost"
                               size="sm"
                               className="absolute top-1 right-1 h-7 w-7 p-0 text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20"
-                              onClick={(e) => { e.stopPropagation(); handleClearImage(); }} // Prevent modal on clear click
+                              onClick={(e) => { e.stopPropagation(); handleClearImage(); }} 
                               aria-label="Clear image"
                             >
                               <XCircle className="h-4 w-4" />
@@ -390,12 +399,12 @@ const MealForm = () => {
                             <Input
                               placeholder="Paste image URL or generate below"
                               {...field}
-                              value={field.value || ''} // Ensure value is controlled
+                              value={field.value || ''} 
                             />
                             <Button
                               type="button"
-                              onClick={handleGenerateImageClick} // Use the new handler
-                              disabled={!form.watch('name') || generateImageMutation.isPending} // Disable if no name or generating
+                              onClick={handleGenerateImageClick} 
+                              disabled={!form.watch('name') || generateImageMutation.isPending} 
                               variant="outline"
                             >
                               <Brain className="mr-2 h-4 w-4" /> Generate Image
@@ -421,14 +430,13 @@ const MealForm = () => {
         </CardContent>
       </Card>
 
-      {/* Image Viewer Dialog */}
       <Dialog open={!!viewingImageUrl} onOpenChange={(open) => !open && setViewingImageUrl(null)}>
         <DialogContent className="max-w-screen-md w-[90vw] h-[90vh] p-0 flex items-center justify-center bg-transparent border-none">
           {viewingImageUrl && (
             <img
               src={viewingImageUrl}
               alt="Enlarged meal image"
-              className="max-w-full max-h-full object-contain" // Ensure image fits within dialog
+              className="max-w-full max-h-full object-contain" 
             />
           )}
         </DialogContent>

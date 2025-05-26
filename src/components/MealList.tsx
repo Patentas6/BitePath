@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react"; // Import useEffect
+import { useState, useMemo, useEffect } from "react"; 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { showError, showSuccess } from "@/utils/toast";
@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Trash2, Edit3, Search, ChefHat, List, Grid3X3 } from "lucide-react"; // Added List and Grid3X3 icons
+import { Trash2, Edit3, Search, ChefHat, List, Grid3X3 } from "lucide-react"; 
 import EditMealDialog, { MealForEditing } from "./EditMealDialog";
 import {
   AlertDialog,
@@ -20,31 +20,31 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent } from "@/components/ui/dialog"; // Import Dialog components
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Import Select components
-import { cn } from "@/lib/utils"; // Import cn for conditional classes
+import { Dialog, DialogContent } from "@/components/ui/dialog"; 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; 
+import { cn } from "@/lib/utils"; 
 
 interface Meal extends MealForEditing {
   meal_tags?: string[] | null;
-  image_url?: string | null; // Added image_url
+  image_url?: string | null; 
 }
 
 interface ParsedIngredient {
   name: string;
-  quantity: number | string;
+  quantity: number | string | null; // Allow null for quantity
   unit: string;
   description?: string;
 }
 
 const MealList = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string | 'all'>('all'); // State for category filter
-  const [layoutView, setLayoutView] = useState<'list' | 'grid'>('list'); // State for layout view
+  const [selectedCategory, setSelectedCategory] = useState<string | 'all'>('all'); 
+  const [layoutView, setLayoutView] = useState<'list' | 'grid'>('list'); 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [mealToEdit, setMealToEdit] = useState<MealForEditing | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [mealToDelete, setMealToDelete] = useState<MealForEditing | null>(null);
-  const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null); // State for enlarged image view
+  const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null); 
 
   const queryClient = useQueryClient();
 
@@ -56,7 +56,7 @@ const MealList = () => {
 
       const { data, error } = await supabase
         .from("meals")
-        .select("id, name, ingredients, instructions, user_id, meal_tags, image_url") // Select image_url
+        .select("id, name, ingredients, instructions, user_id, meal_tags, image_url") 
         .eq("user_id", user.id)
         .order('created_at', { ascending: false });
 
@@ -82,7 +82,8 @@ const MealList = () => {
       showSuccess("Meal deleted successfully!");
       queryClient.invalidateQueries({ queryKey: ["meals"] });
       queryClient.invalidateQueries({ queryKey: ["mealPlans"] });
-      queryClient.invalidateQueries({ queryKey: ["groceryList"] });
+      queryClient.invalidateQueries({ queryKey: ["groceryListSource"] });
+      queryClient.invalidateQueries({ queryKey: ["todaysGroceryListSource"] });
     },
     onError: (error) => {
       console.error("Error deleting meal:", error);
@@ -128,10 +129,10 @@ const MealList = () => {
     try {
       const parsedIngredients: ParsedIngredient[] = JSON.parse(ingredientsString);
       if (Array.isArray(parsedIngredients) && parsedIngredients.length > 0) {
-        const names = parsedIngredients.map(ing => ing.name).filter(Boolean);
+        const names = parsedIngredients.filter(ing => ing.name && ing.name.trim() !== '').map(ing => ing.name);
         if (names.length === 0) return 'Ingredients listed (check format).';
 
-        let displayText = names.slice(0, 5).join(', '); // Show up to 5 ingredients
+        let displayText = names.slice(0, 5).join(', '); 
         if (names.length > 5) {
           displayText += ', ...';
         }
@@ -139,7 +140,7 @@ const MealList = () => {
       }
       return 'No ingredients listed or format error.';
     } catch (e) {
-      const maxLength = 70; // Increased snippet length
+      const maxLength = 70; 
       return ingredientsString.substring(0, maxLength) + (ingredientsString.length > maxLength ? '...' : '');
     }
   };
@@ -175,7 +176,6 @@ const MealList = () => {
           <CardTitle>My Meals</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Controls: Search, Category Filter, Layout Toggle */}
           <div className="flex flex-col sm:flex-row gap-4 items-center">
             <div className="relative flex-grow w-full sm:w-auto">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -234,24 +234,23 @@ const MealList = () => {
             </div>
           )}
 
-          {/* Meal List/Grid Display */}
           {filteredMeals && filteredMeals.length > 0 && (
             <div className={cn(
               layoutView === 'list' ? 'space-y-3' : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'
             )}>
               {filteredMeals.map((meal) => (
-                <div key={meal.id} className="border p-4 rounded-lg shadow-sm bg-card hover:shadow-md transition-shadow duration-150 space-y-2 flex flex-col"> {/* Added flex-col for grid consistency */}
-                  <div className="flex items-start"> {/* Use flex to align image and text */}
+                <div key={meal.id} className="border p-4 rounded-lg shadow-sm bg-card hover:shadow-md transition-shadow duration-150 space-y-2 flex flex-col">
+                  <div className="flex items-start"> 
                     {meal.image_url && (
                        <div
-                         className="h-20 w-20 object-cover rounded-md mr-4 flex-shrink-0 cursor-pointer flex items-center justify-center overflow-hidden bg-muted" // Added styling and click handler
+                         className="h-28 w-28 md:h-32 md:w-32 object-cover rounded-md mr-4 flex-shrink-0 cursor-pointer flex items-center justify-center overflow-hidden bg-muted" 
                          onClick={() => setViewingImageUrl(meal.image_url || null)}
                        >
                          <img
                            src={meal.image_url}
                            alt={meal.name}
-                           className="h-full object-contain" // Use h-full and object-contain
-                           onError={(e) => (e.currentTarget.style.display = 'none')} // Hide image on error
+                           className="h-full w-full object-cover" // Changed to w-full and object-cover for better fit
+                           onError={(e) => (e.currentTarget.style.display = 'none')} 
                          />
                        </div>
                     )}
@@ -265,17 +264,27 @@ const MealList = () => {
                         </div>
                       )}
                     </div>
-                    <div className="flex space-x-2 flex-shrink-0 ml-2">
-                      <Button variant="outline" size="icon" onClick={() => handleEditClick(meal)} aria-label="Edit meal">
-                        <Edit3 className="h-5 w-5" />
+                    <div className="flex flex-col space-y-2 flex-shrink-0 ml-2"> {/* Changed to flex-col for button stacking */}
+                      <Button 
+                        variant="outline" 
+                        onClick={() => handleEditClick(meal)} 
+                        aria-label="Edit meal"
+                        className="h-12 w-12 md:h-14 md:w-14 p-0" // Increased size
+                      >
+                        <Edit3 className="h-6 w-6 md:h-7 md:w-7" /> {/* Increased icon size */}
                       </Button>
-                      <Button variant="destructive" size="icon" onClick={() => handleDeleteClick(meal)} aria-label="Delete meal">
-                        <Trash2 className="h-5 w-5" />
+                      <Button 
+                        variant="destructive" 
+                        onClick={() => handleDeleteClick(meal)} 
+                        aria-label="Delete meal"
+                        className="h-12 w-12 md:h-14 md:w-14 p-0" // Increased size
+                      >
+                        <Trash2 className="h-6 w-6 md:h-7 md:w-7" /> {/* Increased icon size */}
                       </Button>
                     </div>
                   </div>
                   {(meal.ingredients || (meal.instructions && meal.instructions.trim() !== "")) && (
-                    <div className="space-y-2 pt-2 border-t border-muted/50 flex-grow"> {/* Added flex-grow */}
+                    <div className="space-y-2 pt-2 border-t border-muted/50 flex-grow"> 
                       {meal.ingredients && (
                         <div>
                           <p className="text-sm font-medium text-muted-foreground">Ingredients:</p>
@@ -328,14 +337,13 @@ const MealList = () => {
         </AlertDialog>
       )}
 
-      {/* Image Viewer Dialog */}
       <Dialog open={!!viewingImageUrl} onOpenChange={(open) => !open && setViewingImageUrl(null)}>
         <DialogContent className="max-w-screen-md w-[90vw] h-[90vh] p-0 flex items-center justify-center bg-transparent border-none">
           {viewingImageUrl && (
             <img
               src={viewingImageUrl}
               alt="Enlarged meal image"
-              className="max-w-full max-h-full object-contain" // Ensure image fits within dialog
+              className="max-w-full max-h-full object-contain" 
             />
           )}
         </DialogContent>

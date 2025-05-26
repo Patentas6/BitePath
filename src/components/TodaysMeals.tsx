@@ -7,16 +7,17 @@ import { PLANNING_MEAL_TYPES, PlanningMealType } from "@/lib/constants";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { UtensilsCrossed } from "lucide-react";
+import { UtensilsCrossed, Edit } from "lucide-react"; // Added Edit icon
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import AddMealToPlanDialog from "./AddMealToPlanDialog"; // Import the dialog
 
 interface MealPlan {
   id: string;
   meal_id: string;
   plan_date: string;
-  meal_type?: string;
+  meal_type?: string | null; // meal_type can be null from DB
   meals: {
     name: string;
     image_url?: string | null;
@@ -33,6 +34,9 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
   const today = startOfToday();
   const todayStr = format(today, 'yyyy-MM-dd');
   const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
+  const [isChangeMealDialogOpen, setIsChangeMealDialogOpen] = useState(false);
+  const [mealToChange, setMealToChange] = useState<{ planDate: Date; mealType: PlanningMealType | string | null } | null>(null);
+
 
   const { data: mealPlans, isLoading, error } = useQuery<MealPlan[]>({
     queryKey: ["todaysMealPlans", userId, todayStr],
@@ -61,6 +65,11 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
     });
   }, [mealPlans]);
 
+  const handleChangeMealClick = (planDate: Date, mealType: PlanningMealType | string | null) => {
+    setMealToChange({ planDate, mealType });
+    setIsChangeMealDialogOpen(true);
+  };
+
 
   if (isLoading) return <Card className="hover:shadow-lg transition-shadow duration-200"><CardHeader><CardTitle>Today's Meals</CardTitle></CardHeader><CardContent><Skeleton className="h-32 w-full" /></CardContent></Card>;
   if (error) return <Card className="hover:shadow-lg transition-shadow duration-200"><CardHeader><CardTitle>Today's Meals</CardTitle></CardHeader><CardContent><p className="text-red-500 dark:text-red-400">Error loading today's meals.</p></CardContent></Card>;
@@ -84,7 +93,7 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
                 <li key={plannedMeal.id} className="border rounded-md p-3 bg-card shadow-sm flex items-center space-x-3">
                    {plannedMeal.meals?.image_url && (
                     <div
-                      className="h-24 w-24 object-cover rounded-md flex-shrink-0 cursor-pointer flex items-center justify-center overflow-hidden bg-muted" // Changed to h-24 w-24
+                      className="h-24 w-24 object-cover rounded-md flex-shrink-0 cursor-pointer flex items-center justify-center overflow-hidden bg-muted" 
                       onClick={() => setViewingImageUrl(plannedMeal.meals?.image_url || null)}
                     >
                       <img
@@ -103,6 +112,14 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
                        {plannedMeal.meals?.name || 'Unknown Meal'}
                      </div>
                    </div>
+                   <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => handleChangeMealClick(parseISO(plannedMeal.plan_date), plannedMeal.meal_type)}
+                      className="ml-auto"
+                    >
+                     <Edit className="h-4 w-4 mr-2" /> Change
+                   </Button>
                 </li>
               ))}
             </ul>
@@ -110,7 +127,19 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
         </CardContent>
       </Card>
 
-      {/* Image Viewer Dialog */}
+      {mealToChange && (
+        <AddMealToPlanDialog
+          open={isChangeMealDialogOpen}
+          onOpenChange={(isOpen) => {
+            setIsChangeMealDialogOpen(isOpen);
+            if (!isOpen) setMealToChange(null);
+          }}
+          planDate={mealToChange.planDate}
+          userId={userId}
+          initialMealType={mealToChange.mealType}
+        />
+      )}
+
       <Dialog open={!!viewingImageUrl} onOpenChange={(open) => !open && setViewingImageUrl(null)}>
         <DialogContent className="max-w-screen-md w-[90vw] h-[90vh] p-0 flex items-center justify-center bg-transparent border-none">
           {viewingImageUrl && (
