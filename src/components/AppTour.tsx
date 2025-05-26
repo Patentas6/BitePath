@@ -6,6 +6,7 @@ const TOUR_STEPS: Step[] = [
     target: '[data-tourid="tour-logo"]',
     content: 'Welcome to BitePath! This is your main dashboard area.',
     placement: 'bottom',
+    disableBeacon: true, // <-- Add this to show tooltip directly
   },
   {
     target: '[data-tourid="tour-my-meals-button"]',
@@ -38,12 +39,11 @@ const AppTour: React.FC = () => {
   const [runTour, setRunTour] = useState(false); 
 
   useEffect(() => {
-    // Add a small delay to ensure target elements are mounted
     const timer = setTimeout(() => {
       setRunTour(true); 
-    }, 100); // 100ms delay, can be adjusted
+    }, 100); 
 
-    return () => clearTimeout(timer); // Cleanup timer on unmount
+    return () => clearTimeout(timer); 
   }, []);
 
   const handleJoyrideCallback = (data: CallBackProps) => {
