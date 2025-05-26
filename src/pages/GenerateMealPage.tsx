@@ -35,6 +35,8 @@ const mealTypes = ["Breakfast", "Lunch", "Dinner", "Snack"];
 const mealKinds = ["High Protein", "Vegan", "Vegetarian", "Gluten-Free", "Low Carb", "Kid-Friendly", "Spicy"];
 const mealStyles = ["Simple", "Fast (under 30 min)", "1 Pan", "Chef Inspired", "Comfort Food", "Healthy"];
 
+const PREFERENCES_MAX_LENGTH = 300;
+
 const GenerateMealPage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -223,7 +225,11 @@ const GenerateMealPage = () => {
                 value={ingredientPreferences}
                 onChange={(e) => setIngredientPreferences(e.target.value)}
                 className="mt-2"
+                maxLength={PREFERENCES_MAX_LENGTH}
               />
+              <p className="text-xs text-muted-foreground mt-1 text-right">
+                {ingredientPreferences.length}/{PREFERENCES_MAX_LENGTH} characters
+              </p>
             </div>
             <Button
               onClick={handleGenerateMealClick}
