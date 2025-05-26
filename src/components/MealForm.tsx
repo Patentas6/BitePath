@@ -4,7 +4,7 @@ import * as z from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { showSuccess, showError, showLoading, dismissToast } from "@/utils/toast";
-import { MEAL_TAG_OPTIONS, IMAGE_GENERATION_LIMIT_PER_MONTH } from "@/lib/constants"; // Import IMAGE_GENERATION_LIMIT_PER_MONTH
+import { MEAL_TAG_OPTIONS, IMAGE_GENERATION_LIMIT_PER_MONTH } from "@/lib/constants";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -19,7 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Trash2, Brain, XCircle, Info } from "lucide-react"; // Import Info
+import { PlusCircle, Trash2, Brain, XCircle, Info, Link2 } from "lucide-react"; // Added Link2
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -68,6 +68,7 @@ interface MealFormProps {
 const MealForm: React.FC<MealFormProps> = ({ generationStatus, isLoadingProfile }) => {
   const queryClient = useQueryClient();
   const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
+  const [showImageUrlInput, setShowImageUrlInput] = useState(false);
 
   const form = useForm<MealFormValues>({
     resolver: zodResolver(mealFormSchema),
@@ -129,8 +130,8 @@ const MealForm: React.FC<MealFormProps> = ({ generationStatus, isLoadingProfile 
         meal_tags: [],
         image_url: "",
       });
+      setShowImageUrlInput(false); // Reset this state too
       queryClient.invalidateQueries({ queryKey: ["meals"] });
-      // Invalidate profile query to refresh generation count if an image was generated
       queryClient.invalidateQueries({ queryKey: ['userProfileForAddMealLimits'] });
       queryClient.invalidateQueries({ queryKey: ['userProfileForGenerationLimits'] });
     },
@@ -146,7 +147,6 @@ const MealForm: React.FC<MealFormProps> = ({ generationStatus, isLoadingProfile 
         showError("Please enter a meal name before generating an image.");
         return null;
       }
-      // Check limit before calling function
       if (generationStatus && !generationStatus.isAdmin && generationStatus.limitReached) {
         showError(`You have reached your monthly image generation limit of ${IMAGE_GENERATION_LIMIT_PER_MONTH}.`);
         return null;
@@ -171,8 +171,8 @@ const MealForm: React.FC<MealFormProps> = ({ generationStatus, isLoadingProfile 
     onSuccess: (data) => {
       if (data?.image_url) {
         form.setValue('image_url', data.image_url); 
+        setShowImageUrlInput(false); // Hide input if image was generated
         showSuccess("Image generated!");
-        // Invalidate profile query to refresh generation count
         queryClient.invalidateQueries({ queryKey: ['userProfileForAddMealLimits'] });
         queryClient.invalidateQueries({ queryKey: ['userProfileForGenerationLimits'] });
       } else {
@@ -201,6 +201,7 @@ const MealForm: React.FC<MealFormProps> = ({ generationStatus, isLoadingProfile 
 
   const handleClearImage = () => {
     form.setValue('image_url', ''); 
+    setShowImageUrlInput(false); // Reset to default state
   };
 
   const currentImageUrl = form.watch('image_url'); 
@@ -390,7 +391,7 @@ const MealForm: React.FC<MealFormProps> = ({ generationStatus, isLoadingProfile 
                 <FormItem>
                   <FormLabel>Meal Image (Optional)</FormLabel>
                   <FormControl>
-                    <div className="flex flex-col space-y-2">
+                    <div className="space-y-3">
                       {currentImageUrl ? (
                         <div className="relative w-full h-40 flex items-center justify-center overflow-hidden rounded-md bg-muted cursor-pointer"
                              onClick={() => setViewingImageUrl(currentImageUrl)}>
@@ -412,41 +413,53 @@ const MealForm: React.FC<MealFormProps> = ({ generationStatus, isLoadingProfile 
                             </Button>
                         </div>
                       ) : (
-                         <div className="flex items-center space-x-2">
+                        <>
+                          <Button
+                            type="button"
+                            onClick={handleGenerateImageClick} 
+                            disabled={
+                              !form.watch('name') || 
+                              generateImageMutation.isPending || 
+                              isLoadingProfile || 
+                              (generationStatus && !generationStatus.isAdmin && generationStatus.limitReached)
+                            }
+                            className="w-full" // Make generate button prominent
+                          >
+                            <Brain className="mr-2 h-4 w-4" /> Generate Image with AI
+                          </Button>
+                          <div className="text-xs text-muted-foreground text-center">
+                            <Info size={14} className="inline mr-1 flex-shrink-0" />
+                            {generationStatus && !isLoadingProfile && (
+                              generationStatus.isAdmin
+                                ? "Admin: Limits bypassed for AI generation."
+                                : `AI Generations Used: ${generationStatus.generationsUsedThisMonth}/${IMAGE_GENERATION_LIMIT_PER_MONTH}.`
+                            )}
+                            {isLoadingProfile && "Loading AI generation limit..."}
+                          </div>
+
+                          <div className="text-center">
+                            <Button 
+                              type="button" 
+                              variant="link" 
+                              className="text-sm p-0 h-auto"
+                              onClick={() => setShowImageUrlInput(!showImageUrlInput)}
+                            >
+                              <Link2 className="mr-1 h-3 w-3" />
+                              {showImageUrlInput ? 'Hide URL input' : 'Or, use your own image URL'}
+                            </Button>
+                          </div>
+
+                          {showImageUrlInput && (
                             <Input
-                              placeholder="Paste image URL or generate below"
+                              placeholder="Paste image URL"
                               {...field}
                               value={field.value || ''} 
                             />
-                            <Button
-                              type="button"
-                              onClick={handleGenerateImageClick} 
-                              disabled={
-                                !form.watch('name') || 
-                                generateImageMutation.isPending || 
-                                isLoadingProfile || 
-                                (generationStatus && !generationStatus.isAdmin && generationStatus.limitReached)
-                              }
-                              variant="outline"
-                            >
-                              <Brain className="mr-2 h-4 w-4" /> Generate Image
-                            </Button>
-                         </div>
+                          )}
+                        </>
                       )}
                     </div>
                   </FormControl>
-                  <FormDescription className="flex items-center space-x-1 text-xs mt-1">
-                    <Info size={14} className="flex-shrink-0 text-muted-foreground" />
-                    <span>
-                      Add an image URL or use AI to generate one.
-                      {generationStatus && !isLoadingProfile && (
-                        generationStatus.isAdmin
-                          ? " Admin: Limits bypassed."
-                          : ` Used: ${generationStatus.generationsUsedThisMonth}/${IMAGE_GENERATION_LIMIT_PER_MONTH}.`
-                      )}
-                      {isLoadingProfile && " Loading limit..."}
-                    </span>
-                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
