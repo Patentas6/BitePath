@@ -98,6 +98,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
     return saved ? new Set(JSON.parse(saved)) : new Set();
   });
 
+  // Save to localStorage whenever struckItems changes
   useEffect(() => {
     localStorage.setItem(SHARED_LOCAL_STORAGE_KEY, JSON.stringify(Array.from(struckItems)));
   }, [struckItems]);
@@ -247,28 +248,52 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
     return grouped;
   }, [aggregatedIngredients, displaySystem]);
 
-  // Effect to synchronize with localStorage and clean up stale struck items
+  // Listen for storage changes to sync with other components
   useEffect(() => {
-    const currentDisplayKeys = new Set(Object.values(categorizedDisplayList).flat().map(item => item.uniqueKey));
-    const storedItemsRaw = localStorage.getItem(SHARED_LOCAL_STORAGE_KEY);
-    const storedStruckItems = storedItemsRaw ? new Set(JSON.parse(storedItemsRaw)) : new Set<string>();
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === SHARED_LOCAL_STORAGE_KEY && event.newValue) {
+        const newStoredStruckItems = new Set<string>(JSON.parse(event.newValue));
+        setStruckItems(prevLocalStruckItems => {
+          const currentDisplayKeys = new Set(Object.values(categorizedDisplayList).flat().map(item => item.uniqueKey));
+          const updatedLocalStruckItems = new Set<string>();
+          newStoredStruckItems.forEach(key => {
+            if (currentDisplayKeys.has(key)) {
+              updatedLocalStruckItems.add(key);
+            }
+          });
+          if (updatedLocalStruckItems.size !== prevLocalStruckItems.size || !Array.from(prevLocalStruckItems).every(key => updatedLocalStruckItems.has(key))) {
+            return updatedLocalStruckItems;
+          }
+          return prevLocalStruckItems;
+        });
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [categorizedDisplayList]); // Dependency ensures currentDisplayKeys is up-to-date in the closure
 
-    // Update component state based on localStorage, but only for items currently in display
-    const newStruckItemsForState = new Set<string>();
-    storedStruckItems.forEach(key => {
-      if (currentDisplayKeys.has(key)) {
-        newStruckItemsForState.add(key);
-      }
-    });
-    
-    // Only update state if it's different from current, to avoid loops
-    setStruckItems(prevStruckItems => {
-      if (newStruckItemsForState.size !== prevStruckItems.size || !Array.from(prevStruckItems).every(key => newStruckItemsForState.has(key))) {
-        return newStruckItemsForState;
-      }
-      return prevStruckItems;
-    });
-  }, [categorizedDisplayList, userId, currentWeekStart, selectedDays, displaySystem]); // Full dependencies for GroceryList
+  // Cleanup local struckItems if items are removed from view
+  useEffect(() => {
+    const isDisplayListPopulated = Object.values(categorizedDisplayList).some(list => list.length > 0);
+    if (isDisplayListPopulated) {
+      const currentDisplayKeys = new Set(Object.values(categorizedDisplayList).flat().map(item => item.uniqueKey));
+      setStruckItems(prevStruckItems => {
+        const newLocalStruckItems = new Set<string>();
+        let changed = false;
+        for (const itemKey of prevStruckItems) {
+          if (currentDisplayKeys.has(itemKey)) {
+            newLocalStruckItems.add(itemKey);
+          } else {
+            changed = true;
+          }
+        }
+        return changed ? newLocalStruckItems : prevStruckItems;
+      });
+    }
+    // If display list is empty, do not clear local struckItems.
+    // This prevents this component from wiping localStorage if its own view becomes empty.
+  }, [categorizedDisplayList, userId, currentWeekStart, selectedDays, displaySystem]);
+
 
   const handleItemClick = (uniqueKey: string) => {
     setStruckItems(prevStruckItems => {
