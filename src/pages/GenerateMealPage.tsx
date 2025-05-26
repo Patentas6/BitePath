@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
@@ -87,14 +87,14 @@ const GenerateMealPage = () => {
   });
 
   const generationStatus = useMemo((): GenerationStatus => {
-    if (!userProfile) return { generationsUsedThisMonth: 0, limitReached: true, isAdmin: false }; // Default to limit reached if no profile
+    if (!userProfile) return { generationsUsedThisMonth: 0, limitReached: true, isAdmin: false };
     if (userProfile.is_admin) return { generationsUsedThisMonth: 0, limitReached: false, isAdmin: true };
 
     const currentMonthYear = formatDateFns(new Date(), "yyyy-MM");
     let generationsUsedThisMonth = userProfile.image_generation_count || 0;
 
     if (userProfile.last_image_generation_reset !== currentMonthYear) {
-      generationsUsedThisMonth = 0; // Count resets for the new month
+      generationsUsedThisMonth = 0;
     }
     
     return { 
