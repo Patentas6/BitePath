@@ -35,32 +35,24 @@ const TOUR_STEPS: Step[] = [
 ];
 
 const AppTour: React.FC = () => {
-  const [runTour, setRunTour] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
+  // For testing, always attempt to run the tour.
+  const [runTour, setRunTour] = useState(true); 
 
   useEffect(() => {
-    setIsMounted(true); // Ensure component is mounted before trying to access localStorage
-    
-    // --- TEMPORARY CHANGE FOR TESTING ---
-    // const tourCompleted = localStorage.getItem('bitepathTourCompleted');
-    // if (!tourCompleted) {
-    //   setRunTour(true);
-    // }
-    setRunTour(true); // Always run the tour for now
-    // --- END TEMPORARY CHANGE ---
-
+    // This useEffect is mainly for re-triggering if needed,
+    // but initial run is set by default state.
+    // Forcing it to true again in case something resets it.
+    setRunTour(true); 
   }, []);
 
   const handleJoyrideCallback = (data: CallBackProps) => {
-    const { status, type, action } = data;
+    const { status, type } = data;
     const finishedStatuses: string[] = [STATUS.FINISHED, STATUS.SKIPPED];
 
     if (finishedStatuses.includes(status)) {
-      // --- TEMPORARY CHANGE FOR TESTING ---
-      // localStorage.setItem('bitepathTourCompleted', 'true'); 
-      // For testing, don't set it so it runs again, or set it and then clear it manually in dev tools
-      // --- END TEMPORARY CHANGE ---
-      setRunTour(false); // Still stop the current tour instance
+      // Temporarily, we set runTour to false to stop the current instance,
+      // but it will restart on next Dashboard load due to initial state.
+      setRunTour(false); 
     } else if (type === EVENTS.TARGET_NOT_FOUND) {
         console.warn(`Tour target not found: ${data.step.target}`);
     }
@@ -68,18 +60,15 @@ const AppTour: React.FC = () => {
     console.log('Joyride callback data:', data);
   };
 
-  if (!isMounted) {
-    return null; // Don't render Joyride until localStorage can be safely accessed
-  }
-
   return (
     <Joyride
       steps={TOUR_STEPS}
-      run={runTour}
+      run={runTour} // Directly using the state
       callback={handleJoyrideCallback}
       continuous
       showProgress
       showSkipButton
+      debug // Enable debug mode for more console output from Joyride
       styles={{
         options: {
           zIndex: 10000, 
