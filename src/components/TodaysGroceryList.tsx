@@ -8,7 +8,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ShoppingCart } from "lucide-react";
 import { Link } from "react-router-dom";
 
-// Define a SHARED localStorage key
 const SHARED_LOCAL_STORAGE_KEY = 'bitepath-struckSharedGroceryItems';
 
 interface PlannedMealWithIngredients {
@@ -92,12 +91,12 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
   const todayStr = format(today, 'yyyy-MM-dd');
   
   const [struckItems, setStruckItems] = useState<Set<string>>(() => {
-    const saved = localStorage.getItem(SHARED_LOCAL_STORAGE_KEY); // Use shared key
+    const saved = localStorage.getItem(SHARED_LOCAL_STORAGE_KEY);
     return saved ? new Set(JSON.parse(saved)) : new Set();
   });
 
   useEffect(() => {
-    localStorage.setItem(SHARED_LOCAL_STORAGE_KEY, JSON.stringify(Array.from(struckItems))); // Use shared key
+    localStorage.setItem(SHARED_LOCAL_STORAGE_KEY, JSON.stringify(Array.from(struckItems)));
   }, [struckItems]);
 
   const { data: plannedMealsData, isLoading, error } = useQuery<PlannedMealWithIngredients[]>({
@@ -206,7 +205,6 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
         detailsClass = "text-gray-500 dark:text-gray-400";
       }
 
-      // Consistent uniqueKey for synchronization
       const uniqueKey = `${itemName.trim().toLowerCase()}:${detailsPart.trim().toLowerCase()}-${foundCategory.toLowerCase()}`;
       const originalItemsTooltip = aggItem.originalItems.map(oi => `${oi.quantity} ${oi.unit} ${oi.name}${oi.description ? ` (${oi.description})` : ''}`).join('\n');
 
@@ -218,24 +216,35 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
   }, [aggregatedIngredients]);
   
   useEffect(() => {
-    const newPersistedStruckItems = new Set<string>();
-    const currentUniqueKeysInList = Object.values(categorizedDisplayList).flat().map(item => item.uniqueKey);
-    
-    if (currentUniqueKeysInList.length > 0) {
-      const storedItems = localStorage.getItem(SHARED_LOCAL_STORAGE_KEY); // Use shared key
-      if (storedItems) {
-        const previouslyStruckArray = JSON.parse(storedItems);
-        if (Array.isArray(previouslyStruckArray)) {
-          previouslyStruckArray.forEach(itemKey => {
-            if (currentUniqueKeysInList.includes(itemKey)) {
-              newPersistedStruckItems.add(itemKey);
+    // This effect ensures that `struckItems` state is updated if localStorage changes due to another component.
+    // It also cleans up items from `struckItems` that are no longer in the current display list.
+    const currentDisplayKeys = new Set(Object.values(categorizedDisplayList).flat().map(item => item.uniqueKey));
+    const storedItemsRaw = localStorage.getItem(SHARED_LOCAL_STORAGE_KEY);
+    const storedStruckItems = storedItemsRaw ? new Set(JSON.parse(storedItemsRaw)) : new Set<string>();
+
+    setStruckItems(prevStruckItems => {
+        const newStruckItems = new Set<string>();
+        // Add items from localStorage that are relevant to the current display
+        storedStruckItems.forEach(key => {
+            if (currentDisplayKeys.has(key)) {
+                newStruckItems.add(key);
             }
-          });
+        });
+        // Ensure any items currently struck in this component's state (e.g., just clicked) are preserved if still valid
+        prevStruckItems.forEach(key => {
+            if (currentDisplayKeys.has(key)) {
+                newStruckItems.add(key);
+            }
+        });
+        
+        // Only update if there's a change to avoid loop with saving useEffect
+        if (newStruckItems.size !== prevStruckItems.size || !Array.from(prevStruckItems).every(key => newStruckItems.has(key))) {
+            return newStruckItems;
         }
-      }
-    }
-    setStruckItems(newPersistedStruckItems);
-  }, [categorizedDisplayList]);
+        return prevStruckItems;
+    });
+
+  }, [categorizedDisplayList, userId]); // Re-run when list or user changes
 
   const handleItemClick = (uniqueKey: string) => {
     setStruckItems(prevStruckItems => {

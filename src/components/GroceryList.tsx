@@ -10,7 +10,6 @@ import { ListChecks, RefreshCw, ShoppingCart } from "lucide-react";
 import { convertToPreferredSystem } from "@/utils/conversionUtils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-// Define a SHARED localStorage key
 const SHARED_LOCAL_STORAGE_KEY = 'bitepath-struckSharedGroceryItems';
 
 interface PlannedMealWithIngredients {
@@ -95,23 +94,22 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
   const [selectedDays, setSelectedDays] = useState<string>('7');
 
   const [struckItems, setStruckItems] = useState<Set<string>>(() => {
-    const saved = localStorage.getItem(SHARED_LOCAL_STORAGE_KEY); // Use shared key
+    const saved = localStorage.getItem(SHARED_LOCAL_STORAGE_KEY);
     return saved ? new Set(JSON.parse(saved)) : new Set();
   });
 
   useEffect(() => {
-    localStorage.setItem(SHARED_LOCAL_STORAGE_KEY, JSON.stringify(Array.from(struckItems))); // Use shared key
+    localStorage.setItem(SHARED_LOCAL_STORAGE_KEY, JSON.stringify(Array.from(struckItems)));
   }, [struckItems]);
 
 
   const queryStartDate = currentWeekStart;
   const queryEndDate = addDays(queryStartDate, parseInt(selectedDays) - 1);
-  // dateRangeKey is removed from uniqueKey for items, but still useful for queryKey
   const dateRangeQueryKeyPart = `${format(queryStartDate, 'yyyy-MM-dd')}_${selectedDays}`;
 
 
   const { data: plannedMealsData, isLoading, error: plannedMealsError } = useQuery<PlannedMealWithIngredients[]>({
-    queryKey: ["groceryListSource", userId, dateRangeQueryKeyPart], // Use part for query
+    queryKey: ["groceryListSource", userId, dateRangeQueryKeyPart], 
     queryFn: async () => {
       if (!userId) return [];
       const startDateStr = format(queryStartDate, 'yyyy-MM-dd');
@@ -239,7 +237,6 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
         detailsClass = "text-gray-500 dark:text-gray-400";
       }
 
-      // Consistent uniqueKey for synchronization
       const uniqueKey = `${itemName.trim().toLowerCase()}:${detailsPart.trim().toLowerCase()}-${foundCategory.toLowerCase()}`;
       const originalItemsTooltip = aggItem.originalItems.map(oi => `${oi.quantity} ${oi.unit} ${oi.name}${oi.description ? ` (${oi.description})` : ''}`).join('\n');
 
@@ -248,27 +245,35 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
       }
     });
     return grouped;
-  }, [aggregatedIngredients, displaySystem]); // Removed dateRangeKey from dependency array for uniqueKey consistency
+  }, [aggregatedIngredients, displaySystem]);
 
   useEffect(() => {
-    const newPersistedStruckItems = new Set<string>();
-    const currentUniqueKeysInList = Object.values(categorizedDisplayList).flat().map(item => item.uniqueKey);
+    // This effect ensures that `struckItems` state is updated if localStorage changes due to another component.
+    // It also cleans up items from `struckItems` that are no longer in the current display list.
+    const currentDisplayKeys = new Set(Object.values(categorizedDisplayList).flat().map(item => item.uniqueKey));
+    const storedItemsRaw = localStorage.getItem(SHARED_LOCAL_STORAGE_KEY);
+    const storedStruckItems = storedItemsRaw ? new Set(JSON.parse(storedItemsRaw)) : new Set<string>();
 
-    if (currentUniqueKeysInList.length > 0) {
-        const storedItems = localStorage.getItem(SHARED_LOCAL_STORAGE_KEY); // Use shared key
-        if (storedItems) {
-            const previouslyStruckArray = JSON.parse(storedItems);
-            if (Array.isArray(previouslyStruckArray)) {
-                previouslyStruckArray.forEach(itemKey => {
-                    if (currentUniqueKeysInList.includes(itemKey)) {
-                        newPersistedStruckItems.add(itemKey);
-                    }
-                });
+    setStruckItems(prevStruckItems => {
+        const newStruckItems = new Set<string>();
+        storedStruckItems.forEach(key => {
+            if (currentDisplayKeys.has(key)) {
+                newStruckItems.add(key);
             }
+        });
+        prevStruckItems.forEach(key => {
+            if (currentDisplayKeys.has(key)) {
+                newStruckItems.add(key);
+            }
+        });
+        
+        if (newStruckItems.size !== prevStruckItems.size || !Array.from(prevStruckItems).every(key => newStruckItems.has(key))) {
+            return newStruckItems;
         }
-    }
-    setStruckItems(newPersistedStruckItems);
-  }, [categorizedDisplayList]);
+        return prevStruckItems;
+    });
+
+  }, [categorizedDisplayList, userId, currentWeekStart, selectedDays, displaySystem]); // Re-run on relevant changes
 
   const handleItemClick = (uniqueKey: string) => {
     setStruckItems(prevStruckItems => {
