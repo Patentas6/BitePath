@@ -84,7 +84,7 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
                 <li key={plannedMeal.id} className="border rounded-md p-3 bg-card shadow-sm flex items-center space-x-3">
                    {plannedMeal.meals?.image_url && (
                     <div
-                      className="h-20 w-20 object-cover rounded-md flex-shrink-0 cursor-pointer flex items-center justify-center overflow-hidden bg-muted" // Changed h-16 w-16 to h-20 w-20
+                      className="h-24 w-24 object-cover rounded-md flex-shrink-0 cursor-pointer flex items-center justify-center overflow-hidden bg-muted" // Changed to h-24 w-24
                       onClick={() => setViewingImageUrl(plannedMeal.meals?.image_url || null)}
                     >
                       <img

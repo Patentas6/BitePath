@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import WeeklyPlanner from "@/components/WeeklyPlanner";
-import GroceryList from "@/components/GroceryList"; // Import GroceryList
-import { ArrowLeft, ChevronLeft, ChevronRight, CalendarDays, ShoppingCart } from "lucide-react";
+import GroceryList from "@/components/GroceryList";
+import { ArrowLeft, ChevronLeft, ChevronRight, CalendarDays } from "lucide-react"; // Removed ShoppingCart as it's in GroceryList
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 import { startOfWeek, addDays, format } from "date-fns";
 import { supabase } from "@/lib/supabase";
@@ -73,12 +73,12 @@ const PlanningPage = () => {
           <Button variant="default" size="sm" onClick={() => handleWeekNavigate("next")}>Next <ChevronRight className="h-4 w-4 ml-1" /></Button>
         </div>
 
-        {/* Main Content Area: Planner and Grocery List */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
+        {/* Main Content Area: Planner and Grocery List in rows */}
+        <div className="space-y-6"> {/* Changed from grid to simple div with vertical spacing */}
+          <div> {/* Wrapper for WeeklyPlanner */}
             <WeeklyPlanner userId={userId} currentWeekStart={currentWeekStart} />
           </div>
-          <div className="lg:col-span-1">
+          <div> {/* Wrapper for GroceryList */}
             <GroceryList userId={userId} currentWeekStart={currentWeekStart} />
           </div>
         </div>
