@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import { Brain, Save, RefreshCw, Info, Image as ImageIcon, Edit2 } from 'lucide-react'; // Added Edit2
+import { Brain, Save, RefreshCw, Info, Image as ImageIcon, Edit2 } from 'lucide-react';
 import AppHeader from "@/components/AppHeader";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { format as formatDateFns } from "date-fns"; 
@@ -34,6 +34,7 @@ interface UserProfileData {
   is_admin: boolean;
   image_generation_count: number;
   last_image_generation_reset: string | null; // YYYY-MM
+  // We don't fetch recipe_generation_count to client as it's not displayed
 }
 
 const mealTypes = ["Breakfast", "Lunch", "Dinner", "Snack"];
@@ -42,11 +43,11 @@ const mealStyles = ["Simple", "Fast (under 30 min)", "1 Pan", "Chef Inspired", "
 
 const PREFERENCES_MAX_LENGTH = 300;
 const REFINEMENT_MAX_LENGTH = 200;
-const MOCK_RECIPE_GENERATION_LIMIT = 100; // Placeholder
+const MOCK_RECIPE_GENERATION_LIMIT = 100; // Placeholder, as requested not to show real count
 
 interface GenerationStatus {
-  generationsUsedThisMonth: number;
-  limitReached: boolean;
+  generationsUsedThisMonth: number; // For images
+  limitReached: boolean; // For images
   isAdmin: boolean;
 }
 
@@ -76,12 +77,12 @@ const GenerateMealPage = () => {
   }, []);
 
   const { data: userProfile, isLoading: isLoadingProfile, refetch: refetchUserProfile } = useQuery<UserProfileData | null>({
-    queryKey: ['userProfileForGenerationLimits', userId],
+    queryKey: ['userProfileForGenerationLimits', userId], // Key remains same, data fetched is for image limits
     queryFn: async () => {
       if (!userId) return null;
       const { data, error } = await supabase
         .from('profiles')
-        .select('is_admin, image_generation_count, last_image_generation_reset')
+        .select('is_admin, image_generation_count, last_image_generation_reset') // Only fetch needed fields for client
         .eq('id', userId)
         .single();
       if (error && error.code !== 'PGRST116') throw error;
@@ -120,7 +121,7 @@ const GenerateMealPage = () => {
     );
   };
 
-  const recipeGenerationMutation = useMutation({ // Renamed for clarity
+  const recipeGenerationMutation = useMutation({
     mutationFn: async (params: { isRefinement: boolean; currentMeal?: GeneratedMeal | null; refinementText?: string }) => {
       if (!userId) throw new Error("User not authenticated.");
       if (!params.isRefinement && !selectedMealType) {
@@ -136,10 +137,10 @@ const GenerateMealPage = () => {
       const loadingToastId = showLoading(params.isRefinement ? "Refining recipe..." : "Generating recipe...");
       
       const bodyPayload: any = {
-        mealType: selectedMealType, // Send original selections even for refinement
+        mealType: selectedMealType,
         kinds: selectedKinds,
         styles: selectedStyles,
-        preferences: ingredientPreferences, // User's general preferences from profile/initial form
+        preferences: ingredientPreferences,
       };
 
       if (params.isRefinement && params.currentMeal && params.refinementText) {
@@ -148,24 +149,31 @@ const GenerateMealPage = () => {
       }
 
       try {
-        const { data, error } = await supabase.functions.invoke('generate-meal', { body: bodyPayload });
+        const { data, error: functionError } = await supabase.functions.invoke('generate-meal', { body: bodyPayload });
         dismissToast(loadingToastId);
-        if (error) throw error;
+
+        // Check for Supabase function invocation error first
+        if (functionError) {
+            if (functionError.message.includes("Functions_Relay_Error") && functionError.message.includes("429")) {
+                 showError(`You've reached your recipe generation limit for the current period. Please try again later.`);
+            } else {
+                 showError(`Recipe generation failed: ${functionError.message}`);
+            }
+            return null;
+        }
+        // Check for error within the function's own response payload
         if (data?.error) { 
-            showError(data.error);
-            // Don't clear generatedMeal on error if it was a refinement attempt, user might want to try again
-            // setGeneratedMeal(null); 
+            showError(data.error); // This could also be the 429 message from the function's logic
             return null; 
         }
-        setGeneratedMeal({ ...data, image_url: undefined }); // New/refined recipe, clear any old image
-        setRefinementPrompt(''); // Clear refinement prompt after use
+        setGeneratedMeal({ ...data, image_url: undefined }); 
+        setRefinementPrompt(''); 
         showSuccess(params.isRefinement ? "Recipe refined!" : "Recipe generated!");
         return data;
-      } catch (error: any) {
+      } catch (error: any) { // Catch other unexpected errors
         dismissToast(loadingToastId);
         console.error('Error in recipe generation/refinement:', error);
         showError(`Failed to ${params.isRefinement ? 'refine' : 'generate'} recipe: ${error.message || 'Please try again.'}`);
-        // setGeneratedMeal(null); // Potentially clear on error
         throw error;
       } finally {
         setIsGeneratingRecipe(false);
@@ -185,13 +193,21 @@ const GenerateMealPage = () => {
       setIsGeneratingImage(true);
       const loadingToastId = showLoading("Generating image...");
       try {
-        const { data, error } = await supabase.functions.invoke('generate-meal', {
-          body: { mealData: mealToGetImageFor }, // mealData implies image generation for this content
+        const { data, error: functionError } = await supabase.functions.invoke('generate-meal', {
+          body: { mealData: mealToGetImageFor }, 
         });
         dismissToast(loadingToastId);
-        if (error) throw error;
+        if (functionError) {
+             if (functionError.message.includes("Functions_Relay_Error") && functionError.message.includes("429")) {
+                 showError(`Image generation limit reached. This was also caught by the server.`);
+             } else {
+                 showError(`Image generation failed: ${functionError.message}`);
+             }
+             refetchUserProfile(); // Refetch to get latest count if server updated it before erroring
+             return null;
+        }
         if (data?.error) { 
-            showError(data.error);
+            showError(data.error); // e.g. server-side limit message
             if (data.mealData) setGeneratedMeal(prev => ({...prev!, ...data.mealData}));
             refetchUserProfile(); 
             return null;
@@ -255,10 +271,9 @@ const GenerateMealPage = () => {
     }
   };
 
-  const handleGenerateNewRecipeRequest = () => { // Renamed to avoid conflict
+  const handleGenerateNewRecipeRequest = () => { 
     setGeneratedMeal(null); 
     setRefinementPrompt('');
-    // Optionally reset other form fields like selectedMealType, kinds, styles if desired
   };
 
   const handleInitialGenerateRecipeClick = async () => {
@@ -403,7 +418,6 @@ const GenerateMealPage = () => {
                 <p className="text-muted-foreground whitespace-pre-line">{generatedMeal.instructions}</p>
               </div>
 
-              {/* Refinement Section */}
               <div className="pt-4 border-t">
                 <Label htmlFor="refinement-prompt" className="text-base">Want to change something?</Label>
                 <Textarea

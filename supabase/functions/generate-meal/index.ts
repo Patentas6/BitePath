@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { create, getNumericDate } from "https://deno.land/x/djwt@v2.4/mod.ts";
-import { format as formatDate } from "https://deno.land/std@0.224.0/datetime/format.ts";
+import { format as formatDate, parse as parseDate, difference } from "https://deno.land/std@0.224.0/datetime/mod.ts";
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
 const corsHeaders = {
@@ -10,17 +10,19 @@ const corsHeaders = {
 };
 
 const IMAGE_GENERATION_LIMIT_PER_MONTH = 30;
+const RECIPE_GENERATION_LIMIT_PER_PERIOD = 100;
+const RECIPE_GENERATION_PERIOD_DAYS = 15;
 
 interface GeneratedIngredient {
   name: string;
-  quantity: number | string; // Allow string for flexibility
+  quantity: number | string; 
   unit: string;
   description?: string;
 }
 
 interface GeneratedMeal {
   name: string;
-  ingredients: GeneratedIngredient[] | string; // Allow string for initial parsing
+  ingredients: GeneratedIngredient[] | string; 
   instructions: string;
   meal_tags: string[];
   image_url?: string;
@@ -146,7 +148,7 @@ serve(async (req) => {
 
     const { data: profile, error: profileErrorDb } = await serviceSupabaseClient
       .from('profiles')
-      .select('ai_preferences, is_admin, image_generation_count, last_image_generation_reset')
+      .select('ai_preferences, is_admin, image_generation_count, last_image_generation_reset, recipe_generation_count, last_recipe_generation_reset')
       .eq('id', user.id)
       .single();
 
@@ -159,10 +161,16 @@ serve(async (req) => {
     
     const userIsAdmin = profile?.is_admin || false;
     let userAiPreferences = profile?.ai_preferences || '';
+    
+    // Image generation tracking
     let userImageGenerationCount = profile?.image_generation_count || 0;
     let userLastImageGenerationReset = profile?.last_image_generation_reset || '';
     
-    console.log(`User profile for ${user.id}: admin=${userIsAdmin}, count=${userImageGenerationCount}, resetMonth='${userLastImageGenerationReset}'`);
+    // Recipe generation tracking
+    let userRecipeGenerationCount = profile?.recipe_generation_count || 0;
+    let userLastRecipeGenerationResetDateStr = profile?.last_recipe_generation_reset || ''; // YYYY-MM-DD
+
+    console.log(`User profile for ${user.id}: admin=${userIsAdmin}, img_count=${userImageGenerationCount}, img_reset='${userLastImageGenerationReset}', recipe_count=${userRecipeGenerationCount}, recipe_reset='${userLastRecipeGenerationResetDateStr}'`);
 
     const requestBody = await req.json();
     const { mealType, kinds, styles, preferences, mealData, existingRecipeText, refinementInstructions } = requestBody;
@@ -170,6 +178,7 @@ serve(async (req) => {
     let generatedMealData: GeneratedMeal | undefined;
     let mealNameForImage: string;
     let anImageShouldBeGenerated = false; 
+    let isRecipeTextGenerationRequest = !mealData; // True if not just an image request
 
     if (mealData) { 
         console.log("Received existing meal data for image generation:", mealData.name);
@@ -187,7 +196,45 @@ serve(async (req) => {
         } else {
             console.log("MealData already contains an image_url. Skipping new image generation.");
         }
-    } else { 
+    } else { // This is a recipe text generation request (initial or refinement)
+        if (!userIsAdmin) {
+            const today = new Date();
+            const todayStr = formatDate(today, "yyyy-MM-dd");
+            let resetRecipePeriod = false;
+
+            if (!userLastRecipeGenerationResetDateStr) {
+                resetRecipePeriod = true;
+                console.log(`User ${user.id}: No recipe generation reset date found. Setting new period.`);
+            } else {
+                try {
+                    const lastResetDate = parseDate(userLastRecipeGenerationResetDateStr, "yyyy-MM-dd");
+                    const daysSinceLastReset = difference(today, lastResetDate, { units: ["days"] }).days || 0;
+                    if (daysSinceLastReset >= RECIPE_GENERATION_PERIOD_DAYS) {
+                        resetRecipePeriod = true;
+                        console.log(`User ${user.id}: Recipe generation period expired (${daysSinceLastReset} days). Resetting.`);
+                    }
+                } catch (dateParseError) {
+                    console.error(`Error parsing last_recipe_generation_reset date '${userLastRecipeGenerationResetDateStr}':`, dateParseError);
+                    resetRecipePeriod = true; // Treat as needing reset if date is invalid
+                }
+            }
+
+            if (resetRecipePeriod) {
+                userRecipeGenerationCount = 0;
+                userLastRecipeGenerationResetDateStr = todayStr;
+            }
+
+            if (userRecipeGenerationCount >= RECIPE_GENERATION_LIMIT_PER_PERIOD) {
+                console.log(`User ${user.id} has reached recipe generation limit of ${RECIPE_GENERATION_LIMIT_PER_PERIOD}. Count: ${userRecipeGenerationCount}, Period Start: ${userLastRecipeGenerationResetDateStr}`);
+                return new Response(JSON.stringify({ 
+                    error: `You have reached your recipe generation limit of ${RECIPE_GENERATION_LIMIT_PER_PERIOD} per ${RECIPE_GENERATION_PERIOD_DAYS} days. Please try again later.` 
+                }), {
+                    status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+                });
+            }
+        }
+
+        // Proceed with recipe text generation (Gemini call)
         const serviceAccountJsonStringForGemini = Deno.env.get("VERTEX_SERVICE_ACCOUNT_KEY_JSON");
         if (!serviceAccountJsonStringForGemini) { 
             console.error("VERTEX_SERVICE_ACCOUNT_KEY_JSON secret not set for Gemini.");
@@ -241,7 +288,7 @@ The meal should still generally be a ${mealType || 'general'} type.`;
           generationConfig: {
             responseMimeType: "application/json",
             temperature: 0.7, 
-            maxOutputTokens: 8192, // INCREASED MAX OUTPUT TOKENS
+            maxOutputTokens: 8192,
           },
         };
         
@@ -262,7 +309,6 @@ The meal should still generally be a ${mealType || 'general'} type.`;
 
         if (geminiData.candidates?.[0]?.finishReason === "MAX_TOKENS") {
             console.warn("Gemini response was truncated due to MAX_TOKENS limit even after increasing it.");
-            // Potentially throw a specific error or return a message indicating truncation
         }
 
         const generatedContentString = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -282,6 +328,24 @@ The meal should still generally be a ${mealType || 'general'} type.`;
             throw new Error("Failed to parse recipe from AI. The AI may have returned non-JSON text or incomplete JSON.");
         }
         console.log(existingRecipeText ? "Refined Recipe Text:" : "Generated Recipe Text:", generatedMealData.name);
+
+        // Increment recipe generation count for non-admins
+        if (!userIsAdmin) {
+            userRecipeGenerationCount += 1;
+            const { error: updateRecipeCountError } = await serviceSupabaseClient
+                .from('profiles')
+                .update({ 
+                    recipe_generation_count: userRecipeGenerationCount,
+                    last_recipe_generation_reset: userLastRecipeGenerationResetDateStr 
+                })
+                .eq('id', user.id);
+            if (updateRecipeCountError) {
+                console.error(`Failed to update recipe generation count for user ${user.id}:`, updateRecipeCountError);
+                // Continue, but log error. The recipe was generated.
+            } else {
+                console.log(`Successfully updated recipe generation count for user ${user.id} to ${userRecipeGenerationCount}. Period start: ${userLastRecipeGenerationResetDateStr}`);
+            }
+        }
     }
 
     if (anImageShouldBeGenerated) {
@@ -384,7 +448,7 @@ The meal should still generally be a ${mealType || 'general'} type.`;
     }
 
   } catch (error) {
-    console.error("Error in Edge Function:", error.message, error.stack); // Log stack for more details
+    console.error("Error in Edge Function:", error.message, error.stack);
     return new Response(
       JSON.stringify({ error: `Failed to process request: ${error.message || 'Unknown error'}` }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
