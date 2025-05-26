@@ -41,17 +41,8 @@ const SUMMABLE_UNITS: ReadonlyArray<string> = [
 ];
 
 const PIECE_UNITS: ReadonlyArray<string> = ['piece', 'pieces', 'item', 'items', 'unit', 'units'];
-const MEASUREMENT_UNITS_FOR_LIGHTER_COLOR: ReadonlyArray<string> = [
-  'tsp', 'teaspoon', 'teaspoons',
-  'tbsp', 'tablespoon', 'tablespoons',
-  'cup', 'cups',
-  'pinch', 'pinches', 'dash', 'dashes',
-  'ml', 'milliliter', 'milliliters',
-  'l', 'liter', 'liters',
-  'fl oz', 'fluid ounce', 'fluid ounces', 'fl-oz',
-  'g', 'gram', 'grams',
-  'oz', 'ounce', 'ounces'
-];
+// New specific list for gray color
+const SPICE_MEASUREMENT_UNITS: ReadonlyArray<string> = ['tsp', 'teaspoon', 'teaspoons', 'tbsp', 'tablespoon', 'tablespoons'];
 
 const categoriesMap = {
   Produce: ['apple', 'banana', 'orange', 'pear', 'grape', 'berry', 'berries', 'strawberry', 'blueberry', 'raspberry', 'avocado', 'tomato', 'potato', 'onion', 'garlic', 'carrot', 'broccoli', 'spinach', 'lettuce', 'salad greens', 'celery', 'cucumber', 'bell pepper', 'pepper', 'zucchini', 'mushroom', 'lemon', 'lime', 'cabbage', 'kale', 'asparagus', 'eggplant', 'corn', 'sweet potato', 'ginger', 'parsley', 'cilantro', 'basil', 'mint', 'rosemary', 'thyme', 'dill', 'leek', 'scallion', 'green bean', 'pea', 'artichoke', 'beet', 'radish', 'squash'],
@@ -94,8 +85,6 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
     const saved = localStorage.getItem(SHARED_LOCAL_STORAGE_KEY);
     return saved ? new Set(JSON.parse(saved)) : new Set();
   });
-
-  // Removed useEffect that auto-saved struckItems to localStorage. Now handled in handleItemClick.
 
   const { data: plannedMealsData, isLoading, error } = useQuery<PlannedMealWithIngredients[]>({
     queryKey: ["todaysGroceryListSource", userId, todayStr],
@@ -165,27 +154,22 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
       }
 
       const itemName = aggItem.name;
-      const itemNameClass = "text-foreground";
+      const itemNameClass = "text-foreground"; // Item name always default color
 
       let currentQuantity = aggItem.totalQuantity;
-      let currentUnit = aggItem.unit || "";
-      const originalUnitForLogic = aggItem.unit?.toLowerCase() || '';
-
-      let detailsClass = "text-gray-700 dark:text-gray-300";
+      let currentUnit = aggItem.unit || ""; // This is the original or aggregated unit
+      
       let detailsPart = "";
       
-      const isOriginalUnitPiece = PIECE_UNITS.includes(originalUnitForLogic);
-      const isOriginalUnitMeasurement = MEASUREMENT_UNITS_FOR_LIGHTER_COLOR.includes(originalUnitForLogic);
-
-      if (isOriginalUnitPiece) {
-        detailsClass = "text-gray-700 dark:text-gray-300";
-      } else if (isOriginalUnitMeasurement) {
-        detailsClass = "text-gray-500 dark:text-gray-400";
+      // Determine detailsClass based on the currentUnit (which is original/aggregated for TodaysGroceryList)
+      let detailsClass = "text-foreground"; // Default color for quantity/unit
+      if (SPICE_MEASUREMENT_UNITS.includes(currentUnit.toLowerCase())) {
+          detailsClass = "text-gray-500 dark:text-gray-400"; // Lighter/gray color for specified units
       }
 
       if (aggItem.isSummable && currentQuantity > 0) {
         const roundedDisplayQty = (currentQuantity % 1 === 0) ? Math.round(currentQuantity) : parseFloat(currentQuantity.toFixed(1));
-        if (isOriginalUnitPiece) {
+        if (PIECE_UNITS.includes(currentUnit.toLowerCase())) {
           detailsPart = `${roundedDisplayQty}`;
         } else {
           let unitStr = currentUnit;
@@ -198,9 +182,16 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
         }
       } else if (!aggItem.isSummable && aggItem.originalItems.length > 0) {
         detailsPart = aggItem.originalItems.map(orig => {
+          // For non-summable, use original units directly
+          if (PIECE_UNITS.includes(orig.unit.toLowerCase())) return `${orig.quantity}`;
           return `${orig.quantity} ${orig.unit}`;
         }).join('; ');
-        detailsClass = "text-gray-500 dark:text-gray-400";
+        // For non-summable, if any original unit was a spice unit, make it gray. Otherwise default.
+        if (aggItem.originalItems.some(oi => SPICE_MEASUREMENT_UNITS.includes(oi.unit.toLowerCase()))) {
+            detailsClass = "text-gray-500 dark:text-gray-400";
+        } else {
+            detailsClass = "text-foreground";
+        }
       }
 
       const uniqueKey = `${itemName.trim().toLowerCase()}:${detailsPart.trim().toLowerCase()}-${foundCategory.toLowerCase()}`;
@@ -213,10 +204,9 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
     return grouped;
   }, [aggregatedIngredients]);
   
-  // Listen for storage changes to sync with other components
   useEffect(() => {
     const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === SHARED_LOCAL_STORAGE_KEY) { // Check even if newValue is null (item removed)
+      if (event.key === SHARED_LOCAL_STORAGE_KEY) {
         const newGlobalValue = event.newValue;
         const newGlobalStruckItems = newGlobalValue ? new Set<string>(JSON.parse(newGlobalValue)) : new Set<string>();
         
@@ -239,7 +229,6 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, [categorizedDisplayList]);
 
-  // Sync local state with localStorage when the displayable items change
   useEffect(() => {
     const currentDisplayKeys = new Set(Object.values(categorizedDisplayList).flat().map(item => item.uniqueKey));
     const globalRaw = localStorage.getItem(SHARED_LOCAL_STORAGE_KEY);
@@ -264,7 +253,7 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
   const handleItemClick = (uniqueKey: string) => {
     const globalRaw = localStorage.getItem(SHARED_LOCAL_STORAGE_KEY);
     let globalSet = globalRaw ? new Set<string>(JSON.parse(globalRaw)) : new Set<string>();
-    const newLocalSet = new Set(struckItems); // Start with current local state
+    const newLocalSet = new Set(struckItems);
 
     if (globalSet.has(uniqueKey)) {
       globalSet.delete(uniqueKey);
@@ -275,9 +264,8 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
     }
     
     localStorage.setItem(SHARED_LOCAL_STORAGE_KEY, JSON.stringify(Array.from(globalSet)));
-    setStruckItems(newLocalSet); // Update local state
+    setStruckItems(newLocalSet);
 
-    // Manually dispatch storage event for same-page listeners
     window.dispatchEvent(new StorageEvent('storage', {
       key: SHARED_LOCAL_STORAGE_KEY,
       newValue: JSON.stringify(Array.from(globalSet)),

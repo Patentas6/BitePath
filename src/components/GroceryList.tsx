@@ -43,17 +43,8 @@ const SUMMABLE_UNITS: ReadonlyArray<string> = [
 ];
 
 const PIECE_UNITS: ReadonlyArray<string> = ['piece', 'pieces', 'item', 'items', 'unit', 'units'];
-const MEASUREMENT_UNITS_FOR_LIGHTER_COLOR: ReadonlyArray<string> = [
-  'tsp', 'teaspoon', 'teaspoons',
-  'tbsp', 'tablespoon', 'tablespoons',
-  'cup', 'cups',
-  'pinch', 'pinches', 'dash', 'dashes',
-  'ml', 'milliliter', 'milliliters',
-  'l', 'liter', 'liters',
-  'fl oz', 'fluid ounce', 'fluid ounces', 'fl-oz',
-  'g', 'gram', 'grams',
-  'oz', 'ounce', 'ounces'
-];
+// New specific list for gray color
+const SPICE_MEASUREMENT_UNITS: ReadonlyArray<string> = ['tsp', 'teaspoon', 'teaspoons', 'tbsp', 'tablespoon', 'tablespoons'];
 
 const categoriesMap = {
   Produce: ['apple', 'banana', 'orange', 'pear', 'grape', 'berry', 'berries', 'strawberry', 'blueberry', 'raspberry', 'avocado', 'tomato', 'potato', 'onion', 'garlic', 'carrot', 'broccoli', 'spinach', 'lettuce', 'salad greens', 'celery', 'cucumber', 'bell pepper', 'pepper', 'zucchini', 'mushroom', 'lemon', 'lime', 'cabbage', 'kale', 'asparagus', 'eggplant', 'corn', 'sweet potato', 'ginger', 'parsley', 'cilantro', 'basil', 'mint', 'rosemary', 'thyme', 'dill', 'leek', 'scallion', 'green bean', 'pea', 'artichoke', 'beet', 'radish', 'squash'],
@@ -98,12 +89,9 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
     return saved ? new Set(JSON.parse(saved)) : new Set();
   });
 
-  // Removed useEffect that auto-saved struckItems to localStorage. Now handled in handleItemClick.
-
   const queryStartDate = currentWeekStart;
   const queryEndDate = addDays(queryStartDate, parseInt(selectedDays) - 1);
   const dateRangeQueryKeyPart = `${format(queryStartDate, 'yyyy-MM-dd')}_${selectedDays}`;
-
 
   const { data: plannedMealsData, isLoading, error: plannedMealsError } = useQuery<PlannedMealWithIngredients[]>({
     queryKey: ["groceryListSource", userId, dateRangeQueryKeyPart], 
@@ -176,13 +164,11 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
       }
 
       const itemName = aggItem.name;
-      const itemNameClass = "text-foreground";
+      const itemNameClass = "text-foreground"; // Item name always default color
 
       let currentQuantity = aggItem.totalQuantity;
       let currentUnit = aggItem.unit || "";
-      const originalUnitForLogic = aggItem.unit?.toLowerCase() || '';
-
-      let detailsClass = "text-gray-700 dark:text-gray-300";
+      
       let detailsPart = "";
 
       if (displaySystem === 'metric') {
@@ -194,19 +180,16 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
           }
         }
       }
-
-      const isOriginalUnitPiece = PIECE_UNITS.includes(originalUnitForLogic);
-      const isOriginalUnitMeasurement = MEASUREMENT_UNITS_FOR_LIGHTER_COLOR.includes(originalUnitForLogic);
-
-      if (isOriginalUnitPiece) {
-        detailsClass = "text-gray-700 dark:text-gray-300";
-      } else if (isOriginalUnitMeasurement) {
-        detailsClass = "text-gray-500 dark:text-gray-400";
+      
+      // Determine detailsClass based on the *displayed* currentUnit
+      let detailsClass = "text-foreground"; // Default color for quantity/unit
+      if (SPICE_MEASUREMENT_UNITS.includes(currentUnit.toLowerCase())) {
+          detailsClass = "text-gray-500 dark:text-gray-400"; // Lighter/gray color for specified units
       }
 
       if (aggItem.isSummable && currentQuantity > 0) {
         const roundedDisplayQty = (currentQuantity % 1 === 0) ? Math.round(currentQuantity) : parseFloat(currentQuantity.toFixed(1));
-        if (isOriginalUnitPiece) {
+        if (PIECE_UNITS.includes(currentUnit.toLowerCase())) { // Check displayed unit for piece
           detailsPart = `${roundedDisplayQty}`;
         } else {
           let unitStr = currentUnit;
@@ -228,10 +211,15 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
               u = convertedPart.unit;
             }
           }
-          if (PIECE_UNITS.includes(orig.unit.toLowerCase())) return `${q}`;
+          if (PIECE_UNITS.includes(u.toLowerCase())) return `${q}`;
           return `${q} ${u}`;
         }).join('; ');
-        detailsClass = "text-gray-500 dark:text-gray-400";
+        // For non-summable, if any original unit was a spice unit, make it gray. Otherwise default.
+        if (aggItem.originalItems.some(oi => SPICE_MEASUREMENT_UNITS.includes(oi.unit.toLowerCase()))) {
+            detailsClass = "text-gray-500 dark:text-gray-400";
+        } else {
+            detailsClass = "text-foreground";
+        }
       }
 
       const uniqueKey = `${itemName.trim().toLowerCase()}:${detailsPart.trim().toLowerCase()}-${foundCategory.toLowerCase()}`;
@@ -244,10 +232,9 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
     return grouped;
   }, [aggregatedIngredients, displaySystem]);
 
-  // Listen for storage changes to sync with other components
   useEffect(() => {
     const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === SHARED_LOCAL_STORAGE_KEY) { // Check even if newValue is null
+      if (event.key === SHARED_LOCAL_STORAGE_KEY) {
         const newGlobalValue = event.newValue;
         const newGlobalStruckItems = newGlobalValue ? new Set<string>(JSON.parse(newGlobalValue)) : new Set<string>();
         
@@ -270,7 +257,6 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
     return () => window.removeEventListener('storage', handleStorageChange);
   }, [categorizedDisplayList]);
 
-  // Sync local state with localStorage when the displayable items change
   useEffect(() => {
     const currentDisplayKeys = new Set(Object.values(categorizedDisplayList).flat().map(item => item.uniqueKey));
     const globalRaw = localStorage.getItem(SHARED_LOCAL_STORAGE_KEY);
@@ -357,7 +343,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
                    onClick={() => setDisplaySystem(prev => prev === 'imperial' ? 'metric' : 'imperial')}
                >
                    <RefreshCw className="mr-2 h-4 w-4" />
-                   {displaySystem === 'imperial' ? 'Metric' : 'Imperial'}
+                   {displaySystem === 'imperial' ? 'Switch to Metric' : 'Switch to Imperial'}
                </Button>
            </div>
          </div>
