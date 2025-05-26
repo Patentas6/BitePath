@@ -40,10 +40,15 @@ const AppTour: React.FC = () => {
 
   useEffect(() => {
     setIsMounted(true); // Ensure component is mounted before trying to access localStorage
-    const tourCompleted = localStorage.getItem('bitepathTourCompleted');
-    if (!tourCompleted) {
-      setRunTour(true);
-    }
+    
+    // --- TEMPORARY CHANGE FOR TESTING ---
+    // const tourCompleted = localStorage.getItem('bitepathTourCompleted');
+    // if (!tourCompleted) {
+    //   setRunTour(true);
+    // }
+    setRunTour(true); // Always run the tour for now
+    // --- END TEMPORARY CHANGE ---
+
   }, []);
 
   const handleJoyrideCallback = (data: CallBackProps) => {
@@ -51,12 +56,13 @@ const AppTour: React.FC = () => {
     const finishedStatuses: string[] = [STATUS.FINISHED, STATUS.SKIPPED];
 
     if (finishedStatuses.includes(status)) {
-      localStorage.setItem('bitepathTourCompleted', 'true');
-      setRunTour(false);
+      // --- TEMPORARY CHANGE FOR TESTING ---
+      // localStorage.setItem('bitepathTourCompleted', 'true'); 
+      // For testing, don't set it so it runs again, or set it and then clear it manually in dev tools
+      // --- END TEMPORARY CHANGE ---
+      setRunTour(false); // Still stop the current tour instance
     } else if (type === EVENTS.TARGET_NOT_FOUND) {
         console.warn(`Tour target not found: ${data.step.target}`);
-        // Optionally, you could advance the tour or stop it
-        // For now, we'll let Joyride handle it (it usually skips the step or stops)
     }
     
     console.log('Joyride callback data:', data);
@@ -76,8 +82,8 @@ const AppTour: React.FC = () => {
       showSkipButton
       styles={{
         options: {
-          zIndex: 10000, // Ensure it's above other elements
-          primaryColor: 'hsl(var(--primary))', // Use your app's primary color
+          zIndex: 10000, 
+          primaryColor: 'hsl(var(--primary))', 
           textColor: 'hsl(var(--foreground))',
           arrowColor: 'hsl(var(--background))',
           backgroundColor: 'hsl(var(--background))',
