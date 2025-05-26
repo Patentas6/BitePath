@@ -2,7 +2,7 @@ import AppHeader from "@/components/AppHeader";
 import TodaysMeals from "@/components/TodaysMeals";
 import TodaysGroceryList from "@/components/TodaysGroceryList";
 import { supabase } from "@/lib/supabase";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react"; // Added useMemo here
 import type { User } from "@supabase/supabase-js";
 import { useNavigate } from "react-router-dom";
 import AppTour from "@/components/AppTour";
@@ -59,12 +59,10 @@ const Dashboard = () => {
   }, [profileTourStatus, isLoadingTourStatus]);
 
 
-  if (!user && !isLoadingTourStatus) { // Added !isLoadingTourStatus to prevent premature redirect
-    // This check might be redundant if AppHeader handles it, but good for safety
+  if (!user && !isLoadingTourStatus) { 
     return <div className="min-h-screen flex items-center justify-center">Loading user session...</div>;
   }
   
-  // Show loading if user is set but tour status is still loading
   if (user && isLoadingTourStatus && isClient) {
      return <div className="min-h-screen flex items-center justify-center">Loading dashboard...</div>;
   }
