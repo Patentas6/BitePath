@@ -50,21 +50,26 @@ const AppHeader = () => {
     enabled: !!user?.id,
   });
 
-  // Logout button is removed from here. It's now on the ProfilePage.
-
   const getWelcomeMessage = () => {
     if (!user) return ""; 
-    if (isUserProfileLoading && !userProfile) return `${user.email ? user.email.split('@')[0] : 'User'}`;
-    if (userProfile) {
+    
+    let namePart = "";
+    if (isUserProfileLoading && !userProfile) { // Still loading profile, use email part or 'User'
+      namePart = user.email ? user.email.split('@')[0] : 'User';
+    } else if (userProfile) { // Profile loaded
       const { first_name, last_name } = userProfile;
-      if (first_name && last_name) return `${first_name} ${last_name}`;
-      if (first_name) return `${first_name}`;
-      if (last_name) return `${last_name}`;
+      if (first_name && last_name) namePart = `${first_name} ${last_name}`;
+      else if (first_name) namePart = first_name;
+      else if (last_name) namePart = last_name;
+      else namePart = user.email ? user.email.split('@')[0] : 'User'; // Profile exists but names are null/empty
+    } else { // Profile not loaded (and not loading, e.g., error or no profile row yet)
+      namePart = user.email ? user.email.split('@')[0] : 'User';
     }
-    return `${user.email ? user.email.split('@')[0] : 'User'}`;
+    
+    return namePart ? `Welcome ${namePart}!` : "";
   };
   
-  if (!user) {
+  if (!user) { 
     return ( 
         <header className="flex justify-between items-center p-4 container mx-auto">
              <div className="flex items-center space-x-3">
@@ -86,9 +91,10 @@ const AppHeader = () => {
           <span className="text-primary dark:text-primary transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
         </Link>
         <ThemeToggleButton />
+        <span className="text-base hidden md:inline font-medium">{getWelcomeMessage()}</span>
       </div>
       <div className="flex items-center space-x-2">
-        <span className="text-base hidden md:inline">{getWelcomeMessage()}</span>
+        {/* Welcome message moved to the left group, remove from here if it was duplicated */}
         <Button variant="default" size="sm" asChild data-tourid="tour-home-button">
           <Link to="/dashboard"><Home className="mr-2 h-4 w-4" /> Home</Link>
         </Button>
@@ -107,7 +113,6 @@ const AppHeader = () => {
         <Button variant="default" size="sm" asChild data-tourid="tour-profile-button">
           <Link to="/profile"><UserCircle className="mr-2 h-4 w-4" /> Profile</Link>
         </Button>
-        {/* Logout Button removed from here */}
       </div>
     </header>
   );
