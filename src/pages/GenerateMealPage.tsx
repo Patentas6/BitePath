@@ -41,6 +41,7 @@ const mealKinds = ["High Protein", "Vegan", "Vegetarian", "Gluten-Free", "Low Ca
 const mealStyles = ["Simple", "Fast (under 30 min)", "1 Pan", "Chef Inspired", "Comfort Food", "Healthy"];
 
 const PREFERENCES_MAX_LENGTH = 300;
+const MOCK_RECIPE_GENERATION_LIMIT = 100; // Placeholder
 
 interface GenerationStatus {
   generationsUsedThisMonth: number;
@@ -124,12 +125,11 @@ const GenerateMealPage = () => {
         showError("Please select a meal type.");
         return null;
       }
-      // Recipe generation limit check would happen in backend, not client for now
       setIsGeneratingRecipe(true);
       const loadingToastId = showLoading("Generating recipe...");
       try {
         const { data, error } = await supabase.functions.invoke('generate-meal', {
-          body: { // This payload implies recipe text generation ONLY
+          body: { 
             mealType: selectedMealType,
             kinds: selectedKinds,
             styles: selectedStyles,
@@ -138,12 +138,12 @@ const GenerateMealPage = () => {
         });
         dismissToast(loadingToastId);
         if (error) throw error;
-        if (data?.error) { // Error from within the function logic
+        if (data?.error) { 
             showError(data.error);
             setGeneratedMeal(null);
             return null; 
         }
-        setGeneratedMeal(data as GeneratedMeal); // Image_url will be undefined
+        setGeneratedMeal(data as GeneratedMeal); 
         showSuccess("Recipe generated!");
         return data;
       } catch (error: any) {
@@ -170,17 +170,15 @@ const GenerateMealPage = () => {
       setIsGeneratingImage(true);
       const loadingToastId = showLoading("Generating image...");
       try {
-        // Pass mealData to indicate we want an image for this existing recipe
         const { data, error } = await supabase.functions.invoke('generate-meal', {
           body: { mealData: mealToGetImageFor },
         });
         dismissToast(loadingToastId);
         if (error) throw error;
-        if (data?.error) { // Error from within the function logic, e.g. limit reached on server
+        if (data?.error) { 
             showError(data.error);
-            // If server indicates limit reached, it might still send back the mealData without image
             if (data.mealData) setGeneratedMeal(prev => ({...prev!, ...data.mealData}));
-            refetchUserProfile(); // Refetch to get latest count if server updated it before erroring
+            refetchUserProfile(); 
             return null;
         }
         if (data?.image_url) {
@@ -189,7 +187,7 @@ const GenerateMealPage = () => {
         } else {
           showError("Image generation did not return an image URL.");
         }
-        refetchUserProfile(); // Refresh profile to get updated image count
+        refetchUserProfile(); 
         return data;
       } catch (error: any) {
         dismissToast(loadingToastId);
@@ -214,7 +212,7 @@ const GenerateMealPage = () => {
             ingredients: ingredientsJSON,
             instructions: mealToSave.instructions,
             meal_tags: mealToSave.meal_tags,
-            image_url: mealToSave.image_url, // Will be undefined if not generated
+            image_url: mealToSave.image_url,
           },])
         .select();
       if (error) throw error;
@@ -223,7 +221,7 @@ const GenerateMealPage = () => {
     onSuccess: (data, vars) => {
       showSuccess(`"${vars.name}" saved to My Meals!`);
       queryClient.invalidateQueries({ queryKey: ["meals"] });
-      setGeneratedMeal(null); // Clear after saving
+      setGeneratedMeal(null); 
     },
     onError: (error: any, vars) => {
       console.error("Error saving meal:", error);
@@ -242,7 +240,7 @@ const GenerateMealPage = () => {
   };
 
   const handleGenerateNewRecipe = () => {
-    setGeneratedMeal(null); // Clear current meal to allow new recipe generation
+    setGeneratedMeal(null); 
   };
 
   const handleGenerateRecipeClick = async () => {
@@ -336,8 +334,12 @@ const GenerateMealPage = () => {
                 disabled={!selectedMealType || isGeneratingRecipe || generateRecipeMutation.isPending}
                 className="w-full"
               >
-                {isGeneratingRecipe || generateRecipeMutation.isPending ? 'Generating Recipe...' : 'Generate Recipe Text'}
+                {isGeneratingRecipe || generateRecipeMutation.isPending ? 'Generating Recipe...' : 'Generate Recipe'}
               </Button>
+              <div className="text-xs text-muted-foreground text-center pt-2">
+                <Info size={14} className="inline mr-1 flex-shrink-0" />
+                Recipe Generations Available (Illustrative): {MOCK_RECIPE_GENERATION_LIMIT} per period.
+              </div>
             </CardContent>
           </Card>
         )}
