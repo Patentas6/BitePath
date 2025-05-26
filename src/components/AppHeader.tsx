@@ -22,7 +22,7 @@ const AppHeader = () => {
       if (session?.user) {
         setUser(session.user);
       } else {
-        navigate("/auth"); // Should not happen if ProtectedRoute is used, but good fallback
+        navigate("/auth"); 
       }
     };
     getSession();
@@ -36,7 +36,7 @@ const AppHeader = () => {
   }, [navigate]);
 
   const { data: userProfile, isLoading: isUserProfileLoading } = useQuery<UserProfile | null>({
-    queryKey: ["userProfileDataForHeader", user?.id], // Unique queryKey
+    queryKey: ["userProfileDataForHeader", user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
       const { data, error } = await supabase
@@ -44,7 +44,7 @@ const AppHeader = () => {
         .select("first_name, last_name")
         .eq("id", user.id)
         .single();
-      if (error && error.code !== 'PGRST116') throw error; // PGRST116 means no row found, which is fine
+      if (error && error.code !== 'PGRST116') throw error;
       return data;
     },
     enabled: !!user?.id,
@@ -52,11 +52,10 @@ const AppHeader = () => {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    // Navigation to /auth is handled by the onAuthStateChange listener
   };
 
   const getWelcomeMessage = () => {
-    if (!user) return ""; // Don't show "Loading..." in header, just empty if no user yet
+    if (!user) return ""; 
     if (isUserProfileLoading && !userProfile) return `${user.email ? user.email.split('@')[0] : 'User'}`;
     if (userProfile) {
       const { first_name, last_name } = userProfile;
@@ -67,9 +66,8 @@ const AppHeader = () => {
     return `${user.email ? user.email.split('@')[0] : 'User'}`;
   };
   
-  // Avoid rendering header content until user is resolved to prevent flash of login state
   if (!user) {
-    return ( // Minimal header during auth check
+    return ( 
         <header className="flex justify-between items-center p-4 container mx-auto">
              <div className="flex items-center space-x-3">
                 <Link to="/dashboard" className="text-2xl font-bold group">
@@ -97,7 +95,7 @@ const AppHeader = () => {
           <Link to="/meals"><BookOpenText className="mr-2 h-4 w-4" /> My Meals</Link>
         </Button>
         <Button variant="default" size="sm" asChild>
-          <Link to="/generate-meal"><Brain className="mr-2 h-4 w-4" /> Generate</Link>
+          <Link to="/generate-meal"><Brain className="mr-2 h-4 w-4" /> Generate Meal</Link>
         </Button>
         <Button variant="default" size="sm" asChild>
           <Link to="/add-meal"><SquarePen className="mr-2 h-4 w-4" /> Add Meal</Link>
