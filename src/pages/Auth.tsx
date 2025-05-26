@@ -39,15 +39,49 @@ const Auth = () => {
   }, [location.search, form]);
 
   useEffect(() => {
-    const checkSession = async () => {
+    const checkSessionAndRedirect = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session) navigate("/dashboard", { replace: true });
+      if (session) {
+        // User already has a session, check profile and redirect
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('first_name')
+          .eq('id', session.user.id)
+          .single();
+        
+        if (profile && profile.first_name) {
+          navigate("/dashboard", { replace: true });
+        } else {
+          // If profile exists but no first_name, or profile doesn't exist yet (should be handled by trigger)
+          // but as a fallback, guide to profile page.
+          navigate("/profile", { replace: true });
+        }
+      }
     };
-    checkSession();
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+    checkSessionAndRedirect();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === "SIGNED_IN" && session) {
         showSuccess("Logged in successfully!");
-        navigate("/dashboard", { replace: true });
+        // Check profile to decide redirection
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('first_name, last_name')
+          .eq('id', session.user.id)
+          .single();
+
+        if (profileError && profileError.code !== 'PGRST116') { // PGRST116 means no rows found
+          console.error("Error fetching profile after sign in:", profileError);
+          navigate("/dashboard", { replace: true }); // Fallback to dashboard
+          return;
+        }
+
+        if (profile && profile.first_name && profile.last_name) {
+          navigate("/dashboard", { replace: true });
+        } else {
+          // If profile is incomplete (e.g. first_name or last_name is missing)
+          navigate("/profile", { replace: true });
+        }
       }
     });
     return () => authListener?.subscription.unsubscribe();
@@ -82,7 +116,7 @@ const Auth = () => {
               variables: {
                 default: { 
                   colors: {
-                    brand: 'hsl(var(--primary))', // Reverted to solid primary green
+                    brand: 'hsl(var(--primary))', 
                     brandAccent: '#070500', 
                     inputBackground: 'hsl(var(--input))',
                     inputText: 'hsl(var(--foreground))',
@@ -103,7 +137,8 @@ const Auth = () => {
               },
             }}
             providers={['google']}
-            redirectTo={`${window.location.origin}/dashboard`}
+            // Redirect is handled by onAuthStateChange now
+            // redirectTo={`${window.location.origin}/dashboard`} 
             localization={{
               variables: {
                 sign_in: { email_label: "Email address", password_label: "Password", button_label: "Sign in", social_provider_text: "Sign in with {{provider}}", link_text: "Already have an account? Sign in" },

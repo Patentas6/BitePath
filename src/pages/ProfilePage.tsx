@@ -88,12 +88,13 @@ const ProfilePage = () => {
       return data;
     },
     onSuccess: () => { 
-      showSuccess("Profile updated!"); 
+      showSuccess("Profile updated successfully!"); 
       queryClient.invalidateQueries({ queryKey: ["userProfile", userId] }); 
       queryClient.invalidateQueries({ queryKey: ["userProfileForGenerationLimits"] });
       queryClient.invalidateQueries({ queryKey: ["userProfileForAddMealLimits"] });
       queryClient.invalidateQueries({ queryKey: ["groceryListSource"] });
       queryClient.invalidateQueries({ queryKey: ["todaysGroceryListSource"] });
+      navigate("/dashboard"); // Navigate to dashboard on success
     },
     onError: (error: Error) => { showError(`Failed to update profile: ${error.message}`); },
   });
@@ -118,7 +119,7 @@ const ProfilePage = () => {
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle>Your Profile</CardTitle>
-            <ShadcnCardDescription>Update your display name, AI preferences, and unit system.</ShadcnCardDescription>
+            <ShadcnCardDescription>Update your display name, AI preferences, and unit system. Saving will take you to the dashboard.</ShadcnCardDescription>
           </CardHeader>
           <CardContent>
             <Form {...form}>
@@ -181,7 +182,7 @@ const ProfilePage = () => {
                       <FormControl>
                         <RadioGroup
                           onValueChange={field.onChange}
-                          value={field.value} // Changed from defaultValue to value
+                          value={field.value} 
                           className="flex flex-col space-y-1"
                           disabled={updateProfileMutation.isPending || isLoadingProfile}
                         >
@@ -208,11 +209,9 @@ const ProfilePage = () => {
                   )}
                 />
                 <div className="flex space-x-2 justify-end">
-                  <Button variant="outline" onClick={() => navigate("/dashboard")} disabled={updateProfileMutation.isPending}>
-                    Back to Dashboard
-                  </Button>
-                  <Button type="submit" disabled={!userId || updateProfileMutation.isPending || isLoadingProfile}>
-                    {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
+                  {/* "Back to Dashboard" button removed */}
+                  <Button type="submit" disabled={!userId || updateProfileMutation.isPending || isLoadingProfile} className="w-full">
+                    {updateProfileMutation.isPending ? "Saving..." : "Save Changes & Go to Dashboard"}
                   </Button>
                 </div>
               </form>
