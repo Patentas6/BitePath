@@ -32,3 +32,5 @@ export const PLANNING_MEAL_TYPES = ["Breakfast", "Brunch Snack", "Lunch", "After
 export type PlanningMealType = typeof PLANNING_MEAL_TYPES[number];
 
 export const IMAGE_GENERATION_LIMIT_PER_MONTH = 30;
+export const RECIPE_GENERATION_LIMIT_PER_PERIOD = 100;
+export const RECIPE_GENERATION_PERIOD_DAYS = 15;

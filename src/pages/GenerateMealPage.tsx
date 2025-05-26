@@ -12,12 +12,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Brain, Save, RefreshCw, Info, Image as ImageIcon, Edit2 } from 'lucide-react';
 import AppHeader from "@/components/AppHeader";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { format as formatDateFns } from "date-fns"; 
-import { IMAGE_GENERATION_LIMIT_PER_MONTH } from '@/lib/constants';
+import { format as formatDateFns, differenceInCalendarDays, addDays, parse as parseDateFns } from "date-fns"; 
+import { IMAGE_GENERATION_LIMIT_PER_MONTH, RECIPE_GENERATION_LIMIT_PER_PERIOD, RECIPE_GENERATION_PERIOD_DAYS } from '@/lib/constants';
 
 interface GeneratedIngredient {
   name: string;
-  quantity: number | string; // Allow string for flexibility like "1/2"
+  quantity: number | string; 
   unit: string;
   description?: string;
 }
@@ -34,7 +34,8 @@ interface UserProfileData {
   is_admin: boolean;
   image_generation_count: number;
   last_image_generation_reset: string | null; // YYYY-MM
-  // We don't fetch recipe_generation_count to client as it's not displayed
+  recipe_generation_count: number | null;
+  last_recipe_generation_reset: string | null; // YYYY-MM-DD
 }
 
 const mealTypes = ["Breakfast", "Lunch", "Dinner", "Snack"];
@@ -43,11 +44,18 @@ const mealStyles = ["Simple", "Fast (under 30 min)", "1 Pan", "Chef Inspired", "
 
 const PREFERENCES_MAX_LENGTH = 300;
 const REFINEMENT_MAX_LENGTH = 200;
-const MOCK_RECIPE_GENERATION_LIMIT = 100; // Placeholder, as requested not to show real count
 
-interface GenerationStatus {
-  generationsUsedThisMonth: number; // For images
-  limitReached: boolean; // For images
+interface ImageGenerationStatus {
+  generationsUsedThisMonth: number;
+  limitReached: boolean;
+  isAdmin: boolean;
+}
+
+interface RecipeGenerationStatus {
+  generationsUsedThisPeriod: number;
+  limitReached: boolean;
+  daysRemainingInPeriod: number;
+  periodResetsToday: boolean;
   isAdmin: boolean;
 }
 
@@ -77,12 +85,12 @@ const GenerateMealPage = () => {
   }, []);
 
   const { data: userProfile, isLoading: isLoadingProfile, refetch: refetchUserProfile } = useQuery<UserProfileData | null>({
-    queryKey: ['userProfileForGenerationLimits', userId], // Key remains same, data fetched is for image limits
+    queryKey: ['userProfileForGenerationLimits', userId], 
     queryFn: async () => {
       if (!userId) return null;
       const { data, error } = await supabase
         .from('profiles')
-        .select('is_admin, image_generation_count, last_image_generation_reset') // Only fetch needed fields for client
+        .select('is_admin, image_generation_count, last_image_generation_reset, recipe_generation_count, last_recipe_generation_reset') 
         .eq('id', userId)
         .single();
       if (error && error.code !== 'PGRST116') throw error;
@@ -91,7 +99,7 @@ const GenerateMealPage = () => {
     enabled: !!userId,
   });
 
-  const generationStatus = useMemo((): GenerationStatus => {
+  const imageGenerationStatus = useMemo((): ImageGenerationStatus => {
     if (!userProfile) return { generationsUsedThisMonth: 0, limitReached: true, isAdmin: false };
     if (userProfile.is_admin) return { generationsUsedThisMonth: 0, limitReached: false, isAdmin: true };
 
@@ -105,9 +113,61 @@ const GenerateMealPage = () => {
     return { 
       generationsUsedThisMonth,
       limitReached: generationsUsedThisMonth >= IMAGE_GENERATION_LIMIT_PER_MONTH,
-      isAdmin: false
+      isAdmin: userProfile.is_admin
     };
   }, [userProfile]);
+
+  const recipeGenerationStatus = useMemo((): RecipeGenerationStatus => {
+    const defaultStatus = { 
+      generationsUsedThisPeriod: 0, 
+      limitReached: true, 
+      daysRemainingInPeriod: RECIPE_GENERATION_PERIOD_DAYS, 
+      periodResetsToday: false,
+      isAdmin: false 
+    };
+
+    if (!userProfile) return defaultStatus;
+    if (userProfile.is_admin) {
+      return { ...defaultStatus, limitReached: false, isAdmin: true };
+    }
+
+    const today = new Date();
+    let currentCount = userProfile.recipe_generation_count || 0;
+    let daysRemaining = RECIPE_GENERATION_PERIOD_DAYS;
+    let periodResetsToday = false;
+
+    if (userProfile.last_recipe_generation_reset) {
+      try {
+        const lastResetDate = parseDateFns(userProfile.last_recipe_generation_reset, "yyyy-MM-dd", new Date());
+        const daysSinceLastReset = differenceInCalendarDays(today, lastResetDate);
+
+        if (daysSinceLastReset >= RECIPE_GENERATION_PERIOD_DAYS) {
+          currentCount = 0; // Period has reset
+          periodResetsToday = true;
+          daysRemaining = RECIPE_GENERATION_PERIOD_DAYS;
+        } else {
+          daysRemaining = RECIPE_GENERATION_PERIOD_DAYS - daysSinceLastReset;
+        }
+      } catch (e) {
+        console.warn("Could not parse last_recipe_generation_reset date:", userProfile.last_recipe_generation_reset);
+        currentCount = 0; // Assume reset if date is invalid
+        periodResetsToday = true;
+      }
+    } else {
+      // No reset date means it's a new period or first time
+      currentCount = 0;
+      periodResetsToday = true;
+    }
+    
+    return { 
+      generationsUsedThisPeriod: currentCount,
+      limitReached: currentCount >= RECIPE_GENERATION_LIMIT_PER_PERIOD,
+      daysRemainingInPeriod: daysRemaining,
+      periodResetsToday: periodResetsToday,
+      isAdmin: userProfile.is_admin
+    };
+  }, [userProfile]);
+
 
   const handleKindChange = (kind: string, checked: boolean) => {
     setSelectedKinds(prev =>
@@ -152,25 +212,26 @@ const GenerateMealPage = () => {
         const { data, error: functionError } = await supabase.functions.invoke('generate-meal', { body: bodyPayload });
         dismissToast(loadingToastId);
 
-        // Check for Supabase function invocation error first
         if (functionError) {
             if (functionError.message.includes("Functions_Relay_Error") && functionError.message.includes("429")) {
                  showError(`You've reached your recipe generation limit for the current period. Please try again later.`);
             } else {
                  showError(`Recipe generation failed: ${functionError.message}`);
             }
+            refetchUserProfile(); // Refetch profile to update counts if server changed them
             return null;
         }
-        // Check for error within the function's own response payload
         if (data?.error) { 
-            showError(data.error); // This could also be the 429 message from the function's logic
+            showError(data.error); 
+            refetchUserProfile();
             return null; 
         }
         setGeneratedMeal({ ...data, image_url: undefined }); 
         setRefinementPrompt(''); 
         showSuccess(params.isRefinement ? "Recipe refined!" : "Recipe generated!");
+        refetchUserProfile(); // Refetch profile to update counts
         return data;
-      } catch (error: any) { // Catch other unexpected errors
+      } catch (error: any) { 
         dismissToast(loadingToastId);
         console.error('Error in recipe generation/refinement:', error);
         showError(`Failed to ${params.isRefinement ? 'refine' : 'generate'} recipe: ${error.message || 'Please try again.'}`);
@@ -186,7 +247,7 @@ const GenerateMealPage = () => {
       if (!userId) throw new Error("User not authenticated.");
       if (!mealToGetImageFor) throw new Error("No meal data to generate image for.");
 
-      if (!generationStatus.isAdmin && generationStatus.limitReached) {
+      if (!imageGenerationStatus.isAdmin && imageGenerationStatus.limitReached) {
         showError(`You have reached your monthly image generation limit of ${IMAGE_GENERATION_LIMIT_PER_MONTH}.`);
         return null;
       }
@@ -203,11 +264,11 @@ const GenerateMealPage = () => {
              } else {
                  showError(`Image generation failed: ${functionError.message}`);
              }
-             refetchUserProfile(); // Refetch to get latest count if server updated it before erroring
+             refetchUserProfile(); 
              return null;
         }
         if (data?.error) { 
-            showError(data.error); // e.g. server-side limit message
+            showError(data.error); 
             if (data.mealData) setGeneratedMeal(prev => ({...prev!, ...data.mealData}));
             refetchUserProfile(); 
             return null;
@@ -296,6 +357,24 @@ const GenerateMealPage = () => {
     }
   };
 
+  const getRecipeLimitText = () => {
+    if (isLoadingProfile) return "Loading recipe generation limits...";
+    if (recipeGenerationStatus.isAdmin) return "Admin: Recipe generation limits bypassed.";
+    
+    let resetText = "";
+    if (recipeGenerationStatus.periodResetsToday && recipeGenerationStatus.generationsUsedThisPeriod === 0) {
+      resetText = `New period started. Resets in ${RECIPE_GENERATION_PERIOD_DAYS} days.`;
+    } else if (recipeGenerationStatus.daysRemainingInPeriod === RECIPE_GENERATION_PERIOD_DAYS && recipeGenerationStatus.generationsUsedThisPeriod > 0) {
+      // This case might happen if period just reset but a generation happened before UI update
+      resetText = `Resets in ${recipeGenerationStatus.daysRemainingInPeriod} days.`;
+    } 
+    else {
+      resetText = `Resets in ${recipeGenerationStatus.daysRemainingInPeriod} day${recipeGenerationStatus.daysRemainingInPeriod !== 1 ? 's' : ''}.`;
+    }
+    return `Recipe Generations Used: ${recipeGenerationStatus.generationsUsedThisPeriod} / ${RECIPE_GENERATION_LIMIT_PER_PERIOD}. ${resetText}`;
+  };
+
+
   return (
     <div className="min-h-screen bg-background text-foreground p-4">
       <div className="container mx-auto space-y-6">
@@ -368,14 +447,14 @@ const GenerateMealPage = () => {
               </div>
               <Button
                 onClick={handleInitialGenerateRecipeClick}
-                disabled={!selectedMealType || isGeneratingRecipe || recipeGenerationMutation.isPending}
+                disabled={!selectedMealType || isGeneratingRecipe || recipeGenerationMutation.isPending || (!isLoadingProfile && !recipeGenerationStatus.isAdmin && recipeGenerationStatus.limitReached)}
                 className="w-full"
               >
                 {isGeneratingRecipe || recipeGenerationMutation.isPending ? 'Generating Recipe...' : 'Generate Recipe'}
               </Button>
               <div className="text-xs text-muted-foreground text-center pt-2">
                 <Info size={14} className="inline mr-1 flex-shrink-0" />
-                Recipe Generations Available (Illustrative): {MOCK_RECIPE_GENERATION_LIMIT} per period.
+                 {getRecipeLimitText()}
               </div>
             </CardContent>
           </Card>
@@ -433,20 +512,24 @@ const GenerateMealPage = () => {
                 </p>
                 <Button
                   onClick={handleRefineRecipeClick}
-                  disabled={!refinementPrompt.trim() || isGeneratingRecipe || recipeGenerationMutation.isPending}
+                  disabled={!refinementPrompt.trim() || isGeneratingRecipe || recipeGenerationMutation.isPending || (!isLoadingProfile && !recipeGenerationStatus.isAdmin && recipeGenerationStatus.limitReached && recipeGenerationStatus.generationsUsedThisPeriod >= RECIPE_GENERATION_LIMIT_PER_PERIOD) }
                   className="w-full mt-2"
                   variant="secondary"
                 >
                   <Edit2 className="mr-2 h-4 w-4" />
                   {isGeneratingRecipe && recipeGenerationMutation.isLoading && recipeGenerationMutation.variables?.isRefinement ? 'Refining...' : 'Refine Recipe'}
                 </Button>
+                 <div className="text-xs text-muted-foreground text-center pt-2">
+                    <Info size={14} className="inline mr-1 flex-shrink-0" />
+                    {getRecipeLimitText()}
+                </div>
               </div>
 
               {!generatedMeal.image_url && (
                 <div className="pt-4 border-t">
                   <Button
                     onClick={handleGenerateImageClick}
-                    disabled={isGeneratingImage || generateImageMutation.isPending || isLoadingProfile || (!generationStatus.isAdmin && generationStatus.limitReached)}
+                    disabled={isGeneratingImage || generateImageMutation.isPending || isLoadingProfile || (!imageGenerationStatus.isAdmin && imageGenerationStatus.limitReached)}
                     className="w-full mb-2"
                     variant="outline"
                   >
@@ -456,9 +539,9 @@ const GenerateMealPage = () => {
                   {!isLoadingProfile && (
                     <div className="flex items-center justify-center text-xs text-muted-foreground">
                       <Info size={14} className="mr-1 flex-shrink-0 text-primary" />
-                      {generationStatus.isAdmin 
+                      {imageGenerationStatus.isAdmin 
                         ? "Admin account: Image generation limits bypassed."
-                        : `Image Generations Used This Month: ${generationStatus.generationsUsedThisMonth} / ${IMAGE_GENERATION_LIMIT_PER_MONTH}.`}
+                        : `Image Generations Used This Month: ${imageGenerationStatus.generationsUsedThisMonth} / ${IMAGE_GENERATION_LIMIT_PER_MONTH}.`}
                     </div>
                   )}
                 </div>
