@@ -13,14 +13,14 @@ const IMAGE_GENERATION_LIMIT_PER_MONTH = 30;
 
 interface GeneratedIngredient {
   name: string;
-  quantity: number;
+  quantity: number | string; // Allow string for flexibility
   unit: string;
   description?: string;
 }
 
 interface GeneratedMeal {
   name: string;
-  ingredients: GeneratedIngredient[];
+  ingredients: GeneratedIngredient[] | string; // Allow string for initial parsing
   instructions: string;
   meal_tags: string[];
   image_url?: string;
@@ -169,25 +169,29 @@ serve(async (req) => {
 
     let generatedMealData: GeneratedMeal | undefined;
     let mealNameForImage: string;
-    let anImageWillBeGenerated = true;
+    let anImageShouldBeGenerated = false; // Default to false
 
-    if (mealData) {
+    if (mealData) { // Case 1: mealData is provided (request is for image generation for existing text)
         console.log("Received existing meal data for image generation:", mealData.name);
-        generatedMealData = mealData as GeneratedMeal;
+        generatedMealData = mealData as GeneratedMeal; // Trust client structure for now
         mealNameForImage = mealData.name;
+        // Ensure ingredients are parsed if they are a string
         if (typeof generatedMealData.ingredients === 'string') {
              try { generatedMealData.ingredients = JSON.parse(generatedMealData.ingredients); } 
              catch (e) { console.warn("Failed to parse ingredients string from mealData:", e); generatedMealData.ingredients = []; }
         } else if (!Array.isArray(generatedMealData.ingredients)) { generatedMealData.ingredients = []; }
         if (!Array.isArray(generatedMealData.meal_tags)) { generatedMealData.meal_tags = []; }
         
-        if (mealData.image_url) {
-            anImageWillBeGenerated = false;
+        if (!mealData.image_url) { // If mealData is given AND it doesn't have an image_url
+            anImageShouldBeGenerated = true; // Then we are generating an image for existing text
+            console.log("Proceeding to generate image for:", mealNameForImage);
+        } else {
+            // mealData already has an image_url, so we're just passing it through, no new generation.
             console.log("MealData already contains an image_url. Skipping new image generation.");
-            generatedMealData.image_url = mealData.image_url;
+            // generatedMealData.image_url is already set from mealData
         }
-    } else {
-        console.log("Request body for full generation:", { mealType, kinds, styles, preferences });
+    } else { // Case 2: No mealData, generate recipe text ONLY
+        console.log("Request body for recipe text generation:", { mealType, kinds, styles, preferences });
         const serviceAccountJsonStringForGemini = Deno.env.get("VERTEX_SERVICE_ACCOUNT_KEY_JSON");
         if (!serviceAccountJsonStringForGemini) { 
             console.error("VERTEX_SERVICE_ACCOUNT_KEY_JSON secret not set for Gemini.");
@@ -197,7 +201,7 @@ serve(async (req) => {
         const saGemini = JSON.parse(serviceAccountJsonStringForGemini);
         const projectIdGemini = saGemini.project_id;
         const regionGemini = "us-central1";
-        const geminiModelId = "gemini-2.5-flash-preview-05-20"; 
+        const geminiModelId = "gemini-1.5-flash-preview-0514"; // Updated model
         const geminiEndpoint = `https://${regionGemini}-aiplatform.googleapis.com/v1/projects/${projectIdGemini}/locations/${regionGemini}/publishers/google/models/${geminiModelId}:generateContent`;
         
         let prompt = `Generate a detailed meal recipe in JSON format. The JSON object should have the following structure:
@@ -217,7 +221,7 @@ serve(async (req) => {
         prompt += ` Ensure the response is ONLY the JSON object, nothing else. Do not wrap it in markdown backticks.`;
 
         const geminiPayload = {
-          contents: [{ role: "user", parts: [{ text: prompt }] }], // Added role: "user"
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
           generationConfig: {
             responseMimeType: "application/json",
             temperature: 0.7,
@@ -233,13 +237,9 @@ serve(async (req) => {
 
         if (!geminiResponse.ok) { 
             const errorText = await geminiResponse.text();
-            console.error("Gemini API error:", errorText); // Log the actual error text
-            // Try to parse the errorText if it's JSON, otherwise use it directly
+            console.error("Gemini API error:", errorText);
             let errorMessage = errorText;
-            try {
-                const errorJson = JSON.parse(errorText);
-                errorMessage = errorJson.error?.message || errorText;
-            } catch (e) { /* ignore parsing error, use raw text */ }
+            try { const errorJson = JSON.parse(errorText); errorMessage = errorJson.error?.message || errorText; } catch (e) { /* ignore */ }
             throw new Error(`Gemini API request failed: ${geminiResponse.status} ${errorMessage}`);
         }
         const geminiData = await geminiResponse.json();
@@ -251,7 +251,7 @@ serve(async (req) => {
         }
         try {
             generatedMealData = JSON.parse(generatedContentString);
-            if (!generatedMealData.name || !Array.isArray(generatedMealData.ingredients) || !generatedMealData.instructions) { 
+            if (!generatedMealData || !generatedMealData.name || !Array.isArray(generatedMealData.ingredients) || !generatedMealData.instructions) { 
                 console.error("Invalid recipe format from Gemini:", generatedMealData);
                 throw new Error("Invalid recipe format from AI."); 
             }
@@ -259,38 +259,39 @@ serve(async (req) => {
             console.error("Failed to parse Gemini JSON response:", parseError, "Raw content:", generatedContentString);
             throw new Error("Failed to parse recipe from AI.");
         }
-        console.log("Generated Recipe:", generatedMealData.name);
-        mealNameForImage = generatedMealData.name;
+        console.log("Generated Recipe Text:", generatedMealData.name);
+        // mealNameForImage = generatedMealData.name; // Not needed here as image is not generated
     }
 
-    if (anImageWillBeGenerated && !userIsAdmin) {
-        const currentMonthYear = formatDate(new Date(), "yyyy-MM");
-        if (userLastImageGenerationReset !== currentMonthYear) {
-            console.log(`User ${user.id}: New month detected. Resetting generation count. Old: '${userLastImageGenerationReset}', New: '${currentMonthYear}'`);
-            userImageGenerationCount = 0;
-            userLastImageGenerationReset = currentMonthYear;
-        }
+    // Image generation logic only runs if anImageShouldBeGenerated is true
+    if (anImageShouldBeGenerated) {
+        if (!userIsAdmin) { // Check limit only if generating image and not admin
+            const currentMonthYear = formatDate(new Date(), "yyyy-MM");
+            if (userLastImageGenerationReset !== currentMonthYear) {
+                console.log(`User ${user.id}: New month detected for image generation. Resetting count. Old: '${userLastImageGenerationReset}', New: '${currentMonthYear}'`);
+                userImageGenerationCount = 0;
+                userLastImageGenerationReset = currentMonthYear;
+            }
 
-        if (userImageGenerationCount >= IMAGE_GENERATION_LIMIT_PER_MONTH) {
-            console.log(`User ${user.id} has reached the monthly image generation limit of ${IMAGE_GENERATION_LIMIT_PER_MONTH}. Current count: ${userImageGenerationCount}`);
-            return new Response(JSON.stringify({ 
-                error: `You have reached your monthly image generation limit of ${IMAGE_GENERATION_LIMIT_PER_MONTH}.`,
-                ...(mealData ? {} : { mealData: generatedMealData }) 
-            }), {
-                status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
+            if (userImageGenerationCount >= IMAGE_GENERATION_LIMIT_PER_MONTH) {
+                console.log(`User ${user.id} has reached the monthly image generation limit of ${IMAGE_GENERATION_LIMIT_PER_MONTH}. Current count: ${userImageGenerationCount}`);
+                // Return the meal data without image_url if limit is hit during image generation request
+                return new Response(JSON.stringify({ 
+                    error: `You have reached your monthly image generation limit of ${IMAGE_GENERATION_LIMIT_PER_MONTH}.`,
+                    mealData: mealData // Send back the original mealData
+                }), {
+                    status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+                });
+            }
         }
-    }
-    
-    if (anImageWillBeGenerated) {
+        
+        // Proceed with image generation
         const serviceAccountJsonStringForImagen = Deno.env.get("VERTEX_SERVICE_ACCOUNT_KEY_JSON");
         if (!serviceAccountJsonStringForImagen) {
             console.error("VERTEX_SERVICE_ACCOUNT_KEY_JSON secret not set for Imagen.");
-            if (generatedMealData && !mealData) {
-                 generatedMealData.image_url = undefined;
-                 return new Response(JSON.stringify(generatedMealData), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
-            }
-            throw new Error("AI service (Imagen) not configured for image generation.");
+            // If image gen fails due to config, return meal data without image
+            if (generatedMealData) generatedMealData.image_url = undefined; 
+            return new Response(JSON.stringify(generatedMealData || mealData), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
         }
 
         const accessTokenForImagen = await getAccessToken(serviceAccountJsonStringForImagen);
@@ -304,11 +305,7 @@ serve(async (req) => {
         
         const imagenPayload = {
           instances: [{ prompt: imagePromptText }],
-          parameters: {
-            sampleCount: 1,
-            aspectRatio: "1:1",
-            outputFormat: "png" 
-          }
+          parameters: { sampleCount: 1, aspectRatio: "1:1", outputFormat: "png" }
         };
         
         console.log(`Attempting to call Imagen for user ${user.id}. Prompt: "${imagePromptText}"`);
@@ -336,7 +333,7 @@ serve(async (req) => {
         
         if (generatedMealData) generatedMealData.image_url = imageUrl;
         
-        if (!userIsAdmin) {
+        if (!userIsAdmin) { // Increment count only if image was attempted (even if it failed but limit wasn't hit before)
             userImageGenerationCount += 1;
             const { error: updateError } = await serviceSupabaseClient
                 .from('profiles')
@@ -351,26 +348,28 @@ serve(async (req) => {
                 console.log(`Successfully updated image generation count for user ${user.id} to ${userImageGenerationCount}. Reset month: ${userLastImageGenerationReset}`);
             }
         }
-    }
+    } // End of if (anImageShouldBeGenerated)
 
-    if (mealData) { 
+    // Determine response based on original request type
+    if (mealData) { // Request was for image generation (mealData was initially passed)
          return new Response(
-            JSON.stringify({ image_url: generatedMealData?.image_url }),
+            JSON.stringify({ image_url: generatedMealData?.image_url }), // Only return image_url
             { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
          );
-    } else { 
+    } else { // Request was for recipe text generation
         if (!generatedMealData) { 
-            console.error("Critical error: generatedMealData is undefined before final response.");
+            console.error("Critical error: generatedMealData is undefined before final response for recipe text.");
             throw new Error("Failed to generate meal data."); 
         }
+        // image_url will be undefined here as it's not generated in this path
         return new Response(
-          JSON.stringify(generatedMealData),
+          JSON.stringify(generatedMealData), 
           { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
         );
     }
 
   } catch (error) {
-    console.error("Error in Edge Function:", error); // Log the full error object
+    console.error("Error in Edge Function:", error);
     return new Response(
       JSON.stringify({ error: `Failed to process request: ${error.message || 'Unknown error'}` }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
