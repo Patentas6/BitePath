@@ -114,7 +114,6 @@ serve(async (req) => {
       });
     }
     
-    // Use Service Role Key for database operations that need to bypass RLS or manage internal data
     serviceSupabaseClient = createClient(supabaseUrl, serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false }
     });
@@ -131,7 +130,6 @@ serve(async (req) => {
       });
     }
 
-    // Get user from token. This client doesn't need service_role for getUser.
     const { data: { user }, error: userError } = await createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY') ?? '', {
         global: { headers: { Authorization: `Bearer ${token}` } },
         auth: { autoRefreshToken: false, persistSession: false }
@@ -199,7 +197,7 @@ serve(async (req) => {
         const saGemini = JSON.parse(serviceAccountJsonStringForGemini);
         const projectIdGemini = saGemini.project_id;
         const regionGemini = "us-central1";
-        const geminiModelId = "gemini-1.5-flash-preview-0514"; // Updated model
+        const geminiModelId = "gemini-1.5-flash-001"; // Changed model ID
         const geminiEndpoint = `https://${regionGemini}-aiplatform.googleapis.com/v1/projects/${projectIdGemini}/locations/${regionGemini}/publishers/google/models/${geminiModelId}:generateContent`;
         
         let prompt = `Generate a detailed meal recipe in JSON format. The JSON object should have the following structure:
@@ -221,7 +219,7 @@ serve(async (req) => {
         const geminiPayload = {
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
-            responseMimeType: "application/json", // Request JSON output
+            responseMimeType: "application/json",
             temperature: 0.7,
             maxOutputTokens: 2048,
           },
@@ -246,7 +244,7 @@ serve(async (req) => {
             throw new Error("Failed to generate recipe: No content from AI.");
         }
         try {
-            generatedMealData = JSON.parse(generatedContentString); // Directly parse as JSON
+            generatedMealData = JSON.parse(generatedContentString);
             if (!generatedMealData.name || !Array.isArray(generatedMealData.ingredients) || !generatedMealData.instructions) { 
                 console.error("Invalid recipe format from Gemini:", generatedMealData);
                 throw new Error("Invalid recipe format from AI."); 
@@ -271,7 +269,7 @@ serve(async (req) => {
             console.log(`User ${user.id} has reached the monthly image generation limit of ${IMAGE_GENERATION_LIMIT_PER_MONTH}. Current count: ${userImageGenerationCount}`);
             return new Response(JSON.stringify({ 
                 error: `You have reached your monthly image generation limit of ${IMAGE_GENERATION_LIMIT_PER_MONTH}.`,
-                ...(mealData ? {} : { mealData: generatedMealData }) // Return recipe if generated, but no image
+                ...(mealData ? {} : { mealData: generatedMealData }) 
             }), {
                 status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
@@ -293,7 +291,7 @@ serve(async (req) => {
         const saImagen = JSON.parse(serviceAccountJsonStringForImagen);
         const projectIdImagen = saImagen.project_id;
         const regionImagen = "us-central1"; 
-        const imagenModelId = "imagegeneration@006"; // Updated model
+        const imagenModelId = "imagegeneration@006";
         const imagenEndpoint = `https://${regionImagen}-aiplatform.googleapis.com/v1/projects/${projectIdImagen}/locations/${regionImagen}/publishers/google/models/${imagenModelId}:predict`;
         
         const imagePromptText = `A vibrant, appetizing, realistic photo of the meal "${mealNameForImage}". Focus on the finished dish presented nicely on a plate or in a bowl, suitable for a food blog. Ensure main ingredients are clearly visible. Good lighting, sharp focus.`;
@@ -302,7 +300,7 @@ serve(async (req) => {
           instances: [{ prompt: imagePromptText }],
           parameters: {
             sampleCount: 1,
-            aspectRatio: "1:1", // Square image
+            aspectRatio: "1:1",
             outputFormat: "png" 
           }
         };
@@ -333,7 +331,7 @@ serve(async (req) => {
         if (generatedMealData) generatedMealData.image_url = imageUrl;
         
         if (!userIsAdmin) {
-            userImageGenerationCount += 1; // Increment count as an attempt was made
+            userImageGenerationCount += 1;
             const { error: updateError } = await serviceSupabaseClient
                 .from('profiles')
                 .update({ 
@@ -351,7 +349,7 @@ serve(async (req) => {
 
     if (mealData) { 
          return new Response(
-            JSON.stringify({ image_url: generatedMealData?.image_url }), // Only return image_url if mealData was input
+            JSON.stringify({ image_url: generatedMealData?.image_url }),
             { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
          );
     } else { 
