@@ -4,7 +4,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import type { User } from "@supabase/supabase-js";
-import { UserCircle, BookOpenText, Brain, SquarePen, CalendarDays, Home } from "lucide-react"; // Added Home icon
+import { UserCircle, BookOpenText, Brain, SquarePen, CalendarDays, Home } from "lucide-react";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 
 interface UserProfile {
@@ -92,7 +92,7 @@ const AppHeader = () => {
       <div className="flex items-center space-x-2">
         <span className="text-base hidden md:inline">{getWelcomeMessage()}</span>
         <Button variant="default" size="sm" asChild>
-          <Link to="/dashboard"><Home className="mr-2 h-4 w-4" /> Dashboard</Link>
+          <Link to="/dashboard"><Home className="mr-2 h-4 w-4" /> Home</Link>
         </Button>
         <Button variant="default" size="sm" asChild>
           <Link to="/meals"><BookOpenText className="mr-2 h-4 w-4" /> My Meals</Link>
