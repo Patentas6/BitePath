@@ -5,11 +5,13 @@ import { format, startOfToday, parseISO } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ShoppingCart } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ShoppingCart, Utensils, LayoutGrid } from "lucide-react";
 import { Link } from "react-router-dom";
 import { convertToPreferredSystem } from "@/utils/conversionUtils"; 
 
 const SHARED_LOCAL_STORAGE_KEY = 'bitepath-struckSharedGroceryItems';
+const GROCERY_VIEW_MODE_KEY = 'bitepath-groceryViewMode'; // Same key for consistent preference
 
 interface PlannedMealWithIngredients {
   plan_date: string;
@@ -73,6 +75,12 @@ interface CategorizedDisplayListItem {
   uniqueKey: string;
 }
 
+interface MealWiseDisplayItem {
+  mealName: string;
+  planDate: string; // Though for Today's list, it's always today
+  ingredients: CategorizedDisplayListItem[];
+}
+
 interface TodaysGroceryListProps {
   userId: string;
 }
@@ -82,6 +90,15 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
   const todayStr = format(today, 'yyyy-MM-dd');
   const [displaySystem, setDisplaySystem] = useState<'imperial' | 'metric'>('imperial'); 
   
+  const [viewMode, setViewMode] = useState<'category' | 'meal'>(() => {
+    const savedViewMode = localStorage.getItem(GROCERY_VIEW_MODE_KEY);
+    return (savedViewMode === 'category' || savedViewMode === 'meal') ? savedViewMode : 'meal';
+  });
+
+  useEffect(() => {
+    localStorage.setItem(GROCERY_VIEW_MODE_KEY, viewMode);
+  }, [viewMode]);
+
   const [struckItems, setStruckItems] = useState<Set<string>>(() => {
     const saved = localStorage.getItem(SHARED_LOCAL_STORAGE_KEY);
     return saved ? new Set(JSON.parse(saved)) : new Set();
@@ -161,6 +178,49 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
     return Array.from(ingredientMap.values());
   }, [plannedMealsData]);
 
+  const formatSingleIngredientForDisplay = (
+    name: string, 
+    quantity: number | string, 
+    unit: string, 
+    isSummableOverride?: boolean 
+  ): Pick<CategorizedDisplayListItem, 'itemName' | 'itemNameClass' | 'detailsPart' | 'detailsClass'> => {
+    
+    const itemName = name;
+    const itemNameClass = "text-foreground";
+    let currentQuantity = typeof quantity === 'string' ? parseFloat(quantity) : quantity;
+    let currentUnit = unit;
+    let detailsPart = "";
+    let detailsClass = "text-foreground";
+
+    if (displaySystem === 'metric' && (isSummableOverride || SUMMABLE_UNITS.includes(unit.toLowerCase()))) {
+        const converted = convertToPreferredSystem(currentQuantity, unit, 'metric');
+        if (converted) {
+            currentQuantity = converted.quantity;
+            currentUnit = converted.unit;
+        }
+    }
+    
+    if (SPICE_MEASUREMENT_UNITS.includes(currentUnit.toLowerCase())) {
+        detailsClass = "text-gray-500 dark:text-gray-400";
+    }
+
+    if (currentQuantity > 0) {
+        const roundedDisplayQty = (currentQuantity % 1 === 0) ? Math.round(currentQuantity) : parseFloat(currentQuantity.toFixed(1));
+        if (PIECE_UNITS.includes(currentUnit.toLowerCase())) {
+            detailsPart = `${roundedDisplayQty}`;
+        } else {
+            let unitStr = currentUnit;
+            if (roundedDisplayQty > 1 && !['L', 'ml', 'g', 'kg'].includes(unitStr) && !unitStr.endsWith('s') && unitStr.length > 0) {
+                if (unitStr.endsWith('y') && !['day', 'key', 'way', 'toy', 'boy', 'guy'].includes(unitStr.toLowerCase())) {
+                    unitStr = unitStr.slice(0, -1) + 'ies';
+                } else { unitStr += "s"; }
+            }
+            detailsPart = `${roundedDisplayQty} ${unitStr}`;
+        }
+    }
+    return { itemName, itemNameClass, detailsPart, detailsClass };
+  };
+
   const categorizedDisplayList = useMemo(() => {
     const grouped: Record<Category, CategorizedDisplayListItem[]> =
       categoryOrder.reduce((acc, cat) => { acc[cat] = []; return acc; }, {} as Record<Category, CategorizedDisplayListItem[]>);
@@ -175,59 +235,19 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
         }
       }
 
-      const itemName = aggItem.name;
-      const itemNameClass = "text-foreground"; 
-
-      let currentQuantity = aggItem.totalQuantity;
-      let currentUnit = aggItem.unit || ""; 
+      const { itemName, itemNameClass, detailsPart, detailsClass } = formatSingleIngredientForDisplay(
+        aggItem.name, 
+        aggItem.totalQuantity, 
+        aggItem.unit || "",
+        aggItem.isSummable
+      );
       
-      let detailsPart = "";
-      
-      if (displaySystem === 'metric' && aggItem.isSummable) {
-        const converted = convertToPreferredSystem(aggItem.totalQuantity, aggItem.unit || "", 'metric');
-        if (converted) {
-            currentQuantity = converted.quantity;
-            currentUnit = converted.unit;
-        }
-      }
-      
-      let detailsClass = "text-foreground"; 
-      if (SPICE_MEASUREMENT_UNITS.includes(currentUnit.toLowerCase())) {
-          detailsClass = "text-gray-500 dark:text-gray-400"; 
-      }
-
-      if (aggItem.isSummable && currentQuantity > 0) {
-        const roundedDisplayQty = (currentQuantity % 1 === 0) ? Math.round(currentQuantity) : parseFloat(currentQuantity.toFixed(1));
-        if (PIECE_UNITS.includes(currentUnit.toLowerCase())) {
-          detailsPart = `${roundedDisplayQty}`;
-        } else {
-          let unitStr = currentUnit;
-           if (roundedDisplayQty > 1 && !['L', 'ml', 'g', 'kg'].includes(unitStr) && !unitStr.endsWith('s') && unitStr.length > 0) {
-             if (unitStr.endsWith('y') && !['day', 'key', 'way', 'toy', 'boy', 'guy'].includes(unitStr.toLowerCase())) {
-                unitStr = unitStr.slice(0, -1) + 'ies';
-             } else { unitStr += "s"; }
-          }
-          detailsPart = `${roundedDisplayQty} ${unitStr}`;
-        }
-      } else if (!aggItem.isSummable && aggItem.originalItems.length > 0) {
-        detailsPart = aggItem.originalItems.map(orig => {
-          let q = orig.quantity;
-          let u = orig.unit;
-          if (displaySystem === 'metric') {
-            const convertedPart = convertToPreferredSystem(orig.quantity, orig.unit, 'metric');
-            if (convertedPart) {
-              q = convertedPart.quantity;
-              u = convertedPart.unit;
-            }
-          }
-          if (PIECE_UNITS.includes(u.toLowerCase())) return `${q}`;
-          return `${q} ${u}`;
-        }).filter(Boolean).join(' + '); // Changed from ';' to ' + '
-        if (aggItem.originalItems.some(oi => SPICE_MEASUREMENT_UNITS.includes(oi.unit.toLowerCase()))) {
-            detailsClass = "text-gray-500 dark:text-gray-400";
-        } else {
-            detailsClass = "text-foreground";
-        }
+      let finalDetailsPart = detailsPart;
+      if (!aggItem.isSummable && aggItem.originalItems.length > 0) {
+        finalDetailsPart = aggItem.originalItems.map(orig => {
+          const formattedOrig = formatSingleIngredientForDisplay(orig.name, orig.quantity, orig.unit, false);
+          return formattedOrig.detailsPart;
+        }).filter(Boolean).join(' + ');
       }
 
       const uniqueKey = `${itemName.trim().toLowerCase()}:${(aggItem.unit || "").trim().toLowerCase()}-${foundCategory.toLowerCase()}`;
@@ -235,12 +255,58 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
         .map(oi => `${oi.quantity} ${oi.unit} ${oi.name} (from: ${oi.mealName})${oi.description ? ` (${oi.description})` : ''}`)
         .join('\n');
 
-      if (detailsPart.trim() !== "" || itemName.trim() !== "") {
-        grouped[foundCategory].push({ itemName, itemNameClass, detailsPart, detailsClass, originalItemsTooltip, uniqueKey });
+      if (finalDetailsPart.trim() !== "" || itemName.trim() !== "") {
+        grouped[foundCategory].push({ itemName, itemNameClass, detailsPart: finalDetailsPart, detailsClass, originalItemsTooltip, uniqueKey });
       }
     });
     return grouped;
   }, [aggregatedIngredients, displaySystem]);
+
+  const mealWiseDisplayList = useMemo(() => {
+    if (!plannedMealsData) return [];
+    const mealsMap = new Map<string, MealWiseDisplayItem>();
+
+    plannedMealsData.forEach(pm => {
+      if (!pm.meals) return;
+      const mealKey = `${pm.plan_date}-${pm.meals.name}`; // plan_date is todayStr for this component
+      let mealEntry = mealsMap.get(mealKey);
+      if (!mealEntry) {
+        mealEntry = { mealName: pm.meals.name, planDate: pm.plan_date, ingredients: [] };
+        mealsMap.set(mealKey, mealEntry);
+      }
+
+      if (pm.meals.ingredients && typeof pm.meals.ingredients === 'string') {
+        try {
+          const parsedIngredients: Omit<ParsedIngredientItem, 'mealName'>[] = JSON.parse(pm.meals.ingredients);
+          parsedIngredients.forEach((ing) => {
+            if (!ing.name || typeof ing.quantity !== 'number' && typeof ing.quantity !== 'string' || !ing.unit) return;
+            
+            const { itemName, itemNameClass, detailsPart, detailsClass } = formatSingleIngredientForDisplay(
+              ing.name, 
+              ing.quantity, 
+              ing.unit,
+              false 
+            );
+            
+            let foundCategory: Category = 'Other';
+            const itemLower = ing.name.toLowerCase();
+            for (const cat of categoryOrder) { if (cat !== 'Other' && categoriesMap[cat].some(keyword => itemLower.includes(keyword))) { foundCategory = cat; break; } }
+            const uniqueKeyForStriking = `${ing.name.trim().toLowerCase()}:${(ing.unit || "").trim().toLowerCase()}-${foundCategory.toLowerCase()}`;
+
+            mealEntry!.ingredients.push({
+              itemName,
+              itemNameClass,
+              detailsPart,
+              detailsClass,
+              originalItemsTooltip: `${ing.quantity} ${ing.unit} ${ing.name}${ing.description ? ` (${ing.description})` : ''} (from: ${pm.meals!.name})`,
+              uniqueKey: uniqueKeyForStriking, 
+            });
+          });
+        } catch (e) { console.warn("Error parsing ingredients for meal-wise view (Today's List):", e); }
+      }
+    });
+    return Array.from(mealsMap.values()); // No need to sort by date, it's all today
+  }, [plannedMealsData, displaySystem]);
   
   useEffect(() => {
     const handleStorageChange = (event: StorageEvent) => {
@@ -248,8 +314,13 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
         const newGlobalValue = event.newValue;
         const newGlobalStruckItems = newGlobalValue ? new Set<string>(JSON.parse(newGlobalValue)) : new Set<string>();
         
+        const currentDisplayKeys = new Set(
+          viewMode === 'category' 
+            ? Object.values(categorizedDisplayList).flat().map(item => item.uniqueKey)
+            : mealWiseDisplayList.flatMap(meal => meal.ingredients.map(ing => ing.uniqueKey))
+        );
+        
         setStruckItems(prevLocalStruckItems => {
-          const currentDisplayKeys = new Set(Object.values(categorizedDisplayList).flat().map(item => item.uniqueKey));
           const updatedLocalStruckItems = new Set<string>();
           newGlobalStruckItems.forEach(key => {
             if (currentDisplayKeys.has(key)) {
@@ -265,10 +336,14 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
     };
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
-  }, [categorizedDisplayList]);
+  }, [categorizedDisplayList, mealWiseDisplayList, viewMode]);
 
   useEffect(() => {
-    const currentDisplayKeys = new Set(Object.values(categorizedDisplayList).flat().map(item => item.uniqueKey));
+    const currentDisplayKeys = new Set(
+      viewMode === 'category' 
+        ? Object.values(categorizedDisplayList).flat().map(item => item.uniqueKey)
+        : mealWiseDisplayList.flatMap(meal => meal.ingredients.map(ing => ing.uniqueKey))
+    );
     const globalRaw = localStorage.getItem(SHARED_LOCAL_STORAGE_KEY);
     const globalStruckItems = globalRaw ? new Set<string>(JSON.parse(globalRaw)) : new Set<string>();
 
@@ -285,7 +360,7 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
       }
       return prevLocalStruckItems;
     });
-  }, [categorizedDisplayList, userId, displaySystem]);
+  }, [categorizedDisplayList, mealWiseDisplayList, viewMode, userId, displaySystem]);
 
 
   const handleItemClick = (uniqueKey: string) => {
@@ -312,15 +387,26 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
     }));
   };
 
-  const isEmptyList = Object.values(categorizedDisplayList).every(list => list.length === 0);
+  const isEmptyList = viewMode === 'category' 
+    ? Object.values(categorizedDisplayList).every(list => list.length === 0)
+    : mealWiseDisplayList.length === 0;
 
   if (isLoading) return <Card className="hover:shadow-lg transition-shadow duration-200"><CardHeader><CardTitle>Today's Ingredients</CardTitle></CardHeader><CardContent><Skeleton className="h-32 w-full" /></CardContent></Card>;
   if (error) return <Card className="hover:shadow-lg transition-shadow duration-200"><CardHeader><CardTitle>Today's Ingredients</CardTitle></CardHeader><CardContent><Alert variant="destructive"><AlertTitle>Error</AlertTitle><AlertDescription>Could not load today's ingredients: {error.message}</AlertDescription></Alert></CardContent></Card>;
 
   return (
     <Card className="hover:shadow-lg transition-shadow duration-200 flex flex-col">
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Today's Ingredients ({format(today, 'MMM dd')})</CardTitle>
+        <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setViewMode(prev => prev === 'category' ? 'meal' : 'category')}
+            className="ml-auto h-8 text-xs px-2"
+        >
+            {viewMode === 'category' ? <Utensils className="mr-1 h-3 w-3" /> : <LayoutGrid className="mr-1 h-3 w-3" />}
+            {viewMode === 'category' ? 'By Meal' : 'By Category'}
+        </Button>
       </CardHeader>
       <CardContent className="flex-grow">
         {isEmptyList ? (
@@ -329,7 +415,7 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
             <p className="text-lg font-semibold mb-1">No Ingredients Needed</p>
             <p className="text-sm">Plan meals for today to see ingredients here.</p>
           </div>
-        ) : (
+        ) : viewMode === 'category' ? (
           <div className="space-y-4">
             {categoryOrder.map(category => {
               const itemsInCategory = categorizedDisplayList[category];
@@ -361,6 +447,27 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
               return null;
             })}
           </div>
+        ) : ( // Meal-wise view for Today's Grocery List
+          mealWiseDisplayList.map(mealItem => (
+            <div key={`${mealItem.planDate}-${mealItem.mealName}`} className="mb-4">
+              <h3 className="text-md font-semibold text-gray-800 dark:text-gray-200 border-b pb-1 mb-2">
+                {mealItem.mealName}
+              </h3>
+              <ul className="space-y-1 text-sm pl-2">
+                {mealItem.ingredients.map((item, index) => (
+                  <li
+                    key={`${item.uniqueKey}-${index}`} 
+                    onClick={() => handleItemClick(item.uniqueKey)}
+                    className={`cursor-pointer p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${struckItems.has(item.uniqueKey) ? 'line-through text-gray-400 dark:text-gray-600' : ''}`}
+                    title={item.originalItemsTooltip}
+                  >
+                    <span className={struckItems.has(item.uniqueKey) ? '' : item.itemNameClass}>{item.itemName}: </span>
+                    {item.detailsPart && <span className={struckItems.has(item.uniqueKey) ? '' : item.detailsClass}>{item.detailsPart}</span>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))
         )}
       </CardContent>
     </Card>

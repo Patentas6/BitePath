@@ -6,12 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { ListChecks, RefreshCw, ShoppingCart, Utensils, LayoutGrid } from "lucide-react"; // Added Utensils, LayoutGrid
+import { ListChecks, ShoppingCart, Utensils, LayoutGrid } from "lucide-react"; // Removed RefreshCw
 import { convertToPreferredSystem } from "@/utils/conversionUtils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 const SHARED_LOCAL_STORAGE_KEY = 'bitepath-struckSharedGroceryItems';
+const GROCERY_VIEW_MODE_KEY = 'bitepath-groceryViewMode';
 
 interface PlannedMealWithIngredients {
   plan_date: string;
@@ -26,7 +27,7 @@ interface ParsedIngredientItem {
   quantity: number | string;
   unit: string;
   description?: string;
-  mealName?: string; // Added for tooltip
+  mealName?: string; 
 }
 
 const NON_SUMMABLE_DISPLAY_UNITS: ReadonlyArray<string> = [
@@ -63,7 +64,7 @@ interface GroceryListItem {
   totalQuantity: number;
   unit: string | null;
   isSummable: boolean;
-  originalItems: ParsedIngredientItem[]; // Will now include mealName
+  originalItems: ParsedIngredientItem[]; 
 }
 
 interface CategorizedDisplayListItem {
@@ -90,12 +91,39 @@ interface GroceryListProps {
 const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) => {
   const [displaySystem, setDisplaySystem] = useState<'imperial' | 'metric'>('imperial');
   const [selectedDays, setSelectedDays] = useState<string>('7');
-  const [viewMode, setViewMode] = useState<'category' | 'meal'>('category');
+  
+  const [viewMode, setViewMode] = useState<'category' | 'meal'>(() => {
+    const savedViewMode = localStorage.getItem(GROCERY_VIEW_MODE_KEY);
+    return (savedViewMode === 'category' || savedViewMode === 'meal') ? savedViewMode : 'meal'; // Default to 'meal'
+  });
+
+  useEffect(() => {
+    localStorage.setItem(GROCERY_VIEW_MODE_KEY, viewMode);
+  }, [viewMode]);
 
   const [struckItems, setStruckItems] = useState<Set<string>>(() => {
     const saved = localStorage.getItem(SHARED_LOCAL_STORAGE_KEY);
     return saved ? new Set(JSON.parse(saved)) : new Set();
   });
+  
+  const { data: userProfile } = useQuery<{ preferred_unit_system: 'imperial' | 'metric' | null } | null>({
+    queryKey: ["userProfileForGrocery", userId],
+    queryFn: async () => {
+      if (!userId) return null;
+      const { data, error } = await supabase.from("profiles").select("preferred_unit_system").eq("id", userId).single();
+      if (error && error.code !== 'PGRST116') { console.error("Error fetching profile for grocery unit system:", error); return null; }
+      return data;
+    },
+    enabled: !!userId,
+    staleTime: 1000 * 60 * 5, 
+  });
+
+  useEffect(() => {
+    if (userProfile?.preferred_unit_system) {
+      setDisplaySystem(userProfile.preferred_unit_system);
+    }
+  }, [userProfile]);
+
 
   const queryStartDate = currentWeekStart;
   const queryEndDate = addDays(queryStartDate, parseInt(selectedDays) - 1);
@@ -143,8 +171,6 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
 
               if (existing) {
                 existing.originalItems.push(processedItem);
-                // Basic summation: only if units are identical and summable.
-                // More advanced same-dimension conversion (e.g. tsp to tbsp) is complex for this pass.
                 if (existing.isSummable && SUMMABLE_UNITS.includes(unitLower) && existing.unit?.toLowerCase() === unitLower) {
                   existing.totalQuantity += processedItem.quantity;
                 } else { existing.isSummable = false; }
@@ -168,7 +194,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
     name: string, 
     quantity: number | string, 
     unit: string, 
-    isSummableOverride?: boolean // Used for meal-wise view where items are not pre-summed
+    isSummableOverride?: boolean 
   ): Pick<CategorizedDisplayListItem, 'itemName' | 'itemNameClass' | 'detailsPart' | 'detailsClass'> => {
     
     const itemName = name;
@@ -233,7 +259,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
         finalDetailsPart = aggItem.originalItems.map(orig => {
           const formattedOrig = formatSingleIngredientForDisplay(orig.name, orig.quantity, orig.unit, false);
           return formattedOrig.detailsPart;
-        }).filter(Boolean).join(' + '); // Changed from ';' to ' + '
+        }).filter(Boolean).join(' + '); 
       }
 
       const uniqueKey = `${aggItem.name.trim().toLowerCase()}:${(aggItem.unit || "").trim().toLowerCase()}-${foundCategory.toLowerCase()}`;
@@ -411,14 +437,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
                    <SelectItem value="30">Next 30 Days</SelectItem>
                  </SelectContent>
                </Select>
-               <Button
-                   variant="outline"
-                   size="sm"
-                   onClick={() => setDisplaySystem(prev => prev === 'imperial' ? 'metric' : 'imperial')}
-               >
-                   <RefreshCw className="mr-1 h-3 w-3" />
-                   {displaySystem === 'imperial' ? 'To Metric' : 'To Imperial'}
-               </Button>
+               {/* Unit system toggle button removed */}
                <Button
                   variant="outline"
                   size="sm"
