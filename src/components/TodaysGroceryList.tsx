@@ -215,36 +215,28 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
     return grouped;
   }, [aggregatedIngredients]);
   
+  // Effect to synchronize with localStorage and clean up stale struck items
   useEffect(() => {
-    // This effect ensures that `struckItems` state is updated if localStorage changes due to another component.
-    // It also cleans up items from `struckItems` that are no longer in the current display list.
     const currentDisplayKeys = new Set(Object.values(categorizedDisplayList).flat().map(item => item.uniqueKey));
     const storedItemsRaw = localStorage.getItem(SHARED_LOCAL_STORAGE_KEY);
     const storedStruckItems = storedItemsRaw ? new Set(JSON.parse(storedItemsRaw)) : new Set<string>();
 
-    setStruckItems(prevStruckItems => {
-        const newStruckItems = new Set<string>();
-        // Add items from localStorage that are relevant to the current display
-        storedStruckItems.forEach(key => {
-            if (currentDisplayKeys.has(key)) {
-                newStruckItems.add(key);
-            }
-        });
-        // Ensure any items currently struck in this component's state (e.g., just clicked) are preserved if still valid
-        prevStruckItems.forEach(key => {
-            if (currentDisplayKeys.has(key)) {
-                newStruckItems.add(key);
-            }
-        });
-        
-        // Only update if there's a change to avoid loop with saving useEffect
-        if (newStruckItems.size !== prevStruckItems.size || !Array.from(prevStruckItems).every(key => newStruckItems.has(key))) {
-            return newStruckItems;
-        }
-        return prevStruckItems;
+    // Update component state based on localStorage, but only for items currently in display
+    const newStruckItemsForState = new Set<string>();
+    storedStruckItems.forEach(key => {
+      if (currentDisplayKeys.has(key)) {
+        newStruckItemsForState.add(key);
+      }
     });
 
-  }, [categorizedDisplayList, userId]); // Re-run when list or user changes
+    // Only update state if it's different from current, to avoid loops
+    setStruckItems(prevStruckItems => {
+      if (newStruckItemsForState.size !== prevStruckItems.size || !Array.from(prevStruckItems).every(key => newStruckItemsForState.has(key))) {
+        return newStruckItemsForState;
+      }
+      return prevStruckItems;
+    });
+  }, [categorizedDisplayList, userId]); // userId dependency ensures re-sync if user changes (though less likely for this component)
 
   const handleItemClick = (uniqueKey: string) => {
     setStruckItems(prevStruckItems => {

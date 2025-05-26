@@ -247,33 +247,28 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
     return grouped;
   }, [aggregatedIngredients, displaySystem]);
 
+  // Effect to synchronize with localStorage and clean up stale struck items
   useEffect(() => {
-    // This effect ensures that `struckItems` state is updated if localStorage changes due to another component.
-    // It also cleans up items from `struckItems` that are no longer in the current display list.
     const currentDisplayKeys = new Set(Object.values(categorizedDisplayList).flat().map(item => item.uniqueKey));
     const storedItemsRaw = localStorage.getItem(SHARED_LOCAL_STORAGE_KEY);
     const storedStruckItems = storedItemsRaw ? new Set(JSON.parse(storedItemsRaw)) : new Set<string>();
 
-    setStruckItems(prevStruckItems => {
-        const newStruckItems = new Set<string>();
-        storedStruckItems.forEach(key => {
-            if (currentDisplayKeys.has(key)) {
-                newStruckItems.add(key);
-            }
-        });
-        prevStruckItems.forEach(key => {
-            if (currentDisplayKeys.has(key)) {
-                newStruckItems.add(key);
-            }
-        });
-        
-        if (newStruckItems.size !== prevStruckItems.size || !Array.from(prevStruckItems).every(key => newStruckItems.has(key))) {
-            return newStruckItems;
-        }
-        return prevStruckItems;
+    // Update component state based on localStorage, but only for items currently in display
+    const newStruckItemsForState = new Set<string>();
+    storedStruckItems.forEach(key => {
+      if (currentDisplayKeys.has(key)) {
+        newStruckItemsForState.add(key);
+      }
     });
-
-  }, [categorizedDisplayList, userId, currentWeekStart, selectedDays, displaySystem]); // Re-run on relevant changes
+    
+    // Only update state if it's different from current, to avoid loops
+    setStruckItems(prevStruckItems => {
+      if (newStruckItemsForState.size !== prevStruckItems.size || !Array.from(prevStruckItems).every(key => newStruckItemsForState.has(key))) {
+        return newStruckItemsForState;
+      }
+      return prevStruckItems;
+    });
+  }, [categorizedDisplayList, userId, currentWeekStart, selectedDays, displaySystem]); // Full dependencies for GroceryList
 
   const handleItemClick = (uniqueKey: string) => {
     setStruckItems(prevStruckItems => {
