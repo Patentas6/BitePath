@@ -83,7 +83,7 @@ const AppHeader = () => {
   return (
     <header className="flex justify-between items-center">
       <div className="flex items-center space-x-3">
-        <Link to="/dashboard" className="text-2xl font-bold group">
+        <Link to="/dashboard" className="text-2xl font-bold group" data-tourid="tour-logo">
           <span className="text-accent dark:text-foreground transition-opacity duration-150 ease-in-out group-hover:opacity-80">Bite</span>
           <span className="text-primary dark:text-primary transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
         </Link>
@@ -91,22 +91,22 @@ const AppHeader = () => {
       </div>
       <div className="flex items-center space-x-2">
         <span className="text-base hidden md:inline">{getWelcomeMessage()}</span>
-        <Button variant="default" size="sm" asChild>
+        <Button variant="default" size="sm" asChild data-tourid="tour-home-button">
           <Link to="/dashboard"><Home className="mr-2 h-4 w-4" /> Home</Link>
         </Button>
-        <Button variant="default" size="sm" asChild>
+        <Button variant="default" size="sm" asChild data-tourid="tour-my-meals-button">
           <Link to="/meals"><BookOpenText className="mr-2 h-4 w-4" /> My Meals</Link>
         </Button>
-        <Button variant="default" size="sm" asChild>
+        <Button variant="default" size="sm" asChild data-tourid="tour-generate-meal-button">
           <Link to="/generate-meal"><Brain className="mr-2 h-4 w-4" /> Generate Meal</Link>
         </Button>
-        <Button variant="default" size="sm" asChild>
+        <Button variant="default" size="sm" asChild data-tourid="tour-add-meal-button">
           <Link to="/add-meal"><SquarePen className="mr-2 h-4 w-4" /> Add Meal</Link>
         </Button>
-        <Button variant="default" size="sm" asChild>
+        <Button variant="default" size="sm" asChild data-tourid="tour-planning-button">
           <Link to="/planning"><CalendarDays className="mr-2 h-4 w-4" /> Plan & Shop</Link>
         </Button>
-        <Button variant="default" size="sm" asChild>
+        <Button variant="default" size="sm" asChild data-tourid="tour-profile-button">
           <Link to="/profile"><UserCircle className="mr-2 h-4 w-4" /> Profile</Link>
         </Button>
         <Button onClick={handleLogout} variant="destructive" size="sm">Logout</Button>
