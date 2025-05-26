@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { format, addDays, parseISO } from "date-fns"; // Removed endOfWeek, isBefore, startOfToday
+import { format, addDays, parseISO } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -9,6 +9,9 @@ import { Button } from "@/components/ui/button";
 import { ListChecks, RefreshCw, ShoppingCart } from "lucide-react";
 import { convertToPreferredSystem } from "@/utils/conversionUtils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+// Define localStorage key
+const LOCAL_STORAGE_KEY_WEEKLY = 'bitepath-struckWeeklyGroceryItems';
 
 interface PlannedMealWithIngredients {
   plan_date: string;
@@ -88,16 +91,25 @@ interface GroceryListProps {
 }
 
 const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) => {
-  const [struckItems, setStruckItems] = useState<Set<string>>(new Set());
   const [displaySystem, setDisplaySystem] = useState<'imperial' | 'metric'>('imperial');
   const [selectedDays, setSelectedDays] = useState<string>('7');
 
-  // Use currentWeekStart for queryStartDate
+  const [struckItems, setStruckItems] = useState<Set<string>>(() => {
+    const saved = localStorage.getItem(LOCAL_STORAGE_KEY_WEEKLY);
+    return saved ? new Set(JSON.parse(saved)) : new Set();
+  });
+
+  useEffect(() => {
+    localStorage.setItem(LOCAL_STORAGE_KEY_WEEKLY, JSON.stringify(Array.from(struckItems)));
+  }, [struckItems]);
+
+
   const queryStartDate = currentWeekStart;
   const queryEndDate = addDays(queryStartDate, parseInt(selectedDays) - 1);
+  const dateRangeKey = `${format(queryStartDate, 'yyyy-MM-dd')}_${selectedDays}_${displaySystem}`;
+
 
   const { data: plannedMealsData, isLoading, error: plannedMealsError } = useQuery<PlannedMealWithIngredients[]>({
-    // Update queryKey to include currentWeekStart
     queryKey: ["groceryListSource", userId, format(queryStartDate, 'yyyy-MM-dd'), selectedDays],
     queryFn: async () => {
       if (!userId) return [];
@@ -226,7 +238,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
         detailsClass = "text-gray-500 dark:text-gray-400";
       }
 
-      const uniqueKey = `${itemName}:${detailsPart}-${foundCategory}-${displaySystem}`;
+      const uniqueKey = `${itemName}:${detailsPart}-${foundCategory}-${displaySystem}-${dateRangeKey}`;
       const originalItemsTooltip = aggItem.originalItems.map(oi => `${oi.quantity} ${oi.unit} ${oi.name}${oi.description ? ` (${oi.description})` : ''}`).join('\n');
 
       if (detailsPart.trim() !== "" || itemName.trim() !== "") {
@@ -234,22 +246,27 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
       }
     });
     return grouped;
-  }, [aggregatedIngredients, displaySystem]);
+  }, [aggregatedIngredients, displaySystem, dateRangeKey]);
 
   useEffect(() => {
-    setStruckItems(prevStruckItems => {
-      const newPersistedStruckItems = new Set<string>();
-      const currentUniqueKeys = Object.values(categorizedDisplayList).flat().map(item => item.uniqueKey);
-      if (currentUniqueKeys.length > 0) {
-        for (const itemKey of prevStruckItems) {
-          if (currentUniqueKeys.includes(itemKey)) {
-            newPersistedStruckItems.add(itemKey);
-          }
+    const newPersistedStruckItems = new Set<string>();
+    const currentUniqueKeysInList = Object.values(categorizedDisplayList).flat().map(item => item.uniqueKey);
+
+    if (currentUniqueKeysInList.length > 0) {
+        const storedItems = localStorage.getItem(LOCAL_STORAGE_KEY_WEEKLY);
+        if (storedItems) {
+            const previouslyStruckArray = JSON.parse(storedItems);
+            if (Array.isArray(previouslyStruckArray)) {
+                previouslyStruckArray.forEach(itemKey => {
+                    if (currentUniqueKeysInList.includes(itemKey)) {
+                        newPersistedStruckItems.add(itemKey);
+                    }
+                });
+            }
         }
-      }
-      return newPersistedStruckItems;
-    });
-  }, [categorizedDisplayList]);
+    }
+    setStruckItems(newPersistedStruckItems);
+  }, [categorizedDisplayList]); // Re-filter persisted struck items when the list itself changes
 
   const handleItemClick = (uniqueKey: string) => {
     setStruckItems(prevStruckItems => {

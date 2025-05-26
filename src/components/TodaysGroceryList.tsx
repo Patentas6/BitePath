@@ -1,13 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState, useMemo, useEffect } from "react"; // Import useState and useEffect
+import { useState, useMemo, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { format, startOfToday, parseISO } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ShoppingCart } from "lucide-react";
-// import { convertToPreferredSystem } from "@/utils/conversionUtils"; // Not needed for today's list if we stick to original units
 import { Link } from "react-router-dom";
+
+// Define localStorage key
+const LOCAL_STORAGE_KEY_TODAY = 'bitepath-struckTodaysGroceryItems';
 
 interface PlannedMealWithIngredients {
   plan_date: string;
@@ -88,7 +90,15 @@ interface TodaysGroceryListProps {
 const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
   const today = startOfToday();
   const todayStr = format(today, 'yyyy-MM-dd');
-  const [struckItems, setStruckItems] = useState<Set<string>>(new Set());
+  
+  const [struckItems, setStruckItems] = useState<Set<string>>(() => {
+    const saved = localStorage.getItem(LOCAL_STORAGE_KEY_TODAY);
+    return saved ? new Set(JSON.parse(saved)) : new Set();
+  });
+
+  useEffect(() => {
+    localStorage.setItem(LOCAL_STORAGE_KEY_TODAY, JSON.stringify(Array.from(struckItems)));
+  }, [struckItems]);
 
   const { data: plannedMealsData, isLoading, error } = useQuery<PlannedMealWithIngredients[]>({
     queryKey: ["todaysGroceryListSource", userId, todayStr],
@@ -120,7 +130,7 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
               const processedItem: ParsedIngredientItem = { ...item, quantity: quantityAsNumber };
               const normalizedName = processedItem.name.trim().toLowerCase();
               const unitLower = processedItem.unit.toLowerCase();
-              const mapKey = normalizedName; // Using only name as key for today's simpler list
+              const mapKey = normalizedName;
               const existing = ingredientMap.get(mapKey);
               if (existing) {
                 existing.originalItems.push(processedItem);
@@ -167,7 +177,6 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
       let detailsClass = "text-gray-700 dark:text-gray-300";
       let detailsPart = "";
       
-      // For today's list, we stick to original units for simplicity and directness.
       const isOriginalUnitPiece = PIECE_UNITS.includes(originalUnitForLogic);
       const isOriginalUnitMeasurement = MEASUREMENT_UNITS_FOR_LIGHTER_COLOR.includes(originalUnitForLogic);
 
@@ -197,7 +206,7 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
         detailsClass = "text-gray-500 dark:text-gray-400";
       }
 
-      const uniqueKey = `${itemName}:${detailsPart}-${foundCategory}-today`; // Added -today for specificity
+      const uniqueKey = `${itemName}:${detailsPart}-${foundCategory}-today-${todayStr}`; 
       const originalItemsTooltip = aggItem.originalItems.map(oi => `${oi.quantity} ${oi.unit} ${oi.name}${oi.description ? ` (${oi.description})` : ''}`).join('\n');
 
       if (detailsPart.trim() !== "" || itemName.trim() !== "") {
@@ -205,23 +214,27 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
       }
     });
     return grouped;
-  }, [aggregatedIngredients]);
+  }, [aggregatedIngredients, todayStr]);
   
   useEffect(() => {
-    // Persist struck items that are still in the current list
-    setStruckItems(prevStruckItems => {
-      const newPersistedStruckItems = new Set<string>();
-      const currentUniqueKeys = Object.values(categorizedDisplayList).flat().map(item => item.uniqueKey);
-      if (currentUniqueKeys.length > 0) {
-        for (const itemKey of prevStruckItems) {
-          if (currentUniqueKeys.includes(itemKey)) {
-            newPersistedStruckItems.add(itemKey);
-          }
+    const newPersistedStruckItems = new Set<string>();
+    const currentUniqueKeysInList = Object.values(categorizedDisplayList).flat().map(item => item.uniqueKey);
+    
+    if (currentUniqueKeysInList.length > 0) {
+      const storedItems = localStorage.getItem(LOCAL_STORAGE_KEY_TODAY);
+      if (storedItems) {
+        const previouslyStruckArray = JSON.parse(storedItems);
+        if (Array.isArray(previouslyStruckArray)) {
+          previouslyStruckArray.forEach(itemKey => {
+            if (currentUniqueKeysInList.includes(itemKey)) {
+              newPersistedStruckItems.add(itemKey);
+            }
+          });
         }
       }
-      return newPersistedStruckItems;
-    });
-  }, [categorizedDisplayList]);
+    }
+    setStruckItems(newPersistedStruckItems);
+  }, [categorizedDisplayList]); // Re-filter persisted struck items when the list itself changes (e.g. date changes)
 
   const handleItemClick = (uniqueKey: string) => {
     setStruckItems(prevStruckItems => {
