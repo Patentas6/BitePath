@@ -1,12 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useState, useMemo, useEffect } from "react"; // Import useState and useEffect
 import { supabase } from "@/lib/supabase";
 import { format, startOfToday, parseISO } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ShoppingCart } from "lucide-react";
-import { convertToPreferredSystem } from "@/utils/conversionUtils";
+// import { convertToPreferredSystem } from "@/utils/conversionUtils"; // Not needed for today's list if we stick to original units
 import { Link } from "react-router-dom";
 
 interface PlannedMealWithIngredients {
@@ -88,6 +88,7 @@ interface TodaysGroceryListProps {
 const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
   const today = startOfToday();
   const todayStr = format(today, 'yyyy-MM-dd');
+  const [struckItems, setStruckItems] = useState<Set<string>>(new Set());
 
   const { data: plannedMealsData, isLoading, error } = useQuery<PlannedMealWithIngredients[]>({
     queryKey: ["todaysGroceryListSource", userId, todayStr],
@@ -97,7 +98,7 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
         .from("meal_plans")
         .select("plan_date, meals ( name, ingredients )")
         .eq("user_id", userId)
-        .eq("plan_date", todayStr); // Filter specifically for today
+        .eq("plan_date", todayStr);
       if (error) throw error;
       return data || [];
     },
@@ -106,7 +107,6 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
 
   const aggregatedIngredients = useMemo(() => {
     if (!plannedMealsData) return [];
-
     const ingredientMap = new Map<string, GroceryListItem>();
     plannedMealsData.forEach(pm => {
       const ingredientsBlock = pm.meals?.ingredients;
@@ -120,7 +120,7 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
               const processedItem: ParsedIngredientItem = { ...item, quantity: quantityAsNumber };
               const normalizedName = processedItem.name.trim().toLowerCase();
               const unitLower = processedItem.unit.toLowerCase();
-              const mapKey = normalizedName;
+              const mapKey = normalizedName; // Using only name as key for today's simpler list
               const existing = ingredientMap.get(mapKey);
               if (existing) {
                 existing.originalItems.push(processedItem);
@@ -166,11 +166,8 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
 
       let detailsClass = "text-gray-700 dark:text-gray-300";
       let detailsPart = "";
-
-      // For today's list, we'll just show the original units for simplicity
-      // If metric conversion is needed here, the logic from GroceryList would be added.
-      // Sticking to original units for now as per typical quick daily list view.
-
+      
+      // For today's list, we stick to original units for simplicity and directness.
       const isOriginalUnitPiece = PIECE_UNITS.includes(originalUnitForLogic);
       const isOriginalUnitMeasurement = MEASUREMENT_UNITS_FOR_LIGHTER_COLOR.includes(originalUnitForLogic);
 
@@ -195,28 +192,50 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
         }
       } else if (!aggItem.isSummable && aggItem.originalItems.length > 0) {
         detailsPart = aggItem.originalItems.map(orig => {
-          // For today's list, just show original quantity and unit
           return `${orig.quantity} ${orig.unit}`;
         }).join('; ');
         detailsClass = "text-gray-500 dark:text-gray-400";
       }
 
-      const uniqueKey = `${itemName}:${detailsPart}-${foundCategory}`;
+      const uniqueKey = `${itemName}:${detailsPart}-${foundCategory}-today`; // Added -today for specificity
       const originalItemsTooltip = aggItem.originalItems.map(oi => `${oi.quantity} ${oi.unit} ${oi.name}${oi.description ? ` (${oi.description})` : ''}`).join('\n');
-
 
       if (detailsPart.trim() !== "" || itemName.trim() !== "") {
         grouped[foundCategory].push({ itemName, itemNameClass, detailsPart, detailsClass, originalItemsTooltip, uniqueKey });
       }
     });
     return grouped;
-  }, [aggregatedIngredients]); // Depend on aggregatedIngredients
+  }, [aggregatedIngredients]);
+  
+  useEffect(() => {
+    // Persist struck items that are still in the current list
+    setStruckItems(prevStruckItems => {
+      const newPersistedStruckItems = new Set<string>();
+      const currentUniqueKeys = Object.values(categorizedDisplayList).flat().map(item => item.uniqueKey);
+      if (currentUniqueKeys.length > 0) {
+        for (const itemKey of prevStruckItems) {
+          if (currentUniqueKeys.includes(itemKey)) {
+            newPersistedStruckItems.add(itemKey);
+          }
+        }
+      }
+      return newPersistedStruckItems;
+    });
+  }, [categorizedDisplayList]);
+
+  const handleItemClick = (uniqueKey: string) => {
+    setStruckItems(prevStruckItems => {
+      const newStruckItems = new Set(prevStruckItems);
+      if (newStruckItems.has(uniqueKey)) { newStruckItems.delete(uniqueKey); }
+      else { newStruckItems.add(uniqueKey); }
+      return newStruckItems;
+    });
+  };
 
   const isEmptyList = Object.values(categorizedDisplayList).every(list => list.length === 0);
 
   if (isLoading) return <Card className="hover:shadow-lg transition-shadow duration-200"><CardHeader><CardTitle>Today's Ingredients</CardTitle></CardHeader><CardContent><Skeleton className="h-32 w-full" /></CardContent></Card>;
   if (error) return <Card className="hover:shadow-lg transition-shadow duration-200"><CardHeader><CardTitle>Today's Ingredients</CardTitle></CardHeader><CardContent><Alert variant="destructive"><AlertTitle>Error</AlertTitle><AlertDescription>Could not load today's ingredients: {error.message}</AlertDescription></Alert></CardContent></Card>;
-
 
   return (
     <Card className="hover:shadow-lg transition-shadow duration-200 flex flex-col">
@@ -235,20 +254,24 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
             {categoryOrder.map(category => {
               const itemsInCategory = categorizedDisplayList[category];
               if (itemsInCategory && itemsInCategory.length > 0) {
+                const allItemsInCategoryStruck = itemsInCategory.every(item => struckItems.has(item.uniqueKey));
                 return (
                   <div key={category}>
-                    <h3 className="text-md font-semibold text-gray-800 dark:text-gray-200 border-b pb-1 mb-2">
+                    <h3 
+                      className={`text-md font-semibold text-gray-800 dark:text-gray-200 border-b pb-1 mb-2 ${allItemsInCategoryStruck ? 'line-through text-gray-400 dark:text-gray-600 opacity-70' : ''}`}
+                    >
                       {category}
                     </h3>
                     <ul className="space-y-1 text-sm">
                       {itemsInCategory.map((item) => (
                         <li
                           key={item.uniqueKey}
-                          className="p-1 rounded"
+                          onClick={() => handleItemClick(item.uniqueKey)}
+                          className={`cursor-pointer p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${struckItems.has(item.uniqueKey) ? 'line-through text-gray-400 dark:text-gray-600 opacity-70' : ''}`}
                           title={item.originalItemsTooltip}
                         >
-                          <span className={item.itemNameClass}>{item.itemName}: </span>
-                          {item.detailsPart && <span className={item.detailsClass}>{item.detailsPart}</span>}
+                          <span className={struckItems.has(item.uniqueKey) ? '' : item.itemNameClass}>{item.itemName}: </span>
+                          {item.detailsPart && <span className={struckItems.has(item.uniqueKey) ? '' : item.detailsClass}>{item.detailsPart}</span>}
                         </li>
                       ))}
                     </ul>

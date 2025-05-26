@@ -1,20 +1,13 @@
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
-import { useNavigate, Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
+import AppHeader from "@/components/AppHeader"; // Import AppHeader
 import TodaysMeals from "@/components/TodaysMeals";
-import TodaysGroceryList from "@/components/TodaysGroceryList"; // Uncommented
-import type { User } from "@supabase/supabase-js";
-import { UserCircle, BookOpenText, Brain, SquarePen, CalendarDays } from "lucide-react";
-import { ThemeToggleButton } from "@/components/ThemeToggleButton";
-
-interface UserProfile {
-  first_name: string | null;
-  last_name: string | null;
-}
+import TodaysGroceryList from "@/components/TodaysGroceryList";
+import { supabase } from "@/lib/supabase"; // Keep for user check if needed directly on page
+import { useEffect, useState } from "react"; // Keep for user check
+import type { User } from "@supabase/supabase-js"; // Keep for user type
+import { useNavigate } from "react-router-dom"; // Keep for navigation
 
 const Dashboard = () => {
+  // Minimal user check, AppHeader handles detailed user/profile for header itself
   const [user, setUser] = useState<User | null>(null);
   const navigate = useNavigate();
 
@@ -28,85 +21,22 @@ const Dashboard = () => {
       }
     };
     getSession();
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (!session?.user) {
-        navigate("/auth");
-      }
-    });
-    return () => authListener?.subscription.unsubscribe();
+    // AppHeader's onAuthStateChange will also handle navigation on sign out
   }, [navigate]);
 
-  const { data: userProfile, isLoading: isUserProfileLoading } = useQuery<UserProfile | null>({
-    queryKey: ["userProfile", user?.id],
-    fn: async () => {
-      if (!user?.id) return null;
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("first_name, last_name")
-        .eq("id", user.id)
-        .single();
-      if (error && error.code !== 'PGRST116') throw error;
-      return data;
-    },
-    enabled: !!user?.id,
-  });
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-  };
-
-  const getWelcomeMessage = () => {
-    if (!user) return "Loading...";
-    if (isUserProfileLoading && !userProfile) return `Welcome, ${user.email ? user.email.split('@')[0] : 'User'}!`;
-    if (userProfile) {
-      const { first_name, last_name } = userProfile;
-      if (first_name && last_name) return `Welcome, ${first_name} ${last_name}!`;
-      if (first_name) return `Welcome, ${first_name}!`;
-      if (last_name) return `Welcome, ${last_name}!`;
-    }
-    return `Welcome, ${user.email ? user.email.split('@')[0] : 'User'}!`;
-  };
 
   if (!user) return <div className="min-h-screen flex items-center justify-center">Loading user session...</div>;
 
   return (
     <div className="min-h-screen bg-background text-foreground p-4">
       <div className="container mx-auto space-y-6">
-        <header className="flex justify-between items-center">
-          <div className="flex items-center space-x-3">
-            <Link to="/dashboard" className="text-2xl font-bold group">
-              <span className="text-accent dark:text-foreground transition-opacity duration-150 ease-in-out group-hover:opacity-80">Bite</span>
-              <span className="text-primary dark:text-primary transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
-            </Link>
-            <ThemeToggleButton />
-          </div>
-          <div className="flex items-center space-x-2">
-            <span className="text-base hidden md:inline">{getWelcomeMessage()}</span>
-            <Button variant="default" size="sm" asChild>
-              <Link to="/meals"><BookOpenText className="mr-2 h-4 w-4" /> My Meals</Link>
-            </Button>
-            <Button variant="default" size="sm" asChild>
-              <Link to="/generate-meal"><Brain className="mr-2 h-4 w-4" /> Generate Meal</Link>
-            </Button>
-            <Button variant="default" size="sm" asChild>
-              <Link to="/add-meal"><SquarePen className="mr-2 h-4 w-4" /> Add Meal</Link>
-            </Button>
-            <Button variant="default" size="sm" asChild>
-              <Link to="/planning"><CalendarDays className="mr-2 h-4 w-4" /> Plan & Shop</Link>
-            </Button>
-            <Button variant="default" size="sm" asChild>
-              <Link to="/profile"><UserCircle className="mr-2 h-4 w-4" /> Profile</Link>
-            </Button>
-            <Button onClick={handleLogout} variant="destructive" size="sm">Logout</Button>
-          </div>
-        </header>
-
+        <AppHeader /> {/* Use AppHeader */}
+        {/* Page specific title can go here if needed, e.g., <h1 className="text-3xl font-bold">Dashboard</h1> */}
+        {/* For now, dashboard doesn't have an explicit title below header */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {user && <TodaysMeals userId={user.id} />}
-          {user && <TodaysGroceryList userId={user.id} />} {/* Uncommented */}
+          {user && <TodaysGroceryList userId={user.id} />}
         </div>
-
       </div>
     </div>
   );

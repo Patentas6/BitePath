@@ -3,22 +3,23 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { ThemeProvider } from "next-themes"; // Import ThemeProvider
+import { ThemeProvider } from "next-themes";
 
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import ProtectedRoute from "./components/ProtectedRoute";
-import ProfilePage from "./pages/Profile";
+import ProfilePage from "./pages/ProfilePage"; // Updated import
 import MealsPage from "./pages/MealsPage";
 import BetaDisclaimerBanner from "@/components/BetaDisclaimerBanner";
 import FeedbackPage from "./pages/FeedbackPage";
 import GenerateMealPage from "./pages/GenerateMealPage";
 import AddMealPage from "./pages/AddMealPage";
-import WeeklyPlanPage from "./pages/WeeklyPlanPage";
-import GroceryListPage from "./pages/GroceryListPage";
-import PlanningPage from "./pages/PlanningPage"; // Import the new PlanningPage
+// import WeeklyPlanPage from "./pages/WeeklyPlanPage"; // Combined into PlanningPage
+import GroceryListPage from "./pages/GroceryListPage"; // This page might be redundant if PlanningPage has it all
+import PlanningPage from "./pages/PlanningPage";
+import DiscoverMealsPage from "./pages/DiscoverMealsPage"; // Ensure this is imported if used
 
 const queryClient = new QueryClient();
 
@@ -74,28 +75,35 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
-              <Route
-                path="/weekly-plan"
+              {/* <Route
+                path="/weekly-plan" // This route can be removed if PlanningPage replaces it
                 element={
                   <ProtectedRoute>
                     <WeeklyPlanPage />
                   </ProtectedRoute>
                 }
-              />
+              /> */}
               <Route
-                path="/grocery-list"
+                path="/grocery-list" // This route might also be redundant
                 element={
                   <ProtectedRoute>
                     <GroceryListPage />
                   </ProtectedRoute>
                 }
               />
-              {/* Add new route for PlanningPage */}
               <Route
                 path="/planning"
                 element={
                   <ProtectedRoute>
                     <PlanningPage />
+                  </ProtectedRoute>
+                }
+              />
+               <Route
+                path="/discover-meals"
+                element={
+                  <ProtectedRoute>
+                    <DiscoverMealsPage />
                   </ProtectedRoute>
                 }
               />

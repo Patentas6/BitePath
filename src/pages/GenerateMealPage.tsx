@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom'; // Keep Link if used elsewhere, else remove
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { showError, showSuccess, showLoading, dismissToast } from '@/utils/toast';
@@ -9,13 +9,13 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
-import { ArrowLeft, Brain, Save, RefreshCw } from 'lucide-react';
-import { ThemeToggleButton } from "@/components/ThemeToggleButton";
-import { MEAL_TAG_OPTIONS, MealTag } from "@/lib/constants";
-import { Dialog, DialogContent } from "@/components/ui/dialog"; // Import Dialog components
+// import { Input } from '@/components/ui/input'; // Not used directly here
+import { Brain, Save, RefreshCw } from 'lucide-react'; // Removed ArrowLeft
+import AppHeader from "@/components/AppHeader"; // Import AppHeader
+// import { ThemeToggleButton } from "@/components/ThemeToggleButton"; // In AppHeader
+// import { MEAL_TAG_OPTIONS, MealTag } from "@/lib/constants"; // Not used directly here
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
-// Define types for the generated meal structure
 interface GeneratedIngredient {
   name: string;
   quantity: number;
@@ -28,7 +28,7 @@ interface GeneratedMeal {
   ingredients: GeneratedIngredient[];
   instructions: string;
   meal_tags: string[];
-  image_url?: string; // Added image_url field
+  image_url?: string;
 }
 
 const mealTypes = ["Breakfast", "Lunch", "Dinner", "Snack"];
@@ -48,14 +48,15 @@ const GenerateMealPage = () => {
   const [generatedMeal, setGeneratedMeal] = useState<GeneratedMeal | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null); // State for enlarged image view
+  const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchUser = async () => {
       const { data } = await supabase.auth.getUser();
       setUserId(data.user?.id || null);
       if (!data.user) {
-        navigate("/auth"); // Redirect if not logged in
+        // AppHeader will also handle redirect if session is lost during its own check
+        // navigate("/auth"); 
       }
     };
     fetchUser();
@@ -75,16 +76,13 @@ const GenerateMealPage = () => {
 
   const generateMealMutation = useMutation({
     mutationFn: async () => {
-      // This check is now also done in handleGenerateMeal before calling mutate
-      // if (!userId) throw new Error("User not authenticated.");
+      if (!userId) throw new Error("User not authenticated.");
       if (!selectedMealType) {
         showError("Please select a meal type.");
         return null;
       }
-
       setIsGenerating(true);
       const loadingToastId = showLoading("Generating meal and image...");
-
       try {
         const { data, error } = await supabase.functions.invoke('generate-meal', {
           body: {
@@ -94,22 +92,18 @@ const GenerateMealPage = () => {
             preferences: ingredientPreferences,
           },
         });
-
         dismissToast(loadingToastId);
-
         if (error) throw error;
         if (data?.error) throw new Error(data.error);
-
         setGeneratedMeal(data as GeneratedMeal);
         showSuccess("Meal and image generated!");
         return data;
-
       } catch (error: any) {
         dismissToast(loadingToastId);
         console.error('Error generating meal:', error);
         showError(`Failed to generate meal: ${error.message || 'Please try again.'}`);
-        setGeneratedMeal(null); // Clear previous result on error
-        throw error; // Re-throw to let useMutation handle it
+        setGeneratedMeal(null);
+        throw error;
       } finally {
         setIsGenerating(false);
       }
@@ -119,31 +113,24 @@ const GenerateMealPage = () => {
   const saveMealMutation = useMutation({
     mutationFn: async (mealToSave: GeneratedMeal) => {
       if (!userId) throw new Error("User not authenticated.");
-
       const ingredientsJSON = mealToSave.ingredients ? JSON.stringify(mealToSave.ingredients) : null;
-
       const { data, error } = await supabase
         .from("meals")
-        .insert([
-          {
+        .insert([{
             user_id: userId,
             name: mealToSave.name,
             ingredients: ingredientsJSON,
             instructions: mealToSave.instructions,
             meal_tags: mealToSave.meal_tags,
-            image_url: mealToSave.image_url, // Save the image URL
-          },
-        ])
+            image_url: mealToSave.image_url,
+          },])
         .select();
-
       if (error) throw error;
       return data;
     },
     onSuccess: (data, vars) => {
       showSuccess(`"${vars.name}" saved to My Meals!`);
       queryClient.invalidateQueries({ queryKey: ["meals"] });
-      // Optionally clear the generated meal or indicate it's saved
-      // setGeneratedMeal(null); // Or add a 'saved' state to the generated meal
     },
     onError: (error: any, vars) => {
       console.error("Error saving meal:", error);
@@ -162,53 +149,31 @@ const GenerateMealPage = () => {
 
   const handleGenerateNew = () => {
     setGeneratedMeal(null);
-    // Optionally reset form selections here if desired
-    // setSelectedMealType(undefined);
-    // setSelectedKinds([]);
-    // setSelectedStyles([]);
-    // setIngredientPreferences('');
   };
 
-  // Add client-side session check before triggering mutation
   const handleGenerateMealClick = async () => {
      const { data: { user } } = await supabase.auth.getUser();
      if (!user) {
        showError("You must be logged in to generate meals.");
-       navigate("/auth"); // Redirect if session is lost
+       // navigate("/auth"); // AppHeader handles this
        return;
      }
-     // If user exists, proceed with mutation
      generateMealMutation.mutate();
   };
-
 
   return (
     <div className="min-h-screen bg-background text-foreground p-4">
       <div className="container mx-auto space-y-6">
-        <header className="flex justify-between items-center mb-6">
-          <div className="flex items-center space-x-3">
-            <Link to="/dashboard" className="text-2xl font-bold group">
-              <span className="text-accent dark:text-foreground transition-opacity duration-150 ease-in-out group-hover:opacity-80">Bite</span>
-              <span className="text-primary dark:text-primary transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
-            </Link>
-            <ThemeToggleButton />
-          </div>
-          <h1 className="text-xl sm:text-3xl font-bold flex items-center"><Brain className="mr-2 h-6 w-6" /> Generate Meal with AI</h1>
-          <Button variant="default" asChild>
-            <Link to="/dashboard">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Dashboard
-            </Link>
-          </Button>
-        </header>
-
+        <AppHeader /> {/* Use AppHeader */}
+        <div className="flex justify-center items-center mb-0">
+            <h1 className="text-xl sm:text-3xl font-bold flex items-center"><Brain className="mr-2 h-6 w-6" /> Generate Meal with AI</h1>
+        </div>
         <Card>
           <CardHeader>
             <CardTitle>Tell us what you're craving!</CardTitle>
             <CardDescription>Select your preferences and let AI suggest a meal.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Meal Type */}
             <div>
               <Label className="text-base">What meal type do you want?</Label>
               <RadioGroup onValueChange={setSelectedMealType} value={selectedMealType} className="flex flex-wrap gap-4 mt-2">
@@ -220,8 +185,6 @@ const GenerateMealPage = () => {
                 ))}
               </RadioGroup>
             </div>
-
-            {/* Meal Kind */}
             <div>
               <Label className="text-base">What kind of meal?</Label>
               <div className="flex flex-wrap gap-4 mt-2">
@@ -237,8 +200,6 @@ const GenerateMealPage = () => {
                 ))}
               </div>
             </div>
-
-            {/* Meal Style */}
             <div>
               <Label className="text-base">What style of meal?</Label>
               <div className="flex flex-wrap gap-4 mt-2">
@@ -254,10 +215,8 @@ const GenerateMealPage = () => {
                 ))}
               </div>
             </div>
-
-            {/* Ingredient Preferences */}
             <div>
-              <Label htmlFor="ingredient-preferences" className="text-base">Any ingredients you want or don't want, or other general preferences?</Label> {/* Updated label text */}
+              <Label htmlFor="ingredient-preferences" className="text-base">Any ingredients you want or don't want, or other general preferences?</Label>
               <Textarea
                 id="ingredient-preferences"
                 placeholder="e.g., 'use chicken, no cilantro'"
@@ -266,9 +225,8 @@ const GenerateMealPage = () => {
                 className="mt-2"
               />
             </div>
-
             <Button
-              onClick={handleGenerateMealClick} // Use the new handler
+              onClick={handleGenerateMealClick}
               disabled={!selectedMealType || isGenerating || generateMealMutation.isPending}
               className="w-full"
             >
@@ -277,20 +235,19 @@ const GenerateMealPage = () => {
           </CardContent>
         </Card>
 
-        {/* Generated Meal Display */}
         {generatedMeal && (
           <Card>
             <CardHeader>
               {generatedMeal.image_url && (
                 <div
-                  className="cursor-pointer w-full h-48 flex items-center justify-center overflow-hidden rounded-t-md mb-4 bg-muted" // Added flex centering and background
-                  onClick={() => setViewingImageUrl(generatedMeal.image_url || null)} // Set state on click
+                  className="cursor-pointer w-full h-48 flex items-center justify-center overflow-hidden rounded-t-md mb-4 bg-muted"
+                  onClick={() => setViewingImageUrl(generatedMeal.image_url || null)}
                 >
                   <img
                     src={generatedMeal.image_url}
                     alt={`Image of ${generatedMeal.name}`}
-                    className="h-full object-contain" // Use h-full and object-contain to fit within container
-                    onError={(e) => (e.currentTarget.style.display = 'none')} // Hide image on error
+                    className="h-full object-contain"
+                    onError={(e) => (e.currentTarget.style.display = 'none')}
                   />
                 </div>
               )}
@@ -298,7 +255,6 @@ const GenerateMealPage = () => {
               <CardDescription>Generated Recipe</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Ingredients */}
               <div>
                 <h3 className="text-lg font-semibold mb-2">Ingredients:</h3>
                 <ul className="list-disc list-inside space-y-1">
@@ -309,14 +265,10 @@ const GenerateMealPage = () => {
                   ))}
                 </ul>
               </div>
-
-              {/* Instructions */}
               <div>
                 <h3 className="text-lg font-semibold mb-2">Instructions:</h3>
                 <p className="text-muted-foreground whitespace-pre-line">{generatedMeal.instructions}</p>
               </div>
-
-              {/* Actions */}
               <div className="flex space-x-4 mt-6">
                 <Button
                   onClick={handleSaveMeal}
@@ -340,15 +292,13 @@ const GenerateMealPage = () => {
           </Card>
         )}
       </div>
-
-      {/* Image Viewer Dialog */}
       <Dialog open={!!viewingImageUrl} onOpenChange={(open) => !open && setViewingImageUrl(null)}>
         <DialogContent className="max-w-screen-md w-[90vw] h-[90vh] p-0 flex items-center justify-center bg-transparent border-none">
           {viewingImageUrl && (
             <img
               src={viewingImageUrl}
               alt="Enlarged meal image"
-              className="max-w-full max-h-full object-contain" // Ensure image fits within dialog
+              className="max-w-full max-h-full object-contain"
             />
           )}
         </DialogContent>
