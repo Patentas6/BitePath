@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ShoppingCart } from "lucide-react";
 import { Link } from "react-router-dom";
-import { convertToPreferredSystem } from "@/utils/conversionUtils"; // Added for consistency if needed later
+import { convertToPreferredSystem } from "@/utils/conversionUtils"; 
 
 const SHARED_LOCAL_STORAGE_KEY = 'bitepath-struckSharedGroceryItems';
 
@@ -24,7 +24,7 @@ interface ParsedIngredientItem {
   quantity: number | string;
   unit: string;
   description?: string;
-  mealName?: string; // Added for tooltip
+  mealName?: string; 
 }
 
 const NON_SUMMABLE_DISPLAY_UNITS: ReadonlyArray<string> = [
@@ -80,7 +80,7 @@ interface TodaysGroceryListProps {
 const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
   const today = startOfToday();
   const todayStr = format(today, 'yyyy-MM-dd');
-  const [displaySystem, setDisplaySystem] = useState<'imperial' | 'metric'>('imperial'); // Added for consistency
+  const [displaySystem, setDisplaySystem] = useState<'imperial' | 'metric'>('imperial'); 
   
   const [struckItems, setStruckItems] = useState<Set<string>>(() => {
     const saved = localStorage.getItem(SHARED_LOCAL_STORAGE_KEY);
@@ -96,7 +96,7 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
       return data;
     },
     enabled: !!userId,
-    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+    staleTime: 1000 * 60 * 5, 
   });
 
   useEffect(() => {
@@ -222,7 +222,7 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
           }
           if (PIECE_UNITS.includes(u.toLowerCase())) return `${q}`;
           return `${q} ${u}`;
-        }).join('; ');
+        }).filter(Boolean).join(' + '); // Changed from ';' to ' + '
         if (aggItem.originalItems.some(oi => SPICE_MEASUREMENT_UNITS.includes(oi.unit.toLowerCase()))) {
             detailsClass = "text-gray-500 dark:text-gray-400";
         } else {

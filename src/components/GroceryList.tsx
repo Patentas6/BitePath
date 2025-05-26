@@ -228,17 +228,15 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
         aggItem.isSummable
       );
       
-      // If not summable, reconstruct detailsPart from original items
       let finalDetailsPart = detailsPart;
       if (!aggItem.isSummable && aggItem.originalItems.length > 0) {
         finalDetailsPart = aggItem.originalItems.map(orig => {
           const formattedOrig = formatSingleIngredientForDisplay(orig.name, orig.quantity, orig.unit, false);
           return formattedOrig.detailsPart;
-        }).filter(Boolean).join('; ');
+        }).filter(Boolean).join(' + '); // Changed from ';' to ' + '
       }
 
-
-      const uniqueKey = `${aggItem.name.trim().toLowerCase()}:${(aggItem.unit || "").trim().toLowerCase()}-${foundCategory.toLowerCase()}`; // Key for striking
+      const uniqueKey = `${aggItem.name.trim().toLowerCase()}:${(aggItem.unit || "").trim().toLowerCase()}-${foundCategory.toLowerCase()}`;
       const originalItemsTooltip = aggItem.originalItems
         .map(oi => `${oi.quantity} ${oi.unit} ${oi.name} (from: ${oi.mealName})${oi.description ? ` (${oi.description})` : ''}`)
         .join('\n');
@@ -273,17 +271,13 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
               ing.name, 
               ing.quantity, 
               ing.unit,
-              false // In meal-wise view, items are not pre-summed from other meals
+              false 
             );
             
-            // For meal-wise view, unique key for striking should be specific to this instance if we want per-instance striking
-            // Or, use a global key if striking one "tomato" strikes all "tomatoes"
-            // Let's use a more global key for striking consistency for now.
             let foundCategory: Category = 'Other';
             const itemLower = ing.name.toLowerCase();
             for (const cat of categoryOrder) { if (cat !== 'Other' && categoriesMap[cat].some(keyword => itemLower.includes(keyword))) { foundCategory = cat; break; } }
             const uniqueKeyForStriking = `${ing.name.trim().toLowerCase()}:${(ing.unit || "").trim().toLowerCase()}-${foundCategory.toLowerCase()}`;
-
 
             mealEntry!.ingredients.push({
               itemName,
@@ -291,7 +285,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
               detailsPart,
               detailsClass,
               originalItemsTooltip: `${ing.quantity} ${ing.unit} ${ing.name}${ing.description ? ` (${ing.description})` : ''} (from: ${pm.meals!.name})`,
-              uniqueKey: uniqueKeyForStriking, // Use the more global key for striking
+              uniqueKey: uniqueKeyForStriking, 
             });
           });
         } catch (e) { console.warn("Error parsing ingredients for meal-wise view:", e); }
@@ -479,7 +473,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
               <ul className="space-y-1 text-sm pl-2">
                 {mealItem.ingredients.map((item, index) => (
                   <li
-                    key={`${item.uniqueKey}-${index}`} // Ensure unique key for meal-wise list items
+                    key={`${item.uniqueKey}-${index}`} 
                     onClick={() => handleItemClick(item.uniqueKey)}
                     className={`cursor-pointer p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${struckItems.has(item.uniqueKey) ? 'line-through text-gray-400 dark:text-gray-600' : ''}`}
                     title={item.originalItemsTooltip}
