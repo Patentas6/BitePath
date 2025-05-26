@@ -8,8 +8,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ShoppingCart } from "lucide-react";
 import { Link } from "react-router-dom";
 
-// Define localStorage key
-const LOCAL_STORAGE_KEY_TODAY = 'bitepath-struckTodaysGroceryItems';
+// Define a SHARED localStorage key
+const SHARED_LOCAL_STORAGE_KEY = 'bitepath-struckSharedGroceryItems';
 
 interface PlannedMealWithIngredients {
   plan_date: string;
@@ -92,12 +92,12 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
   const todayStr = format(today, 'yyyy-MM-dd');
   
   const [struckItems, setStruckItems] = useState<Set<string>>(() => {
-    const saved = localStorage.getItem(LOCAL_STORAGE_KEY_TODAY);
+    const saved = localStorage.getItem(SHARED_LOCAL_STORAGE_KEY); // Use shared key
     return saved ? new Set(JSON.parse(saved)) : new Set();
   });
 
   useEffect(() => {
-    localStorage.setItem(LOCAL_STORAGE_KEY_TODAY, JSON.stringify(Array.from(struckItems)));
+    localStorage.setItem(SHARED_LOCAL_STORAGE_KEY, JSON.stringify(Array.from(struckItems))); // Use shared key
   }, [struckItems]);
 
   const { data: plannedMealsData, isLoading, error } = useQuery<PlannedMealWithIngredients[]>({
@@ -206,7 +206,8 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
         detailsClass = "text-gray-500 dark:text-gray-400";
       }
 
-      const uniqueKey = `${itemName}:${detailsPart}-${foundCategory}-today-${todayStr}`; 
+      // Consistent uniqueKey for synchronization
+      const uniqueKey = `${itemName.trim().toLowerCase()}:${detailsPart.trim().toLowerCase()}-${foundCategory.toLowerCase()}`;
       const originalItemsTooltip = aggItem.originalItems.map(oi => `${oi.quantity} ${oi.unit} ${oi.name}${oi.description ? ` (${oi.description})` : ''}`).join('\n');
 
       if (detailsPart.trim() !== "" || itemName.trim() !== "") {
@@ -214,14 +215,14 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
       }
     });
     return grouped;
-  }, [aggregatedIngredients, todayStr]);
+  }, [aggregatedIngredients]);
   
   useEffect(() => {
     const newPersistedStruckItems = new Set<string>();
     const currentUniqueKeysInList = Object.values(categorizedDisplayList).flat().map(item => item.uniqueKey);
     
     if (currentUniqueKeysInList.length > 0) {
-      const storedItems = localStorage.getItem(LOCAL_STORAGE_KEY_TODAY);
+      const storedItems = localStorage.getItem(SHARED_LOCAL_STORAGE_KEY); // Use shared key
       if (storedItems) {
         const previouslyStruckArray = JSON.parse(storedItems);
         if (Array.isArray(previouslyStruckArray)) {
@@ -234,7 +235,7 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
       }
     }
     setStruckItems(newPersistedStruckItems);
-  }, [categorizedDisplayList]); // Re-filter persisted struck items when the list itself changes (e.g. date changes)
+  }, [categorizedDisplayList]);
 
   const handleItemClick = (uniqueKey: string) => {
     setStruckItems(prevStruckItems => {

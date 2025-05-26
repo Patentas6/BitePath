@@ -10,8 +10,8 @@ import { ListChecks, RefreshCw, ShoppingCart } from "lucide-react";
 import { convertToPreferredSystem } from "@/utils/conversionUtils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-// Define localStorage key
-const LOCAL_STORAGE_KEY_WEEKLY = 'bitepath-struckWeeklyGroceryItems';
+// Define a SHARED localStorage key
+const SHARED_LOCAL_STORAGE_KEY = 'bitepath-struckSharedGroceryItems';
 
 interface PlannedMealWithIngredients {
   plan_date: string;
@@ -95,22 +95,23 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
   const [selectedDays, setSelectedDays] = useState<string>('7');
 
   const [struckItems, setStruckItems] = useState<Set<string>>(() => {
-    const saved = localStorage.getItem(LOCAL_STORAGE_KEY_WEEKLY);
+    const saved = localStorage.getItem(SHARED_LOCAL_STORAGE_KEY); // Use shared key
     return saved ? new Set(JSON.parse(saved)) : new Set();
   });
 
   useEffect(() => {
-    localStorage.setItem(LOCAL_STORAGE_KEY_WEEKLY, JSON.stringify(Array.from(struckItems)));
+    localStorage.setItem(SHARED_LOCAL_STORAGE_KEY, JSON.stringify(Array.from(struckItems))); // Use shared key
   }, [struckItems]);
 
 
   const queryStartDate = currentWeekStart;
   const queryEndDate = addDays(queryStartDate, parseInt(selectedDays) - 1);
-  const dateRangeKey = `${format(queryStartDate, 'yyyy-MM-dd')}_${selectedDays}_${displaySystem}`;
+  // dateRangeKey is removed from uniqueKey for items, but still useful for queryKey
+  const dateRangeQueryKeyPart = `${format(queryStartDate, 'yyyy-MM-dd')}_${selectedDays}`;
 
 
   const { data: plannedMealsData, isLoading, error: plannedMealsError } = useQuery<PlannedMealWithIngredients[]>({
-    queryKey: ["groceryListSource", userId, format(queryStartDate, 'yyyy-MM-dd'), selectedDays],
+    queryKey: ["groceryListSource", userId, dateRangeQueryKeyPart], // Use part for query
     queryFn: async () => {
       if (!userId) return [];
       const startDateStr = format(queryStartDate, 'yyyy-MM-dd');
@@ -238,7 +239,8 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
         detailsClass = "text-gray-500 dark:text-gray-400";
       }
 
-      const uniqueKey = `${itemName}:${detailsPart}-${foundCategory}-${displaySystem}-${dateRangeKey}`;
+      // Consistent uniqueKey for synchronization
+      const uniqueKey = `${itemName.trim().toLowerCase()}:${detailsPart.trim().toLowerCase()}-${foundCategory.toLowerCase()}`;
       const originalItemsTooltip = aggItem.originalItems.map(oi => `${oi.quantity} ${oi.unit} ${oi.name}${oi.description ? ` (${oi.description})` : ''}`).join('\n');
 
       if (detailsPart.trim() !== "" || itemName.trim() !== "") {
@@ -246,14 +248,14 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
       }
     });
     return grouped;
-  }, [aggregatedIngredients, displaySystem, dateRangeKey]);
+  }, [aggregatedIngredients, displaySystem]); // Removed dateRangeKey from dependency array for uniqueKey consistency
 
   useEffect(() => {
     const newPersistedStruckItems = new Set<string>();
     const currentUniqueKeysInList = Object.values(categorizedDisplayList).flat().map(item => item.uniqueKey);
 
     if (currentUniqueKeysInList.length > 0) {
-        const storedItems = localStorage.getItem(LOCAL_STORAGE_KEY_WEEKLY);
+        const storedItems = localStorage.getItem(SHARED_LOCAL_STORAGE_KEY); // Use shared key
         if (storedItems) {
             const previouslyStruckArray = JSON.parse(storedItems);
             if (Array.isArray(previouslyStruckArray)) {
@@ -266,7 +268,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
         }
     }
     setStruckItems(newPersistedStruckItems);
-  }, [categorizedDisplayList]); // Re-filter persisted struck items when the list itself changes
+  }, [categorizedDisplayList]);
 
   const handleItemClick = (uniqueKey: string) => {
     setStruckItems(prevStruckItems => {
