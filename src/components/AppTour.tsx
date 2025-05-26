@@ -4,33 +4,39 @@ import Joyride, { Step, CallBackProps, STATUS, EVENTS, ACTIONS } from 'react-joy
 const TOUR_STEPS: Step[] = [
   {
     target: '[data-tourid="tour-logo"]',
-    content: 'Welcome to BitePath! This is your main dashboard area.',
+    content: 'Welcome to BitePath, your smart meal planning assistant!',
     placement: 'bottom',
-    disableBeacon: true, // <-- Add this to show tooltip directly
+    disableBeacon: true, 
+  },
+  {
+    target: '[data-tourid="tour-home-button"]',
+    content: "This is your main home area. Here you'll find today's planned meals and your grocery list for the day.",
+    placement: 'bottom',
+    disableBeacon: true, // Also disable beacon for this important first functional step
   },
   {
     target: '[data-tourid="tour-my-meals-button"]',
-    content: 'Manage your custom meals here. Add new ones or edit existing recipes.',
+    content: 'Manage your meals here. All your saved meals will be available, where you can edit or delete them.',
     placement: 'bottom',
   },
   {
     target: '[data-tourid="tour-generate-meal-button"]',
-    content: 'Feeling adventurous? Let our AI generate a new meal idea for you!',
+    content: 'Feeling adventurous? Let our AI generate a new meal idea for you! An image will be generated as well.',
     placement: 'bottom',
   },
   {
     target: '[data-tourid="tour-add-meal-button"]',
-    content: 'Got a recipe in mind? Add it manually using this button.',
+    content: 'Got a recipe in mind? Add it manually here. An image for your custom meal can be generated too!',
     placement: 'bottom',
   },
   {
     target: '[data-tourid="tour-planning-button"]',
-    content: 'Plan your weekly meals and generate grocery lists in the "Plan & Shop" section.',
+    content: "Plan your weekly meals and generate grocery lists in the 'Plan & Shop' section.", // Please provide new text if desired
     placement: 'bottom',
   },
   {
     target: '[data-tourid="tour-profile-button"]',
-    content: 'Update your profile information and AI preferences here.',
+    content: 'Update your profile information, including AI preferences, here.', // Please provide new text if desired
     placement: 'bottom',
   },
 ];
