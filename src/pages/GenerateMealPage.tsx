@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom'; // Keep Link if used elsewhere, else remove
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { showError, showSuccess, showLoading, dismissToast } from '@/utils/toast';
 import { Button } from '@/components/ui/button';
@@ -9,12 +9,10 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-// import { Input } from '@/components/ui/input'; // Not used directly here
-import { Brain, Save, RefreshCw } from 'lucide-react'; // Removed ArrowLeft
-import AppHeader from "@/components/AppHeader"; // Import AppHeader
-// import { ThemeToggleButton } from "@/components/ThemeToggleButton"; // In AppHeader
-// import { MEAL_TAG_OPTIONS, MealTag } from "@/lib/constants"; // Not used directly here
+import { Brain, Save, RefreshCw, Info } from 'lucide-react';
+import AppHeader from "@/components/AppHeader";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { format as formatDateFns } from "date-fns"; // For date formatting
 
 interface GeneratedIngredient {
   name: string;
@@ -31,11 +29,18 @@ interface GeneratedMeal {
   image_url?: string;
 }
 
+interface UserProfileData {
+  is_admin: boolean;
+  image_generation_count: number;
+  last_image_generation_reset: string | null; // YYYY-MM
+}
+
 const mealTypes = ["Breakfast", "Lunch", "Dinner", "Snack"];
 const mealKinds = ["High Protein", "Vegan", "Vegetarian", "Gluten-Free", "Low Carb", "Kid-Friendly", "Spicy"];
 const mealStyles = ["Simple", "Fast (under 30 min)", "1 Pan", "Chef Inspired", "Comfort Food", "Healthy"];
 
 const PREFERENCES_MAX_LENGTH = 300;
+const IMAGE_GENERATION_LIMIT_PER_MONTH = 30;
 
 const GenerateMealPage = () => {
   const navigate = useNavigate();
@@ -56,13 +61,45 @@ const GenerateMealPage = () => {
     const fetchUser = async () => {
       const { data } = await supabase.auth.getUser();
       setUserId(data.user?.id || null);
-      if (!data.user) {
-        // AppHeader will also handle redirect if session is lost during its own check
-        // navigate("/auth"); 
-      }
     };
     fetchUser();
-  }, [navigate]);
+  }, []);
+
+  const { data: userProfile, isLoading: isLoadingProfile } = useQuery<UserProfileData | null>({
+    queryKey: ['userProfileForGenerationLimits', userId],
+    queryFn: async () => {
+      if (!userId) return null;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('is_admin, image_generation_count, last_image_generation_reset')
+        .eq('id', userId)
+        .single();
+      if (error && error.code !== 'PGRST116') throw error; // PGRST116 means no row, which is fine
+      return data;
+    },
+    enabled: !!userId,
+  });
+
+  const calculateRemainingGenerations = () => {
+    if (!userProfile) return { count: 0, limitReached: true, isAdmin: false };
+    if (userProfile.is_admin) return { count: Infinity, limitReached: false, isAdmin: true };
+
+    const currentMonthYear = formatDateFns(new Date(), "yyyy-MM");
+    let currentCount = userProfile.image_generation_count || 0;
+
+    if (userProfile.last_image_generation_reset !== currentMonthYear) {
+      currentCount = 0; // Count resets for the new month
+    }
+    
+    const remaining = IMAGE_GENERATION_LIMIT_PER_MONTH - currentCount;
+    return { 
+      count: remaining > 0 ? remaining : 0, 
+      limitReached: currentCount >= IMAGE_GENERATION_LIMIT_PER_MONTH,
+      isAdmin: false
+    };
+  };
+
+  const generationStatus = calculateRemainingGenerations();
 
   const handleKindChange = (kind: string, checked: boolean) => {
     setSelectedKinds(prev =>
@@ -83,6 +120,11 @@ const GenerateMealPage = () => {
         showError("Please select a meal type.");
         return null;
       }
+      if (!generationStatus.isAdmin && generationStatus.limitReached) {
+        showError(`You have reached your monthly image generation limit of ${IMAGE_GENERATION_LIMIT_PER_MONTH}.`);
+        return null;
+      }
+
       setIsGenerating(true);
       const loadingToastId = showLoading("Generating meal and image...");
       try {
@@ -96,9 +138,18 @@ const GenerateMealPage = () => {
         });
         dismissToast(loadingToastId);
         if (error) throw error;
-        if (data?.error) throw new Error(data.error);
+        if (data?.error) { // Check for error message from edge function itself (e.g. limit reached)
+            showError(data.error);
+            if (data.mealData) { // If limit reached but recipe was generated
+                setGeneratedMeal(data.mealData as GeneratedMeal);
+            } else {
+                setGeneratedMeal(null);
+            }
+            return null; 
+        }
         setGeneratedMeal(data as GeneratedMeal);
         showSuccess("Meal and image generated!");
+        queryClient.invalidateQueries({ queryKey: ['userProfileForGenerationLimits', userId] }); // Refetch profile to update count
         return data;
       } catch (error: any) {
         dismissToast(loadingToastId);
@@ -154,10 +205,10 @@ const GenerateMealPage = () => {
   };
 
   const handleGenerateMealClick = async () => {
-     const { data: { user } } = await supabase.auth.getUser();
-     if (!user) {
+     const { data: authData } = await supabase.auth.getUser(); // Re-check auth just in case
+     if (!authData.user) {
        showError("You must be logged in to generate meals.");
-       // navigate("/auth"); // AppHeader handles this
+       navigate("/auth");
        return;
      }
      generateMealMutation.mutate();
@@ -166,14 +217,25 @@ const GenerateMealPage = () => {
   return (
     <div className="min-h-screen bg-background text-foreground p-4">
       <div className="container mx-auto space-y-6">
-        <AppHeader /> {/* Use AppHeader */}
+        <AppHeader />
         <div className="flex justify-center items-center mb-0">
             <h1 className="text-xl sm:text-3xl font-bold flex items-center"><Brain className="mr-2 h-6 w-6" /> Generate Meal with AI</h1>
         </div>
+
+        {!isLoadingProfile && (
+          <div className="flex items-center justify-center text-sm text-muted-foreground bg-muted p-3 rounded-md">
+            <Info size={16} className="mr-2 flex-shrink-0 text-primary" />
+            {generationStatus.isAdmin 
+              ? "Admin account: Image generation limits bypassed."
+              : `Image Generations Remaining This Month: ${generationStatus.count} / ${IMAGE_GENERATION_LIMIT_PER_MONTH}.`}
+          </div>
+        )}
+
+
         <Card>
           <CardHeader>
             <CardTitle>Tell us what you're craving!</CardTitle>
-            <CardDescription>Select your preferences and let AI suggest a meal.</CardDescription>
+            <CardDescription>Select your preferences and let AI suggest a meal. An image will be generated if you are within your monthly limit.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div>
@@ -233,7 +295,7 @@ const GenerateMealPage = () => {
             </div>
             <Button
               onClick={handleGenerateMealClick}
-              disabled={!selectedMealType || isGenerating || generateMealMutation.isPending}
+              disabled={!selectedMealType || isGenerating || generateMealMutation.isPending || (!generationStatus.isAdmin && generationStatus.limitReached && !isLoadingProfile) }
               className="w-full"
             >
               {isGenerating || generateMealMutation.isPending ? 'Generating...' : 'Generate Meal'}
@@ -258,7 +320,9 @@ const GenerateMealPage = () => {
                 </div>
               )}
               <CardTitle>{generatedMeal.name}</CardTitle>
-              <CardDescription>Generated Recipe</CardDescription>
+              <CardDescription>
+                {generatedMeal.image_url ? "Generated Recipe & Image" : "Generated Recipe (Image limit reached or generation failed)"}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
