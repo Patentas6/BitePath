@@ -98,11 +98,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
     return saved ? new Set(JSON.parse(saved)) : new Set();
   });
 
-  // Save to localStorage whenever struckItems changes
-  useEffect(() => {
-    localStorage.setItem(SHARED_LOCAL_STORAGE_KEY, JSON.stringify(Array.from(struckItems)));
-  }, [struckItems]);
-
+  // Removed useEffect that auto-saved struckItems to localStorage. Now handled in handleItemClick.
 
   const queryStartDate = currentWeekStart;
   const queryEndDate = addDays(queryStartDate, parseInt(selectedDays) - 1);
@@ -251,12 +247,14 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
   // Listen for storage changes to sync with other components
   useEffect(() => {
     const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === SHARED_LOCAL_STORAGE_KEY && event.newValue) {
-        const newStoredStruckItems = new Set<string>(JSON.parse(event.newValue));
+      if (event.key === SHARED_LOCAL_STORAGE_KEY) { // Check even if newValue is null
+        const newGlobalValue = event.newValue;
+        const newGlobalStruckItems = newGlobalValue ? new Set<string>(JSON.parse(newGlobalValue)) : new Set<string>();
+        
         setStruckItems(prevLocalStruckItems => {
           const currentDisplayKeys = new Set(Object.values(categorizedDisplayList).flat().map(item => item.uniqueKey));
           const updatedLocalStruckItems = new Set<string>();
-          newStoredStruckItems.forEach(key => {
+          newGlobalStruckItems.forEach(key => {
             if (currentDisplayKeys.has(key)) {
               updatedLocalStruckItems.add(key);
             }
@@ -270,38 +268,52 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
     };
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
-  }, [categorizedDisplayList]); // Dependency ensures currentDisplayKeys is up-to-date in the closure
+  }, [categorizedDisplayList]);
 
-  // Cleanup local struckItems if items are removed from view
+  // Sync local state with localStorage when the displayable items change
   useEffect(() => {
-    const isDisplayListPopulated = Object.values(categorizedDisplayList).some(list => list.length > 0);
-    if (isDisplayListPopulated) {
-      const currentDisplayKeys = new Set(Object.values(categorizedDisplayList).flat().map(item => item.uniqueKey));
-      setStruckItems(prevStruckItems => {
-        const newLocalStruckItems = new Set<string>();
-        let changed = false;
-        for (const itemKey of prevStruckItems) {
-          if (currentDisplayKeys.has(itemKey)) {
-            newLocalStruckItems.add(itemKey);
-          } else {
-            changed = true;
-          }
-        }
-        return changed ? newLocalStruckItems : prevStruckItems;
-      });
-    }
-    // If display list is empty, do not clear local struckItems.
-    // This prevents this component from wiping localStorage if its own view becomes empty.
+    const currentDisplayKeys = new Set(Object.values(categorizedDisplayList).flat().map(item => item.uniqueKey));
+    const globalRaw = localStorage.getItem(SHARED_LOCAL_STORAGE_KEY);
+    const globalStruckItems = globalRaw ? new Set<string>(JSON.parse(globalRaw)) : new Set<string>();
+
+    const newRelevantStruckItems = new Set<string>();
+    globalStruckItems.forEach(key => {
+      if (currentDisplayKeys.has(key)) {
+        newRelevantStruckItems.add(key);
+      }
+    });
+
+    setStruckItems(prevLocalStruckItems => {
+      if (newRelevantStruckItems.size !== prevLocalStruckItems.size || !Array.from(prevLocalStruckItems).every(key => newRelevantStruckItems.has(key))) {
+        return newRelevantStruckItems;
+      }
+      return prevLocalStruckItems;
+    });
   }, [categorizedDisplayList, userId, currentWeekStart, selectedDays, displaySystem]);
 
 
   const handleItemClick = (uniqueKey: string) => {
-    setStruckItems(prevStruckItems => {
-      const newStruckItems = new Set(prevStruckItems);
-      if (newStruckItems.has(uniqueKey)) { newStruckItems.delete(uniqueKey); }
-      else { newStruckItems.add(uniqueKey); }
-      return newStruckItems;
-    });
+    const globalRaw = localStorage.getItem(SHARED_LOCAL_STORAGE_KEY);
+    let globalSet = globalRaw ? new Set<string>(JSON.parse(globalRaw)) : new Set<string>();
+    const newLocalSet = new Set(struckItems);
+
+    if (globalSet.has(uniqueKey)) {
+      globalSet.delete(uniqueKey);
+      newLocalSet.delete(uniqueKey);
+    } else {
+      globalSet.add(uniqueKey);
+      newLocalSet.add(uniqueKey);
+    }
+    
+    localStorage.setItem(SHARED_LOCAL_STORAGE_KEY, JSON.stringify(Array.from(globalSet)));
+    setStruckItems(newLocalSet);
+
+    window.dispatchEvent(new StorageEvent('storage', {
+      key: SHARED_LOCAL_STORAGE_KEY,
+      newValue: JSON.stringify(Array.from(globalSet)),
+      oldValue: globalRaw,
+      storageArea: localStorage,
+    }));
   };
 
   if (isLoading) return <Card className="hover:shadow-lg transition-shadow duration-200"><CardHeader><CardTitle>Grocery List</CardTitle></CardHeader><CardContent><Skeleton className="h-40 w-full" /></CardContent></Card>;
