@@ -35,14 +35,15 @@ const TOUR_STEPS: Step[] = [
 ];
 
 const AppTour: React.FC = () => {
-  // For testing, always attempt to run the tour.
-  const [runTour, setRunTour] = useState(true); 
+  const [runTour, setRunTour] = useState(false); 
 
   useEffect(() => {
-    // This useEffect is mainly for re-triggering if needed,
-    // but initial run is set by default state.
-    // Forcing it to true again in case something resets it.
-    setRunTour(true); 
+    // Add a small delay to ensure target elements are mounted
+    const timer = setTimeout(() => {
+      setRunTour(true); 
+    }, 100); // 100ms delay, can be adjusted
+
+    return () => clearTimeout(timer); // Cleanup timer on unmount
   }, []);
 
   const handleJoyrideCallback = (data: CallBackProps) => {
@@ -50,8 +51,6 @@ const AppTour: React.FC = () => {
     const finishedStatuses: string[] = [STATUS.FINISHED, STATUS.SKIPPED];
 
     if (finishedStatuses.includes(status)) {
-      // Temporarily, we set runTour to false to stop the current instance,
-      // but it will restart on next Dashboard load due to initial state.
       setRunTour(false); 
     } else if (type === EVENTS.TARGET_NOT_FOUND) {
         console.warn(`Tour target not found: ${data.step.target}`);
@@ -63,12 +62,12 @@ const AppTour: React.FC = () => {
   return (
     <Joyride
       steps={TOUR_STEPS}
-      run={runTour} // Directly using the state
+      run={runTour} 
       callback={handleJoyrideCallback}
       continuous
       showProgress
       showSkipButton
-      debug // Enable debug mode for more console output from Joyride
+      debug 
       styles={{
         options: {
           zIndex: 10000, 
