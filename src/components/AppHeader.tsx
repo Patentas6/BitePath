@@ -50,9 +50,7 @@ const AppHeader = () => {
     enabled: !!user?.id,
   });
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-  };
+  // Logout button is removed from here. It's now on the ProfilePage.
 
   const getWelcomeMessage = () => {
     if (!user) return ""; 
@@ -109,7 +107,7 @@ const AppHeader = () => {
         <Button variant="default" size="sm" asChild data-tourid="tour-profile-button">
           <Link to="/profile"><UserCircle className="mr-2 h-4 w-4" /> Profile</Link>
         </Button>
-        <Button onClick={handleLogout} variant="destructive" size="sm">Logout</Button>
+        {/* Logout Button removed from here */}
       </div>
     </header>
   );
