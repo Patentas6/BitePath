@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react"; // Import useState
+import { useEffect, useState } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { showSuccess, showError } from "@/utils/toast";
-import { MEAL_TAG_OPTIONS, MealTag } from "@/lib/constants"; // Import tags
+import { MEAL_TAG_OPTIONS, MealTag } from "@/lib/constants";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -23,15 +23,15 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-  FormDescription, // Added for tag description
+  FormDescription, 
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { PlusCircle, Trash2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox"; // Import Checkbox
-import { UNITS } from "./MealForm"; // Assuming UNITS is exported from MealForm or a constants file
+import { Checkbox } from "@/components/ui/checkbox";
+import { UNITS } from "./MealForm"; 
 
 const ingredientSchema = z.object({
   name: z.string().min(1, { message: "Ingredient name is required." }),
@@ -44,7 +44,7 @@ const mealFormSchema = z.object({
   name: z.string().min(1, { message: "Meal name is required." }),
   ingredients: z.array(ingredientSchema).optional(),
   instructions: z.string().optional(),
-  meal_tags: z.array(z.string()).optional(), // Added meal_tags
+  meal_tags: z.array(z.string()).optional(),
 });
 
 type MealFormValues = z.infer<typeof mealFormSchema>;
@@ -55,8 +55,8 @@ export interface MealForEditing {
   ingredients?: string | null;
   instructions?: string | null;
   user_id: string;
-  meal_tags?: string[] | null; // Expect tags from DB
-  image_url?: string | null; // Added image_url
+  meal_tags?: string[] | null;
+  image_url?: string | null;
 }
 
 interface EditMealDialogProps {
@@ -67,15 +67,15 @@ interface EditMealDialogProps {
 
 const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, meal }) => {
   const queryClient = useQueryClient();
-  const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null); // State for enlarged image view
+  const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
 
   const form = useForm<MealFormValues>({
     resolver: zodResolver(mealFormSchema),
     defaultValues: {
       name: "",
-      ingredients: [{ name: "", quantity: "", unit: "", description: "" }],
+      ingredients: [{ name: "", quantity: "" as any, unit: "", description: "" }], // Set quantity to empty string for initial state
       instructions: "",
-      meal_tags: [], // Default to empty array
+      meal_tags: [],
     },
   });
 
@@ -86,22 +86,20 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
 
   useEffect(() => {
     if (meal && open) {
-      let parsedIngredients = [{ name: "", quantity: "", unit: "", description: "" }];
+      let parsedIngredients: any[] = [{ name: "", quantity: "", unit: "", description: "" }];
       if (meal.ingredients) {
         try {
           const parsed = JSON.parse(meal.ingredients);
           if (Array.isArray(parsed) && parsed.length > 0) {
             parsedIngredients = parsed.map(item => ({
               name: item.name || "",
-              quantity: item.quantity || "",
+              quantity: item.quantity === undefined || item.quantity === null ? "" : item.quantity,
               unit: item.unit || "",
               description: item.description || "",
             }));
-          } else if (Array.isArray(parsed) && parsed.length === 0) {
-             parsedIngredients = [{ name: "", quantity: "", unit: "", description: "" }];
           }
         } catch (e) {
-          console.warn("Failed to parse ingredients JSON, starting fresh for this meal:", e);
+          console.warn("Failed to parse ingredients JSON for editing, starting fresh for this meal:", e);
         }
       }
       
@@ -109,17 +107,17 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
         name: meal.name,
         ingredients: parsedIngredients,
         instructions: meal.instructions || "",
-        meal_tags: meal.meal_tags || [], // Populate tags
+        meal_tags: meal.meal_tags || [],
       });
     } else if (!open) {
       form.reset({
         name: "",
-        ingredients: [{ name: "", quantity: "", unit: "", description: "" }],
+        ingredients: [{ name: "", quantity: "" as any, unit: "", description: "" }],
         instructions: "",
         meal_tags: [],
       });
     }
-  }, [meal, open, form, replace]);
+  }, [meal, open, form]); // Removed 'replace' from deps as it can cause loops if not careful
 
   const editMealMutation = useMutation({
     mutationFn: async (values: MealFormValues) => {
@@ -130,7 +128,8 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
         throw new Error("You can only edit your own meals.");
       }
 
-      const ingredientsJSON = values.ingredients ? JSON.stringify(values.ingredients) : null;
+      const ingredientsJSON = values.ingredients ? JSON.stringify(values.ingredients.map(ing => ({...ing, quantity: parseFloat(ing.quantity as any)}))) : null;
+
 
       const { data, error } = await supabase
         .from("meals")
@@ -138,8 +137,7 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
           name: values.name,
           ingredients: ingredientsJSON,
           instructions: values.instructions,
-          meal_tags: values.meal_tags, // Save tags
-          // image_url is not updated here, it's set on creation
+          meal_tags: values.meal_tags,
         })
         .eq("id", meal.id)
         .eq("user_id", user.id)
@@ -152,7 +150,8 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
       showSuccess("Meal updated successfully!");
       queryClient.invalidateQueries({ queryKey: ["meals"] });
       queryClient.invalidateQueries({ queryKey: ["mealPlans"] }); 
-      queryClient.invalidateQueries({ queryKey: ["groceryList"] });
+      queryClient.invalidateQueries({ queryKey: ["groceryListSource"] }); // Invalidate grocery list source
+      queryClient.invalidateQueries({ queryKey: ["todaysGroceryListSource"] }); // Invalidate today's grocery list source
       onOpenChange(false);
     },
     onError: (error) => {
@@ -168,9 +167,9 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
   if (!meal) return null;
 
   return (
-    <> {/* Use fragment to wrap the two dialogs */}
+    <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-2xl"> {/* Increased dialog width */}
           <DialogHeader>
             <DialogTitle>Edit Meal</DialogTitle>
             <DialogDescription>Make changes to your meal here. Click save when you're done.</DialogDescription>
@@ -179,14 +178,14 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4 max-h-[70vh] overflow-y-auto pr-2">
                {meal.image_url && (
                   <div
-                    className="cursor-pointer w-full h-40 flex items-center justify-center overflow-hidden rounded-md mb-4 bg-muted" // Added styling and click handler
-                    onClick={() => setViewingImageUrl(meal.image_url || null)} // Set state on click
+                    className="cursor-pointer w-full h-40 flex items-center justify-center overflow-hidden rounded-md mb-4 bg-muted"
+                    onClick={() => setViewingImageUrl(meal.image_url || null)}
                   >
                     <img
                       src={meal.image_url}
                       alt={`Image of ${meal.name}`}
-                      className="h-full object-contain" // Use h-full and object-contain
-                      onError={(e) => (e.currentTarget.style.display = 'none')} // Hide image on error
+                      className="h-full object-contain"
+                      onError={(e) => (e.currentTarget.style.display = 'none')}
                     />
                   </div>
                 )}
@@ -204,7 +203,6 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
                 )}
               />
 
-              {/* Meal Tags Checkboxes */}
               <FormField
                 control={form.control}
                 name="meal_tags"
@@ -260,13 +258,13 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
                 <FormLabel>Ingredients</FormLabel>
                 <div className="space-y-4 mt-2">
                   {fields.map((field, index) => (
-                    <Card key={field.id} className="p-3 bg-slate-50">
-                      <div className="grid grid-cols-1 md:grid-cols-10 gap-2 items-end">
+                    <Card key={field.id} className="p-3 bg-slate-50 dark:bg-slate-800"> {/* Adjusted dark mode bg */}
+                      <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end"> {/* Changed to 12 cols */}
                          <FormField
                           control={form.control}
                           name={`ingredients.${index}.name`}
                           render={({ field: itemField }) => (
-                            <FormItem className="md:col-span-3">
+                            <FormItem className="md:col-span-4"> {/* Adjusted span */}
                               <FormLabel className="text-xs">Name</FormLabel>
                               <FormControl>
                                 <Input placeholder="e.g., Tomato" {...itemField} />
@@ -279,7 +277,7 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
                           control={form.control}
                           name={`ingredients.${index}.quantity`}
                           render={({ field: itemField }) => (
-                            <FormItem className="md:col-span-1">
+                            <FormItem className="md:col-span-2"> {/* Adjusted span */}
                               <FormLabel className="text-xs">Qty</FormLabel>
                               <FormControl>
                                 <Input type="number" placeholder="e.g., 2" {...itemField} step="any"/>
@@ -292,7 +290,7 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
                           control={form.control}
                           name={`ingredients.${index}.unit`}
                           render={({ field: itemField }) => (
-                            <FormItem className="md:col-span-2">
+                            <FormItem className="md:col-span-2"> {/* Adjusted span */}
                               <FormLabel className="text-xs">Unit</FormLabel>
                               <Select onValueChange={itemField.onChange} value={itemField.value || undefined}>
                                 <FormControl>
@@ -312,7 +310,7 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
                           control={form.control}
                           name={`ingredients.${index}.description`}
                           render={({ field: itemField }) => (
-                            <FormItem className="md:col-span-3">
+                            <FormItem className="md:col-span-3"> {/* Adjusted span */}
                               <FormLabel className="text-xs">Description (Optional)</FormLabel>
                               <FormControl>
                                 <Input placeholder="e.g., minced, cored" {...itemField} />
@@ -338,7 +336,7 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => append({ name: "", quantity: "", unit: "", description: "" })}
+                    onClick={() => append({ name: "", quantity: "" as any, unit: "", description: "" })}
                     className="mt-2"
                   >
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Ingredient
@@ -372,14 +370,13 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
         </DialogContent>
       </Dialog>
 
-      {/* Nested Image Viewer Dialog */}
       <Dialog open={!!viewingImageUrl} onOpenChange={(open) => !open && setViewingImageUrl(null)}>
         <DialogContent className="max-w-screen-md w-[90vw] h-[90vh] p-0 flex items-center justify-center bg-transparent border-none">
           {viewingImageUrl && (
             <img
               src={viewingImageUrl}
               alt="Enlarged meal image"
-              className="max-w-full max-h-full object-contain" // Ensure image fits within dialog
+              className="max-w-full max-h-full object-contain"
             />
           )}
         </DialogContent>
