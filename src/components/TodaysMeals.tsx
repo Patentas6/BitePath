@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { format, isToday, startOfToday, parseISO } from "date-fns";
-import { useMemo, useState } from "react"; // Import useState
+import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { PLANNING_MEAL_TYPES, PlanningMealType } from "@/lib/constants";
 
@@ -10,7 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { UtensilsCrossed } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent } from "@/components/ui/dialog"; // Import Dialog components
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 interface MealPlan {
   id: string;
@@ -32,7 +32,7 @@ const MEAL_TYPE_DISPLAY_ORDER: PlanningMealType[] = ["Breakfast", "Brunch Snack"
 const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
   const today = startOfToday();
   const todayStr = format(today, 'yyyy-MM-dd');
-  const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null); // State for enlarged image
+  const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
 
   const { data: mealPlans, isLoading, error } = useQuery<MealPlan[]>({
     queryKey: ["todaysMealPlans", userId, todayStr],
@@ -84,13 +84,13 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
                 <li key={plannedMeal.id} className="border rounded-md p-3 bg-card shadow-sm flex items-center space-x-3">
                    {plannedMeal.meals?.image_url && (
                     <div
-                      className="h-16 w-16 object-cover rounded-md flex-shrink-0 cursor-pointer flex items-center justify-center overflow-hidden bg-muted"
+                      className="h-20 w-20 object-cover rounded-md flex-shrink-0 cursor-pointer flex items-center justify-center overflow-hidden bg-muted" // Changed h-16 w-16 to h-20 w-20
                       onClick={() => setViewingImageUrl(plannedMeal.meals?.image_url || null)}
                     >
                       <img
                         src={plannedMeal.meals.image_url}
                         alt={plannedMeal.meals.name || 'Meal image'}
-                        className="h-full w-full object-cover" // Changed to object-cover for better fill
+                        className="h-full w-full object-cover"
                         onError={(e) => (e.currentTarget.style.display = 'none')}
                       />
                     </div>
