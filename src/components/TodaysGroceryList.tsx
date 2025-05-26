@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ShoppingCart } from "lucide-react";
 import { Link } from "react-router-dom";
+import { convertToPreferredSystem } from "@/utils/conversionUtils"; // Added for consistency if needed later
 
 const SHARED_LOCAL_STORAGE_KEY = 'bitepath-struckSharedGroceryItems';
 
@@ -23,15 +24,13 @@ interface ParsedIngredientItem {
   quantity: number | string;
   unit: string;
   description?: string;
+  mealName?: string; // Added for tooltip
 }
 
-// Updated: Removed tsp/tbsp from here
 const NON_SUMMABLE_DISPLAY_UNITS: ReadonlyArray<string> = [
   "cup", "cups", "pinch", "pinches", "dash", "dashes"
-  // Removed: 'tsp', 'teaspoon', 'teaspoons', 'tbsp', 'tablespoon', 'tablespoons',
 ];
 
-// Updated: Added tsp/tbsp here
 const SUMMABLE_UNITS: ReadonlyArray<string> = [
   "g", "gram", "grams", "kg", "kgs", "kilogram", "kilograms",
   "lb", "lbs", "pound", "pounds", "oz", "ounce", "ounces",
@@ -39,7 +38,7 @@ const SUMMABLE_UNITS: ReadonlyArray<string> = [
   "piece", "pieces", "can", "cans", "bottle", "bottles", "package", "packages",
   "slice", "slices", "item", "items", "clove", "cloves", "sprig", "sprigs",
   'head', 'heads', 'bunch', 'bunches',
-  'tsp', 'teaspoon', 'teaspoons', 'tbsp', 'tablespoon', 'tablespoons' // Added
+  'tsp', 'teaspoon', 'teaspoons', 'tbsp', 'tablespoon', 'tablespoons'
 ];
 
 const PIECE_UNITS: ReadonlyArray<string> = ['piece', 'pieces', 'item', 'items', 'unit', 'units'];
@@ -81,11 +80,31 @@ interface TodaysGroceryListProps {
 const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
   const today = startOfToday();
   const todayStr = format(today, 'yyyy-MM-dd');
+  const [displaySystem, setDisplaySystem] = useState<'imperial' | 'metric'>('imperial'); // Added for consistency
   
   const [struckItems, setStruckItems] = useState<Set<string>>(() => {
     const saved = localStorage.getItem(SHARED_LOCAL_STORAGE_KEY);
     return saved ? new Set(JSON.parse(saved)) : new Set();
   });
+
+  const { data: userProfile } = useQuery<{ preferred_unit_system: 'imperial' | 'metric' | null } | null>({
+    queryKey: ["userProfileForGrocery", userId],
+    queryFn: async () => {
+      if (!userId) return null;
+      const { data, error } = await supabase.from("profiles").select("preferred_unit_system").eq("id", userId).single();
+      if (error && error.code !== 'PGRST116') { console.error("Error fetching profile for grocery unit system:", error); return null; }
+      return data;
+    },
+    enabled: !!userId,
+    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+  });
+
+  useEffect(() => {
+    if (userProfile?.preferred_unit_system) {
+      setDisplaySystem(userProfile.preferred_unit_system);
+    }
+  }, [userProfile]);
+
 
   const { data: plannedMealsData, isLoading, error } = useQuery<PlannedMealWithIngredients[]>({
     queryKey: ["todaysGroceryListSource", userId, todayStr],
@@ -106,15 +125,17 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
     if (!plannedMealsData) return [];
     const ingredientMap = new Map<string, GroceryListItem>();
     plannedMealsData.forEach(pm => {
-      const ingredientsBlock = pm.meals?.ingredients;
+      if (!pm.meals) return;
+      const ingredientsBlock = pm.meals.ingredients;
+      const mealName = pm.meals.name;
       if (ingredientsBlock && typeof ingredientsBlock === 'string') {
         try {
-          const parsedIngredientList: ParsedIngredientItem[] = JSON.parse(ingredientsBlock);
+          const parsedIngredientList: Omit<ParsedIngredientItem, 'mealName'>[] = JSON.parse(ingredientsBlock);
           if (Array.isArray(parsedIngredientList)) {
             parsedIngredientList.forEach(item => {
               const quantityAsNumber = typeof item.quantity === 'string' ? parseFloat(item.quantity) : item.quantity;
               if (!item.name || typeof quantityAsNumber !== 'number' || isNaN(quantityAsNumber) || !item.unit) return;
-              const processedItem: ParsedIngredientItem = { ...item, quantity: quantityAsNumber };
+              const processedItem: ParsedIngredientItem = { ...item, quantity: quantityAsNumber, mealName };
               const normalizedName = processedItem.name.trim().toLowerCase();
               const unitLower = processedItem.unit.toLowerCase();
               const mapKey = normalizedName;
@@ -162,6 +183,14 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
       
       let detailsPart = "";
       
+      if (displaySystem === 'metric' && aggItem.isSummable) {
+        const converted = convertToPreferredSystem(aggItem.totalQuantity, aggItem.unit || "", 'metric');
+        if (converted) {
+            currentQuantity = converted.quantity;
+            currentUnit = converted.unit;
+        }
+      }
+      
       let detailsClass = "text-foreground"; 
       if (SPICE_MEASUREMENT_UNITS.includes(currentUnit.toLowerCase())) {
           detailsClass = "text-gray-500 dark:text-gray-400"; 
@@ -182,8 +211,17 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
         }
       } else if (!aggItem.isSummable && aggItem.originalItems.length > 0) {
         detailsPart = aggItem.originalItems.map(orig => {
-          if (PIECE_UNITS.includes(orig.unit.toLowerCase())) return `${orig.quantity}`;
-          return `${orig.quantity} ${orig.unit}`;
+          let q = orig.quantity;
+          let u = orig.unit;
+          if (displaySystem === 'metric') {
+            const convertedPart = convertToPreferredSystem(orig.quantity, orig.unit, 'metric');
+            if (convertedPart) {
+              q = convertedPart.quantity;
+              u = convertedPart.unit;
+            }
+          }
+          if (PIECE_UNITS.includes(u.toLowerCase())) return `${q}`;
+          return `${q} ${u}`;
         }).join('; ');
         if (aggItem.originalItems.some(oi => SPICE_MEASUREMENT_UNITS.includes(oi.unit.toLowerCase()))) {
             detailsClass = "text-gray-500 dark:text-gray-400";
@@ -192,15 +230,17 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
         }
       }
 
-      const uniqueKey = `${itemName.trim().toLowerCase()}:${detailsPart.trim().toLowerCase()}-${foundCategory.toLowerCase()}`;
-      const originalItemsTooltip = aggItem.originalItems.map(oi => `${oi.quantity} ${oi.unit} ${oi.name}${oi.description ? ` (${oi.description})` : ''}`).join('\n');
+      const uniqueKey = `${itemName.trim().toLowerCase()}:${(aggItem.unit || "").trim().toLowerCase()}-${foundCategory.toLowerCase()}`;
+      const originalItemsTooltip = aggItem.originalItems
+        .map(oi => `${oi.quantity} ${oi.unit} ${oi.name} (from: ${oi.mealName})${oi.description ? ` (${oi.description})` : ''}`)
+        .join('\n');
 
       if (detailsPart.trim() !== "" || itemName.trim() !== "") {
         grouped[foundCategory].push({ itemName, itemNameClass, detailsPart, detailsClass, originalItemsTooltip, uniqueKey });
       }
     });
     return grouped;
-  }, [aggregatedIngredients]);
+  }, [aggregatedIngredients, displaySystem]);
   
   useEffect(() => {
     const handleStorageChange = (event: StorageEvent) => {
@@ -245,7 +285,7 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
       }
       return prevLocalStruckItems;
     });
-  }, [categorizedDisplayList, userId]);
+  }, [categorizedDisplayList, userId, displaySystem]);
 
 
   const handleItemClick = (uniqueKey: string) => {
@@ -280,7 +320,7 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
   return (
     <Card className="hover:shadow-lg transition-shadow duration-200 flex flex-col">
       <CardHeader>
-        <CardTitle>Today's Ingredients</CardTitle>
+        <CardTitle>Today's Ingredients ({format(today, 'MMM dd')})</CardTitle>
       </CardHeader>
       <CardContent className="flex-grow">
         {isEmptyList ? (
