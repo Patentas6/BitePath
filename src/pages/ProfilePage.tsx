@@ -9,15 +9,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription as ShadcnCardDescription } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useNavigate, Link } from "react-router-dom";
 import type { User } from "@supabase/supabase-js";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
-import { Textarea } from "@/components/ui/textarea"; // Import Textarea
+import { Textarea } from "@/components/ui/textarea";
 
 const profileFormSchema = z.object({
   first_name: z.string().min(1, "First name is required.").max(50, "First name cannot exceed 50 characters."),
   last_name: z.string().min(1, "Last name is required.").max(50, "Last name cannot exceed 50 characters."),
-  ai_preferences: z.string().optional(), // Added AI preferences field
+  ai_preferences: z.string().optional(),
+  preferred_unit_system: z.enum(["imperial", "metric"]).default("imperial"),
 });
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
@@ -25,7 +27,8 @@ interface ProfileData {
   id: string;
   first_name: string | null;
   last_name: string | null;
-  ai_preferences: string | null; // Added AI preferences field
+  ai_preferences: string | null;
+  preferred_unit_system: "imperial" | "metric" | null;
 }
 
 const ProfilePage = () => {
@@ -50,14 +53,14 @@ const ProfilePage = () => {
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
-    defaultValues: { first_name: "", last_name: "", ai_preferences: "" }, // Set default value
+    defaultValues: { first_name: "", last_name: "", ai_preferences: "", preferred_unit_system: "imperial" },
   });
 
   const { data: profile, isLoading: isLoadingProfile, error: profileError } = useQuery<ProfileData | null>({
     queryKey: ["userProfile", userId],
     queryFn: async () => {
       if (!userId) return null;
-      const { data, error } = await supabase.from("profiles").select("id, first_name, last_name, ai_preferences").eq("id", userId).single(); // Select new field
+      const { data, error } = await supabase.from("profiles").select("id, first_name, last_name, ai_preferences, preferred_unit_system").eq("id", userId).single();
       if (error && error.code !== 'PGRST116') throw error;
       return data;
     },
@@ -65,8 +68,16 @@ const ProfilePage = () => {
   });
 
   useEffect(() => {
-    if (profile) form.reset({ first_name: profile.first_name || "", last_name: profile.last_name || "", ai_preferences: profile.ai_preferences || "" }); // Populate new field
-    else if (!isLoadingProfile && userId) form.reset({ first_name: "", last_name: "", ai_preferences: "" }); // Reset new field
+    if (profile) {
+      form.reset({
+        first_name: profile.first_name || "",
+        last_name: profile.last_name || "",
+        ai_preferences: profile.ai_preferences || "",
+        preferred_unit_system: profile.preferred_unit_system || "imperial",
+      });
+    } else if (!isLoadingProfile && userId) {
+      form.reset({ first_name: "", last_name: "", ai_preferences: "", preferred_unit_system: "imperial" });
+    }
   }, [profile, isLoadingProfile, userId, form]);
 
   const updateProfileMutation = useMutation({
@@ -76,7 +87,15 @@ const ProfilePage = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => { showSuccess("Profile updated!"); queryClient.invalidateQueries({ queryKey: ["userProfile", userId] }); },
+    onSuccess: () => { 
+      showSuccess("Profile updated!"); 
+      queryClient.invalidateQueries({ queryKey: ["userProfile", userId] }); 
+      // Invalidate other queries that might depend on unit system preference
+      queryClient.invalidateQueries({ queryKey: ["userProfileForGenerationLimits"] });
+      queryClient.invalidateQueries({ queryKey: ["userProfileForAddMealLimits"] });
+      queryClient.invalidateQueries({ queryKey: ["groceryListSource"] });
+      queryClient.invalidateQueries({ queryKey: ["todaysGroceryListSource"] });
+    },
     onError: (error: Error) => { showError(`Failed to update profile: ${error.message}`); },
   });
 
@@ -100,7 +119,7 @@ const ProfilePage = () => {
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle>Your Profile</CardTitle>
-            <ShadcnCardDescription>Update your display name and AI preferences.</ShadcnCardDescription> {/* Updated description */}
+            <ShadcnCardDescription>Update your display name, AI preferences, and unit system.</ShadcnCardDescription>
           </CardHeader>
           <CardContent>
             <Form {...form}>
@@ -129,7 +148,6 @@ const ProfilePage = () => {
                     </FormItem>
                   )}
                 />
-                 {/* New AI Preferences Field */}
                 <FormField
                   control={form.control}
                   name="ai_preferences"
@@ -141,12 +159,51 @@ const ProfilePage = () => {
                           placeholder="e.g., 'lactose intolerant', 'prefer vegetarian options', 'avoid nuts'"
                           {...field}
                           disabled={updateProfileMutation.isPending || isLoadingProfile}
-                          rows={4} // Adjust rows as needed
+                          rows={4}
                         />
                       </FormControl>
                       <FormDescription>
                         Tell the AI about your dietary needs, allergies, or general preferences for meal generation.
                       </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="preferred_unit_system"
+                  render={({ field }) => (
+                    <FormItem className="space-y-3">
+                      <FormLabel>Preferred Unit System</FormLabel>
+                      <FormDescription>
+                        Select the unit system for AI meal generation and grocery list display.
+                        Note: tsp, tbsp, and cup units are generally retained as-is in both systems for cooking convenience.
+                      </FormDescription>
+                      <FormControl>
+                        <RadioGroup
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                          className="flex flex-col space-y-1"
+                          disabled={updateProfileMutation.isPending || isLoadingProfile}
+                        >
+                          <FormItem className="flex items-center space-x-3 space-y-0">
+                            <FormControl>
+                              <RadioGroupItem value="imperial" />
+                            </FormControl>
+                            <FormLabel className="font-normal">
+                              Imperial (e.g., lb, oz, cup)
+                            </FormLabel>
+                          </FormItem>
+                          <FormItem className="flex items-center space-x-3 space-y-0">
+                            <FormControl>
+                              <RadioGroupItem value="metric" />
+                            </FormControl>
+                            <FormLabel className="font-normal">
+                              Metric (e.g., kg, g, L, ml)
+                            </FormLabel>
+                          </FormItem>
+                        </RadioGroup>
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
