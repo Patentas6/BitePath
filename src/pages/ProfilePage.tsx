@@ -90,7 +90,6 @@ const ProfilePage = () => {
     onSuccess: () => { 
       showSuccess("Profile updated!"); 
       queryClient.invalidateQueries({ queryKey: ["userProfile", userId] }); 
-      // Invalidate other queries that might depend on unit system preference
       queryClient.invalidateQueries({ queryKey: ["userProfileForGenerationLimits"] });
       queryClient.invalidateQueries({ queryKey: ["userProfileForAddMealLimits"] });
       queryClient.invalidateQueries({ queryKey: ["groceryListSource"] });
@@ -182,7 +181,7 @@ const ProfilePage = () => {
                       <FormControl>
                         <RadioGroup
                           onValueChange={field.onChange}
-                          defaultValue={field.value}
+                          value={field.value} // Changed from defaultValue to value
                           className="flex flex-col space-y-1"
                           disabled={updateProfileMutation.isPending || isLoadingProfile}
                         >
