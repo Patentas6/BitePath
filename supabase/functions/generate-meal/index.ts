@@ -165,14 +165,13 @@ serve(async (req) => {
     console.log(`User profile for ${user.id}: admin=${userIsAdmin}, count=${userImageGenerationCount}, resetMonth='${userLastImageGenerationReset}'`);
 
     const requestBody = await req.json();
-    // New fields for refinement: existingRecipeText, refinementInstructions
     const { mealType, kinds, styles, preferences, mealData, existingRecipeText, refinementInstructions } = requestBody;
 
     let generatedMealData: GeneratedMeal | undefined;
     let mealNameForImage: string;
     let anImageShouldBeGenerated = false; 
 
-    if (mealData) { // Case 1: mealData is provided (request is for image generation for existing text)
+    if (mealData) { 
         console.log("Received existing meal data for image generation:", mealData.name);
         generatedMealData = mealData as GeneratedMeal; 
         mealNameForImage = mealData.name;
@@ -188,7 +187,7 @@ serve(async (req) => {
         } else {
             console.log("MealData already contains an image_url. Skipping new image generation.");
         }
-    } else { // Case 2: No mealData, generate recipe text (either initial or refinement)
+    } else { 
         const serviceAccountJsonStringForGemini = Deno.env.get("VERTEX_SERVICE_ACCOUNT_KEY_JSON");
         if (!serviceAccountJsonStringForGemini) { 
             console.error("VERTEX_SERVICE_ACCOUNT_KEY_JSON secret not set for Gemini.");
@@ -232,7 +231,7 @@ The meal should still generally be a ${mealType || 'general'} type.`;
         }
         
         if (userAiPreferences) prompt += ` Consider these user profile preferences: ${userAiPreferences}.`;
-        if (preferences && !existingRecipeText) { // Only add initial request preferences if not a refinement (refinement prompt includes them implicitly)
+        if (preferences && !existingRecipeText) { 
              prompt += ` Also consider these specific request preferences: ${preferences}.`;
         }
         prompt += `\nEnsure the response is ONLY the JSON object, nothing else. Do not wrap it in markdown backticks.`;
@@ -241,8 +240,8 @@ The meal should still generally be a ${mealType || 'general'} type.`;
           contents: [{ role: "user", parts: [{ text: prompt }] }],
           generationConfig: {
             responseMimeType: "application/json",
-            temperature: 0.7, // Could be slightly lower for refinement if needed
-            maxOutputTokens: 2048,
+            temperature: 0.7, 
+            maxOutputTokens: 8192, // INCREASED MAX OUTPUT TOKENS
           },
         };
         
@@ -260,21 +259,27 @@ The meal should still generally be a ${mealType || 'general'} type.`;
             throw new Error(`Gemini API request failed: ${geminiResponse.status} ${errorMessage}`);
         }
         const geminiData = await geminiResponse.json();
+
+        if (geminiData.candidates?.[0]?.finishReason === "MAX_TOKENS") {
+            console.warn("Gemini response was truncated due to MAX_TOKENS limit even after increasing it.");
+            // Potentially throw a specific error or return a message indicating truncation
+        }
+
         const generatedContentString = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
         
         if (!generatedContentString) { 
-            console.error("No content string from Gemini:", geminiData);
+            console.error("No content string from Gemini. Full response:", JSON.stringify(geminiData, null, 2));
             throw new Error("Failed to generate recipe: No content from AI.");
         }
         try {
             generatedMealData = JSON.parse(generatedContentString);
             if (!generatedMealData || !generatedMealData.name || !Array.isArray(generatedMealData.ingredients) || !generatedMealData.instructions) { 
                 console.error("Invalid recipe format from Gemini:", generatedMealData);
-                throw new Error("Invalid recipe format from AI."); 
+                throw new Error("Invalid recipe format from AI. Check Gemini output structure."); 
             }
         } catch (parseError) { 
-            console.error("Failed to parse Gemini JSON response:", parseError, "Raw content:", generatedContentString);
-            throw new Error("Failed to parse recipe from AI.");
+            console.error("Failed to parse Gemini JSON response:", parseError, "Raw content from Gemini:", generatedContentString);
+            throw new Error("Failed to parse recipe from AI. The AI may have returned non-JSON text or incomplete JSON.");
         }
         console.log(existingRecipeText ? "Refined Recipe Text:" : "Generated Recipe Text:", generatedMealData.name);
     }
@@ -379,7 +384,7 @@ The meal should still generally be a ${mealType || 'general'} type.`;
     }
 
   } catch (error) {
-    console.error("Error in Edge Function:", error);
+    console.error("Error in Edge Function:", error.message, error.stack); // Log stack for more details
     return new Response(
       JSON.stringify({ error: `Failed to process request: ${error.message || 'Unknown error'}` }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
