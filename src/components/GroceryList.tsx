@@ -27,23 +27,24 @@ interface ParsedIngredientItem {
   description?: string;
 }
 
+// Updated: Removed tsp/tbsp from here
 const NON_SUMMABLE_DISPLAY_UNITS: ReadonlyArray<string> = [
-  "cup", "cups",
-  "tsp", "teaspoon", "teaspoons",
-  "tbsp", "tablespoon", "tablespoons", "pinch", "pinches", "dash", "dashes"
+  "cup", "cups", "pinch", "pinches", "dash", "dashes"
+  // Removed: 'tsp', 'teaspoon', 'teaspoons', 'tbsp', 'tablespoon', 'tablespoons',
 ];
 
+// Updated: Added tsp/tbsp here
 const SUMMABLE_UNITS: ReadonlyArray<string> = [
   "g", "gram", "grams", "kg", "kgs", "kilogram", "kilograms",
   "lb", "lbs", "pound", "pounds", "oz", "ounce", "ounces",
   "ml", "milliliter", "milliliters", "l", "liter", "liters",
   "piece", "pieces", "can", "cans", "bottle", "bottles", "package", "packages",
   "slice", "slices", "item", "items", "clove", "cloves", "sprig", "sprigs",
-  'head', 'heads', 'bunch', 'bunches'
+  'head', 'heads', 'bunch', 'bunches',
+  'tsp', 'teaspoon', 'teaspoons', 'tbsp', 'tablespoon', 'tablespoons' // Added
 ];
 
 const PIECE_UNITS: ReadonlyArray<string> = ['piece', 'pieces', 'item', 'items', 'unit', 'units'];
-// New specific list for gray color
 const SPICE_MEASUREMENT_UNITS: ReadonlyArray<string> = ['tsp', 'teaspoon', 'teaspoons', 'tbsp', 'tablespoon', 'tablespoons'];
 
 const categoriesMap = {
@@ -164,7 +165,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
       }
 
       const itemName = aggItem.name;
-      const itemNameClass = "text-foreground"; // Item name always default color
+      const itemNameClass = "text-foreground"; 
 
       let currentQuantity = aggItem.totalQuantity;
       let currentUnit = aggItem.unit || "";
@@ -181,15 +182,14 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
         }
       }
       
-      // Determine detailsClass based on the *displayed* currentUnit
-      let detailsClass = "text-foreground"; // Default color for quantity/unit
+      let detailsClass = "text-foreground"; 
       if (SPICE_MEASUREMENT_UNITS.includes(currentUnit.toLowerCase())) {
-          detailsClass = "text-gray-500 dark:text-gray-400"; // Lighter/gray color for specified units
+          detailsClass = "text-gray-500 dark:text-gray-400"; 
       }
 
       if (aggItem.isSummable && currentQuantity > 0) {
         const roundedDisplayQty = (currentQuantity % 1 === 0) ? Math.round(currentQuantity) : parseFloat(currentQuantity.toFixed(1));
-        if (PIECE_UNITS.includes(currentUnit.toLowerCase())) { // Check displayed unit for piece
+        if (PIECE_UNITS.includes(currentUnit.toLowerCase())) { 
           detailsPart = `${roundedDisplayQty}`;
         } else {
           let unitStr = currentUnit;
@@ -214,7 +214,6 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
           if (PIECE_UNITS.includes(u.toLowerCase())) return `${q}`;
           return `${q} ${u}`;
         }).join('; ');
-        // For non-summable, if any original unit was a spice unit, make it gray. Otherwise default.
         if (aggItem.originalItems.some(oi => SPICE_MEASUREMENT_UNITS.includes(oi.unit.toLowerCase()))) {
             detailsClass = "text-gray-500 dark:text-gray-400";
         } else {
