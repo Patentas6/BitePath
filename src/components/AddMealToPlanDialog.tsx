@@ -53,10 +53,11 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
   onOpenChange,
   planDate,
   userId,
-  initialMealType,
+  initialMealType, // This prop holds the meal type like "Breakfast"
 }) => {
   const [selectedMealId, setSelectedMealId] = useState<string | undefined>(undefined);
-  const [selectedMealType, setSelectedMealType] = useState<PlanningMealType | undefined>(undefined);
+  // selectedMealType state will store the meal type for saving, derived from initialMealType
+  const [selectedMealTypeForSaving, setSelectedMealTypeForSaving] = useState<PlanningMealType | undefined>(undefined);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTags, setSelectedTags] = useState<MealTag[]>([]);
   const [isComboboxOpen, setIsComboboxOpen] = useState(false);
@@ -79,20 +80,23 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
 
   useEffect(() => {
     if (open) {
-      console.log("[AddMealToPlanDialog] Opening. initialMealType:", initialMealType);
+      // console.log("[AddMealToPlanDialog] Opening. initialMealType prop:", initialMealType);
       setSearchTerm("");
       setSelectedMealId(undefined);
 
-      const validInitialPlanningType = PLANNING_MEAL_TYPES.find(type => type === initialMealType);
-      setSelectedMealType(validInitialPlanningType || undefined);
+      // Determine the meal type for saving and for the description
+      const typeForDialog = PLANNING_MEAL_TYPES.find(t => t === initialMealType);
+      setSelectedMealTypeForSaving(typeForDialog);
+      // console.log("[AddMealToPlanDialog] selectedMealTypeForSaving set to:", typeForDialog);
+
 
       // Pre-select tag if initialMealType is a valid MealTag
       if (initialMealType && MEAL_TAG_OPTIONS.includes(initialMealType as MealTag)) {
-        console.log("[AddMealToPlanDialog] Pre-selecting tag:", initialMealType);
+        // console.log("[AddMealToPlanDialog] Pre-selecting tag:", initialMealType);
         setSelectedTags([initialMealType as MealTag]);
       } else {
-        console.log("[AddMealToPlanDialog] No valid tag to pre-select from initialMealType or initialMealType is undefined/not a tag. Resetting tags.");
-        setSelectedTags([]); // Ensure tags are reset if no pre-selection
+        // console.log("[AddMealToPlanDialog] No valid tag to pre-select from initialMealType. Resetting tags. initialMealType was:", initialMealType);
+        setSelectedTags([]); 
       }
       
     } else {
@@ -155,15 +159,20 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
   });
 
   const handleSave = () => {
-    if (!selectedMealId || !planDate || !selectedMealType) { 
-      showError("Please select a meal. The meal type is set by the planner slot.");
+    // Use selectedMealTypeForSaving for the meal_type_str
+    if (!selectedMealId || !planDate || !selectedMealTypeForSaving) { 
+      showError("Please select a meal. The meal type is determined by the planner slot.");
       return;
     }
     const plan_date_str = format(planDate, "yyyy-MM-dd");
-    addMealToPlanMutation.mutate({ meal_id: selectedMealId, plan_date_str, meal_type_str: selectedMealType }); 
+    addMealToPlanMutation.mutate({ meal_id: selectedMealId, plan_date_str, meal_type_str: selectedMealTypeForSaving }); 
   };
 
   if (!planDate) return null; 
+
+  // Use initialMealType directly for the description text, as it's passed as a prop
+  // and represents what the user clicked.
+  const descriptionMealType = initialMealType || "";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -171,7 +180,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
         <DialogHeader>
           <DialogTitle>Add / Change Meal</DialogTitle> 
           <DialogDescription>
-            For {initialMealType ? `${initialMealType} on ` : ''}{format(planDate, "EEEE, MMM dd, yyyy")}.
+            For {descriptionMealType ? `${descriptionMealType} on ` : ''}{format(planDate, "EEEE, MMM dd, yyyy")}.
           </DialogDescription>
         </DialogHeader>
 
@@ -265,7 +274,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={addMealToPlanMutation.isPending}>
             Cancel
           </Button>
-          <Button type="submit" onClick={handleSave} disabled={isLoadingMeals || addMealToPlanMutation.isPending || !selectedMealId || !selectedMealType}> 
+          <Button type="submit" onClick={handleSave} disabled={isLoadingMeals || addMealToPlanMutation.isPending || !selectedMealId || !selectedMealTypeForSaving}> 
             {addMealToPlanMutation.isPending ? "Saving..." : "Save Meal"}
           </Button>
         </DialogFooter>
