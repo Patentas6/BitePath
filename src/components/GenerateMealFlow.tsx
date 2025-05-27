@@ -11,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { Brain, Save, RefreshCw, Info, Image as ImageIcon, Edit2, Zap, Users } from 'lucide-react'; 
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { IMAGE_GENERATION_LIMIT_PER_MONTH, RECIPE_GENERATION_LIMIT_PER_PERIOD } from '@/lib/constants';
+import { IMAGE_GENERATION_LIMIT_PER_MONTH, RECIPE_GENERATION_LIMIT_PER_PERIOD, RECIPE_GENERATION_PERIOD_DAYS } from '@/lib/constants';
 import { calculateCaloriesPerServing } from '@/utils/mealUtils';
 import type { CombinedGenerationLimits } from '@/pages/ManageMealEntryPage'; // For status types
 
