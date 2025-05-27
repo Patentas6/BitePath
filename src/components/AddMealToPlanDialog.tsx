@@ -188,7 +188,9 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
           </div>
 
           <div className="grid grid-cols-1 items-center gap-2">
-            <Label className="text-sm font-medium">Select Meal</Label>
+            <Label className="text-sm font-medium">
+              Select Meal ({isLoadingMeals ? '...' : filteredMeals?.length || 0} matching)
+            </Label>
             <Popover open={isComboboxOpen} onOpenChange={setIsComboboxOpen}>
               <PopoverTrigger asChild>
                 <Button
@@ -206,7 +208,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
               <PopoverContent 
                 side="bottom" 
                 sideOffset={5} 
-                className="w-[--radix-popover-trigger-width] p-0" 
+                className="w-[--radix-popover-trigger-width] p-0 max-h-72 overflow-y-auto" 
                 align="start"
               >
                 <Command shouldFilter={false}> 
