@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Joyride, { Step, CallBackProps, STATUS, EVENTS } from 'react-joyride';
-import { supabase } from '@/lib/supabase'; // Import Supabase client
+import { supabase } from '@/lib/supabase'; 
 import { useQueryClient } from '@tanstack/react-query';
 
 const TOUR_STEPS: Step[] = [
@@ -21,14 +21,9 @@ const TOUR_STEPS: Step[] = [
     content: 'Manage your meals here. All your saved meals will be available, where you can edit or delete them.',
     placement: 'bottom',
   },
-  {
-    target: '[data-tourid="tour-generate-meal-button"]',
-    content: 'Feeling adventurous? Let our AI generate a new meal idea for you! An image will be generated as well.',
-    placement: 'bottom',
-  },
-  {
-    target: '[data-tourid="tour-add-meal-button"]',
-    content: 'Got a recipe in mind? Add it manually here. An image for your custom meal can be generated too!',
+  { // Updated target for the new combined button
+    target: '[data-tourid="tour-new-meal-button"]',
+    content: 'Add a new meal manually or let our AI generate one for you here!',
     placement: 'bottom',
   },
   {
@@ -46,7 +41,7 @@ const TOUR_STEPS: Step[] = [
 interface AppTourProps {
   startTour: boolean;
   userId: string | null;
-  onTourEnd?: () => void; // Optional callback if Dashboard needs to know
+  onTourEnd?: () => void; 
 }
 
 const AppTour: React.FC<AppTourProps> = ({ startTour, userId, onTourEnd }) => {
@@ -54,10 +49,9 @@ const AppTour: React.FC<AppTourProps> = ({ startTour, userId, onTourEnd }) => {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    // Delay slightly to ensure DOM elements are ready
     const timer = setTimeout(() => {
       setRun(startTour);
-    }, 500); // Increased delay slightly
+    }, 500); 
     return () => clearTimeout(timer);
   }, [startTour]);
 
@@ -72,7 +66,6 @@ const AppTour: React.FC<AppTourProps> = ({ startTour, userId, onTourEnd }) => {
         console.error("Error updating tour status:", error);
       } else {
         console.log("Tour status updated for user:", userId);
-        // Invalidate profile query if Dashboard relies on it, though Dashboard makes its own decision to start
         queryClient.invalidateQueries({ queryKey: ['userProfileForDashboardTour', userId] });
       }
     } catch (e) {
@@ -91,15 +84,12 @@ const AppTour: React.FC<AppTourProps> = ({ startTour, userId, onTourEnd }) => {
     } else if (type === EVENTS.TARGET_NOT_FOUND) {
         console.warn(`Tour target not found: ${data.step.target}`);
     } else if (type === EVENTS.TOUR_END && (action === 'reset' || action === 'stop')) {
-        // This case might also indicate tour was closed or programmatically stopped
         setRun(false);
         markTourAsCompleted();
     }
-    
-    // console.log('Joyride callback data:', data); // Keep for debugging if needed
   };
 
-  if (!userId) return null; // Don't render if no userId
+  if (!userId) return null; 
 
   return (
     <Joyride
@@ -109,7 +99,6 @@ const AppTour: React.FC<AppTourProps> = ({ startTour, userId, onTourEnd }) => {
       continuous
       showProgress
       showSkipButton
-      // debug // Keep for debugging if needed
       styles={{
         options: {
           zIndex: 10000, 

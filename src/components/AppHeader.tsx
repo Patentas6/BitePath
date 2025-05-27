@@ -4,7 +4,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import type { User } from "@supabase/supabase-js";
-import { UserCircle, BookOpenText, Brain, SquarePen, CalendarDays, Home } from "lucide-react";
+import { UserCircle, BookOpenText, Brain, SquarePen, CalendarDays, Home, PlusCircle } from "lucide-react"; // Added PlusCircle
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 
 interface UserProfile {
@@ -54,15 +54,15 @@ const AppHeader = () => {
     if (!user) return ""; 
     
     let namePart = "";
-    if (isUserProfileLoading && !userProfile) { // Still loading profile, use email part or 'User'
+    if (isUserProfileLoading && !userProfile) { 
       namePart = user.email ? user.email.split('@')[0] : 'User';
-    } else if (userProfile) { // Profile loaded
+    } else if (userProfile) { 
       const { first_name, last_name } = userProfile;
       if (first_name && last_name) namePart = `${first_name} ${last_name}`;
       else if (first_name) namePart = first_name;
       else if (last_name) namePart = last_name;
-      else namePart = user.email ? user.email.split('@')[0] : 'User'; // Profile exists but names are null/empty
-    } else { // Profile not loaded (and not loading, e.g., error or no profile row yet)
+      else namePart = user.email ? user.email.split('@')[0] : 'User'; 
+    } else { 
       namePart = user.email ? user.email.split('@')[0] : 'User';
     }
     
@@ -91,21 +91,18 @@ const AppHeader = () => {
           <span className="text-primary dark:text-primary transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
         </Link>
         <ThemeToggleButton />
-        <span className="text-base hidden md:inline font-medium">{getWelcomeMessage()}</span>
-      </div>
-      <div className="flex items-center space-x-2">
-        {/* Welcome message moved to the left group, remove from here if it was duplicated */}
         <Button variant="default" size="sm" asChild data-tourid="tour-home-button">
           <Link to="/dashboard"><Home className="mr-2 h-4 w-4" /> Home</Link>
         </Button>
+        <span className="text-base hidden md:inline font-medium">{getWelcomeMessage()}</span>
+      </div>
+      <div className="flex items-center space-x-2">
         <Button variant="default" size="sm" asChild data-tourid="tour-my-meals-button">
           <Link to="/meals"><BookOpenText className="mr-2 h-4 w-4" /> My Meals</Link>
         </Button>
-        <Button variant="default" size="sm" asChild data-tourid="tour-generate-meal-button">
-          <Link to="/generate-meal"><Brain className="mr-2 h-4 w-4" /> Generate Meal</Link>
-        </Button>
-        <Button variant="default" size="sm" asChild data-tourid="tour-add-meal-button">
-          <Link to="/add-meal"><SquarePen className="mr-2 h-4 w-4" /> Add Meal</Link>
+        {/* Combined "Add/Generate Meal" button will replace the next two */}
+        <Button variant="default" size="sm" asChild data-tourid="tour-new-meal-button">
+          <Link to="/manage-meal-entry"><PlusCircle className="mr-2 h-4 w-4" /> New Meal</Link>
         </Button>
         <Button variant="default" size="sm" asChild data-tourid="tour-planning-button">
           <Link to="/planning"><CalendarDays className="mr-2 h-4 w-4" /> Plan & Shop</Link>

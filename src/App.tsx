@@ -10,16 +10,16 @@ import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import ProtectedRoute from "./components/ProtectedRoute";
-import ProfilePage from "./pages/ProfilePage"; // Updated import
+import ProfilePage from "./pages/ProfilePage"; 
 import MealsPage from "./pages/MealsPage";
 import BetaDisclaimerBanner from "@/components/BetaDisclaimerBanner";
 import FeedbackPage from "./pages/FeedbackPage";
-import GenerateMealPage from "./pages/GenerateMealPage";
-import AddMealPage from "./pages/AddMealPage";
-// import WeeklyPlanPage from "./pages/WeeklyPlanPage"; // Combined into PlanningPage
-import GroceryListPage from "./pages/GroceryListPage"; // This page might be redundant if PlanningPage has it all
+import ManageMealEntryPage from "./pages/ManageMealEntryPage"; // New combined page
+// import GenerateMealPage from "./pages/GenerateMealPage"; // Old - to be removed
+// import AddMealPage from "./pages/AddMealPage"; // Old - to be removed
+import GroceryListPage from "./pages/GroceryListPage"; 
 import PlanningPage from "./pages/PlanningPage";
-import DiscoverMealsPage from "./pages/DiscoverMealsPage"; // Ensure this is imported if used
+import DiscoverMealsPage from "./pages/DiscoverMealsPage"; 
 
 const queryClient = new QueryClient();
 
@@ -60,31 +60,15 @@ const App = () => (
                 }
               />
               <Route
-                path="/generate-meal"
+                path="/manage-meal-entry" // New route
                 element={
                   <ProtectedRoute>
-                    <GenerateMealPage />
+                    <ManageMealEntryPage />
                   </ProtectedRoute>
                 }
               />
               <Route
-                path="/add-meal"
-                element={
-                  <ProtectedRoute>
-                    <AddMealPage />
-                  </ProtectedRoute>
-                }
-              />
-              {/* <Route
-                path="/weekly-plan" // This route can be removed if PlanningPage replaces it
-                element={
-                  <ProtectedRoute>
-                    <WeeklyPlanPage />
-                  </ProtectedRoute>
-                }
-              /> */}
-              <Route
-                path="/grocery-list" // This route might also be redundant
+                path="/grocery-list" 
                 element={
                   <ProtectedRoute>
                     <GroceryListPage />
