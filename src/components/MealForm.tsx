@@ -19,7 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Trash2, Brain, XCircle, Info, Link2, Zap } from "lucide-react"; // Added Zap
+import { PlusCircle, Trash2, Brain, XCircle, Info, Link2, Zap } from "lucide-react"; 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -50,7 +50,7 @@ const mealFormSchema = z.object({
   instructions: z.string().optional(),
   meal_tags: z.array(z.string()).optional(),
   image_url: z.string().optional(),
-  estimated_calories: z.string().optional(), // Added estimated_calories
+  estimated_calories: z.string().optional(), 
 });
 
 type MealFormValues = z.infer<typeof mealFormSchema>;
@@ -64,9 +64,10 @@ export interface GenerationStatusInfo {
 interface MealFormProps {
   generationStatus?: GenerationStatusInfo;
   isLoadingProfile?: boolean;
+  showCaloriesField?: boolean; // New prop
 }
 
-const MealForm: React.FC<MealFormProps> = ({ generationStatus, isLoadingProfile }) => {
+const MealForm: React.FC<MealFormProps> = ({ generationStatus, isLoadingProfile, showCaloriesField }) => {
   const queryClient = useQueryClient();
   const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
   const [showImageUrlInput, setShowImageUrlInput] = useState(false);
@@ -79,7 +80,7 @@ const MealForm: React.FC<MealFormProps> = ({ generationStatus, isLoadingProfile 
       instructions: "",
       meal_tags: [],
       image_url: "",
-      estimated_calories: "", // Added default
+      estimated_calories: "", 
     },
   });
 
@@ -114,7 +115,7 @@ const MealForm: React.FC<MealFormProps> = ({ generationStatus, isLoadingProfile 
             instructions: values.instructions,
             meal_tags: values.meal_tags,
             image_url: values.image_url,
-            estimated_calories: values.estimated_calories, // Save estimated_calories
+            estimated_calories: showCaloriesField ? values.estimated_calories : null, // Only save if field was shown
           },
         ])
         .select();
@@ -132,9 +133,9 @@ const MealForm: React.FC<MealFormProps> = ({ generationStatus, isLoadingProfile 
         instructions: "",
         meal_tags: [],
         image_url: "",
-        estimated_calories: "", // Reset estimated_calories
+        estimated_calories: "", 
       });
-      setShowImageUrlInput(false); // Reset this state too
+      setShowImageUrlInput(false); 
       queryClient.invalidateQueries({ queryKey: ["meals"] });
       queryClient.invalidateQueries({ queryKey: ['userProfileForAddMealLimits'] });
       queryClient.invalidateQueries({ queryKey: ['userProfileForGenerationLimits'] });
@@ -175,7 +176,7 @@ const MealForm: React.FC<MealFormProps> = ({ generationStatus, isLoadingProfile 
     onSuccess: (data) => {
       if (data?.image_url) {
         form.setValue('image_url', data.image_url); 
-        setShowImageUrlInput(false); // Hide input if image was generated
+        setShowImageUrlInput(false); 
         showSuccess("Image generated!");
         queryClient.invalidateQueries({ queryKey: ['userProfileForAddMealLimits'] });
         queryClient.invalidateQueries({ queryKey: ['userProfileForGenerationLimits'] });
@@ -205,7 +206,7 @@ const MealForm: React.FC<MealFormProps> = ({ generationStatus, isLoadingProfile 
 
   const handleClearImage = () => {
     form.setValue('image_url', ''); 
-    setShowImageUrlInput(false); // Reset to default state
+    setShowImageUrlInput(false); 
   };
 
   const currentImageUrl = form.watch('image_url'); 
@@ -388,25 +389,27 @@ const MealForm: React.FC<MealFormProps> = ({ generationStatus, isLoadingProfile 
               )}
             />
             
-            <FormField
-              control={form.control}
-              name="estimated_calories"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="flex items-center">
-                    <Zap className="mr-2 h-4 w-4 text-primary" />
-                    Estimated Calories (Optional)
-                  </FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g., 550 or 500-600 kcal" {...field} />
-                  </FormControl>
-                  <FormDescription>
-                    Enter a number or a range for the meal's estimated calorie count.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {showCaloriesField && (
+              <FormField
+                control={form.control}
+                name="estimated_calories"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center">
+                      <Zap className="mr-2 h-4 w-4 text-primary" />
+                      Estimated Calories (Optional)
+                    </FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., 550 or 500-600 kcal" {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      Enter a number or a range for the meal's estimated calorie count.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <FormField
               control={form.control}
@@ -447,7 +450,7 @@ const MealForm: React.FC<MealFormProps> = ({ generationStatus, isLoadingProfile 
                               isLoadingProfile || 
                               (generationStatus && !generationStatus.isAdmin && generationStatus.limitReached)
                             }
-                            className="w-full" // Make generate button prominent
+                            className="w-full" 
                           >
                             <Brain className="mr-2 h-4 w-4" /> Generate Image with AI
                           </Button>

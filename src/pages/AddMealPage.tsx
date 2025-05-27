@@ -10,6 +10,7 @@ interface UserProfileData {
   is_admin: boolean;
   image_generation_count: number;
   last_image_generation_reset: string | null;
+  track_calories?: boolean; // Added track_calories
 }
 
 const AddMealPage = () => {
@@ -29,7 +30,7 @@ const AddMealPage = () => {
       if (!userId) return null;
       const { data, error } = await supabase
         .from('profiles')
-        .select('is_admin, image_generation_count, last_image_generation_reset')
+        .select('is_admin, image_generation_count, last_image_generation_reset, track_calories') // Added track_calories
         .eq('id', userId)
         .single();
       if (error && error.code !== 'PGRST116') {
@@ -59,6 +60,11 @@ const AddMealPage = () => {
     };
   }, [userProfile]);
 
+  const shouldShowCalorieField = useMemo(() => {
+    if (isLoadingProfile) return false; // Don't show if profile is loading
+    return userProfile?.track_calories || false;
+  }, [userProfile, isLoadingProfile]);
+
   return (
     <div className="min-h-screen bg-background text-foreground p-4">
       <div className="container mx-auto space-y-6">
@@ -67,7 +73,11 @@ const AddMealPage = () => {
             <h1 className="text-xl sm:text-3xl font-bold">Add New Meal</h1>
         </div>
         <div className="space-y-6">
-          <MealForm generationStatus={generationStatus} isLoadingProfile={isLoadingProfile} />
+          <MealForm 
+            generationStatus={generationStatus} 
+            isLoadingProfile={isLoadingProfile} 
+            showCaloriesField={shouldShowCalorieField} 
+          />
         </div>
       </div>
     </div>
