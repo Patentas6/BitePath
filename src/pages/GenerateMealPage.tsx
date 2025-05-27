@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react'; // Added useRef
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
@@ -62,6 +62,7 @@ interface RecipeGenerationStatus {
 const GenerateMealPage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const recipeCardRef = useRef<HTMLDivElement>(null); // Ref for scrolling
   const [userId, setUserId] = useState<string | null>(null);
 
   const [selectedMealType, setSelectedMealType] = useState<string | undefined>(undefined);
@@ -276,6 +277,9 @@ const GenerateMealPage = () => {
         if (data?.image_url) {
           setGeneratedMeal(prev => prev ? { ...prev, image_url: data.image_url } : null);
           showSuccess("Image generated!");
+          setTimeout(() => { // Scroll after state update and DOM re-render
+            recipeCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 100);
         } else {
           showError("Image generation did not return an image URL.");
         }
@@ -460,7 +464,7 @@ const GenerateMealPage = () => {
         )}
 
         {generatedMeal && (
-          <Card>
+          <Card ref={recipeCardRef}> {/* Added ref here */}
             <CardHeader>
               <div className="flex justify-between items-start gap-4">
                 <div className="flex-grow">
@@ -471,13 +475,13 @@ const GenerateMealPage = () => {
                 </div>
                 {generatedMeal.image_url && (
                   <div
-                    className="cursor-pointer w-auto h-72 flex-shrink-0 rounded-md bg-muted" // Adjusted: w-auto, h-72
+                    className="cursor-pointer w-auto h-72 flex-shrink-0 rounded-md bg-muted"
                     onClick={() => setViewingImageUrl(generatedMeal.image_url || null)}
                   >
                     <img
                       src={generatedMeal.image_url}
                       alt={`Image of ${generatedMeal.name}`}
-                      className="h-full object-contain rounded-md" // Image fills height, width auto
+                      className="h-full object-contain rounded-md"
                       onError={(e) => (e.currentTarget.style.display = 'none')}
                     />
                   </div>
@@ -528,27 +532,26 @@ const GenerateMealPage = () => {
                 </div>
               </div>
 
-              {!generatedMeal.image_url && (
-                <div className="pt-4 border-t">
-                  <Button
-                    onClick={handleGenerateImageClick}
-                    disabled={isGeneratingImage || generateImageMutation.isPending || isLoadingProfile || (!imageGenerationStatus.isAdmin && imageGenerationStatus.limitReached)}
-                    className="w-full mb-2"
-                    variant="outline"
-                  >
-                    <ImageIcon className="mr-2 h-4 w-4" />
-                    {isGeneratingImage || generateImageMutation.isPending ? 'Generating Image...' : 'Generate Image for this Meal'}
-                  </Button>
-                  {!isLoadingProfile && (
-                    <div className="flex items-center justify-center text-xs text-muted-foreground">
-                      <Info size={14} className="mr-1 flex-shrink-0 text-primary" />
-                      {imageGenerationStatus.isAdmin 
-                        ? "Admin account: Image generation limits bypassed."
-                        : `Image Generations Used This Month: ${imageGenerationStatus.generationsUsedThisMonth} / ${IMAGE_GENERATION_LIMIT_PER_MONTH}.`}
-                    </div>
-                  )}
-                </div>
-              )}
+              {/* Generate Image button section - always visible if generatedMeal exists */}
+              <div className="pt-4 border-t">
+                <Button
+                  onClick={handleGenerateImageClick}
+                  disabled={isGeneratingImage || generateImageMutation.isPending || isLoadingProfile || (!imageGenerationStatus.isAdmin && imageGenerationStatus.limitReached)}
+                  className="w-full mb-2"
+                  variant="outline"
+                >
+                  <ImageIcon className="mr-2 h-4 w-4" />
+                  {isGeneratingImage || generateImageMutation.isPending ? 'Generating Image...' : 'Generate Image for this Meal'}
+                </Button>
+                {!isLoadingProfile && (
+                  <div className="flex items-center justify-center text-xs text-muted-foreground">
+                    <Info size={14} className="mr-1 flex-shrink-0 text-primary" />
+                    {imageGenerationStatus.isAdmin 
+                      ? "Admin account: Image generation limits bypassed."
+                      : `Image Generations Used This Month: ${imageGenerationStatus.generationsUsedThisMonth} / ${IMAGE_GENERATION_LIMIT_PER_MONTH}.`}
+                  </div>
+                )}
+              </div>
 
               <div className="flex space-x-4 mt-6">
                 <Button
