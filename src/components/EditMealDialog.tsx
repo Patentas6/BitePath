@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { PlusCircle, Trash2, Zap } from "lucide-react"; // Added Zap
+import { PlusCircle, Trash2, Zap, Users } from "lucide-react"; // Added Users
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -54,7 +54,8 @@ const mealFormSchema = z.object({
   ingredients: z.array(ingredientSchema).optional(),
   instructions: z.string().optional(),
   meal_tags: z.array(z.string()).optional(),
-  estimated_calories: z.string().optional(), // Added estimated_calories
+  estimated_calories: z.string().optional(), 
+  servings: z.string().optional(), // Added servings
 });
 
 type MealFormValues = z.infer<typeof mealFormSchema>;
@@ -67,7 +68,8 @@ export interface MealForEditing {
   user_id: string;
   meal_tags?: string[] | null;
   image_url?: string | null;
-  estimated_calories?: string | null; // Added estimated_calories
+  estimated_calories?: string | null; 
+  servings?: string | null; // Added servings
 }
 
 interface EditMealDialogProps {
@@ -87,7 +89,8 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
       ingredients: [{ name: "", quantity: "", unit: "", description: "" }],
       instructions: "",
       meal_tags: [],
-      estimated_calories: "", // Added default
+      estimated_calories: "", 
+      servings: "", // Added default for servings
     },
   });
 
@@ -127,7 +130,8 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
         ingredients: parsedIngredients.length > 0 ? parsedIngredients : [{ name: "", quantity: "", unit: "", description: "" }],
         instructions: meal.instructions || "",
         meal_tags: meal.meal_tags || [],
-        estimated_calories: meal.estimated_calories || "", // Load estimated_calories
+        estimated_calories: meal.estimated_calories || "", 
+        servings: meal.servings || "", // Load servings
       });
     } else if (!open) {
       form.reset({
@@ -135,7 +139,8 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
         ingredients: [{ name: "", quantity: "", unit: "", description: "" }],
         instructions: "",
         meal_tags: [],
-        estimated_calories: "", // Reset estimated_calories
+        estimated_calories: "", 
+        servings: "", // Reset servings
       });
     }
   }, [meal, open, form]);
@@ -165,7 +170,8 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
           ingredients: ingredientsJSON,
           instructions: values.instructions,
           meal_tags: values.meal_tags,
-          estimated_calories: values.estimated_calories, // Save estimated_calories
+          estimated_calories: values.estimated_calories, 
+          servings: values.servings, // Save servings
         })
         .eq("id", meal.id)
         .eq("user_id", user.id)
@@ -381,6 +387,25 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
                     <FormControl>
                       <Textarea placeholder="Cooking steps..." {...field} rows={5} />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="servings"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center">
+                      <Users className="mr-2 h-4 w-4 text-primary" />
+                      Number of Servings (Optional)
+                    </FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., 4 or 2-3" {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      How many people does this meal typically serve?
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

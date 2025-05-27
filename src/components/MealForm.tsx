@@ -19,7 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Trash2, Brain, XCircle, Info, Link2, Zap } from "lucide-react"; 
+import { PlusCircle, Trash2, Brain, XCircle, Info, Link2, Zap, Users } from "lucide-react"; // Added Users
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -51,6 +51,7 @@ const mealFormSchema = z.object({
   meal_tags: z.array(z.string()).optional(),
   image_url: z.string().optional(),
   estimated_calories: z.string().optional(), 
+  servings: z.string().optional(), // Added servings
 });
 
 type MealFormValues = z.infer<typeof mealFormSchema>;
@@ -64,7 +65,7 @@ export interface GenerationStatusInfo {
 interface MealFormProps {
   generationStatus?: GenerationStatusInfo;
   isLoadingProfile?: boolean;
-  showCaloriesField?: boolean; // New prop
+  showCaloriesField?: boolean; 
 }
 
 const MealForm: React.FC<MealFormProps> = ({ generationStatus, isLoadingProfile, showCaloriesField }) => {
@@ -81,6 +82,7 @@ const MealForm: React.FC<MealFormProps> = ({ generationStatus, isLoadingProfile,
       meal_tags: [],
       image_url: "",
       estimated_calories: "", 
+      servings: "", // Added default for servings
     },
   });
 
@@ -115,7 +117,8 @@ const MealForm: React.FC<MealFormProps> = ({ generationStatus, isLoadingProfile,
             instructions: values.instructions,
             meal_tags: values.meal_tags,
             image_url: values.image_url,
-            estimated_calories: showCaloriesField ? values.estimated_calories : null, // Only save if field was shown
+            estimated_calories: showCaloriesField ? values.estimated_calories : null,
+            servings: values.servings, // Save servings
           },
         ])
         .select();
@@ -134,6 +137,7 @@ const MealForm: React.FC<MealFormProps> = ({ generationStatus, isLoadingProfile,
         meal_tags: [],
         image_url: "",
         estimated_calories: "", 
+        servings: "", // Reset servings
       });
       setShowImageUrlInput(false); 
       queryClient.invalidateQueries({ queryKey: ["meals"] });
@@ -389,6 +393,26 @@ const MealForm: React.FC<MealFormProps> = ({ generationStatus, isLoadingProfile,
               )}
             />
             
+            <FormField
+              control={form.control}
+              name="servings"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center">
+                    <Users className="mr-2 h-4 w-4 text-primary" />
+                    Number of Servings (Optional)
+                  </FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., 4 or 2-3" {...field} />
+                  </FormControl>
+                  <FormDescription>
+                    How many people does this meal typically serve?
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             {showCaloriesField && (
               <FormField
                 control={form.control}

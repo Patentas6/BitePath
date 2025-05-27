@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Trash2, Edit3, Search, ChefHat, List, Grid3X3, Zap } from "lucide-react"; // Added Zap
+import { Trash2, Edit3, Search, ChefHat, List, Grid3X3, Zap, Users } from "lucide-react"; // Added Users
 import EditMealDialog, { MealForEditing } from "./EditMealDialog";
 import {
   AlertDialog,
@@ -27,7 +27,8 @@ import { cn } from "@/lib/utils";
 interface Meal extends MealForEditing {
   meal_tags?: string[] | null;
   image_url?: string | null; 
-  estimated_calories?: string | null; // Added estimated_calories
+  estimated_calories?: string | null; 
+  servings?: string | null; // Added servings
 }
 
 interface ParsedIngredient {
@@ -78,22 +79,22 @@ const MealList = () => {
 
 
   const { data: meals, isLoading, error } = useQuery<Meal[]>({
-    queryKey: ["meals", userId], // Add userId to queryKey if meals are user-specific
+    queryKey: ["meals", userId], 
     queryFn: async () => {
-      if (!userId) return []; // Or throw error if user must be present
-      const { data: { user } } = await supabase.auth.getUser(); // Re-check user for safety, though userId should be set
+      if (!userId) return []; 
+      const { data: { user } } = await supabase.auth.getUser(); 
       if (!user) throw new Error("User not logged in.");
 
       const { data, error } = await supabase
         .from("meals")
-        .select("id, name, ingredients, instructions, user_id, meal_tags, image_url, estimated_calories") // Added estimated_calories
+        .select("id, name, ingredients, instructions, user_id, meal_tags, image_url, estimated_calories, servings") // Added servings
         .eq("user_id", user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       return data || [];
     },
-    enabled: !!userId, // Only run query if userId is available
+    enabled: !!userId, 
   });
 
   const deleteMealMutation = useMutation({
@@ -292,6 +293,12 @@ const MealList = () => {
                           {meal.meal_tags.map(tag => (
                             <Badge key={tag} variant="outline" className="text-xs px-1.5 py-0.5">{tag}</Badge>
                           ))}
+                        </div>
+                      )}
+                       {meal.servings && (
+                        <div className="mt-1.5 text-xs text-primary flex items-center">
+                          <Users size={12} className="mr-1" />
+                          Servings: {meal.servings}
                         </div>
                       )}
                        {userProfile?.track_calories && meal.estimated_calories && (
