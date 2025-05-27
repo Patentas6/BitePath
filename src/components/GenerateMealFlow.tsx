@@ -386,11 +386,18 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
                 className="mt-2"
                 maxLength={PREFERENCES_MAX_LENGTH}
               />
-              <div className="text-xs text-muted-foreground mt-2 p-2 bg-muted/50 rounded-md">
-                <Info size={14} className="inline mr-1.5 relative -top-px flex-shrink-0" />
-                Your general AI preferences from your profile are automatically included. Add more specific requests here for this meal.
-                <strong> Pro Tip:</strong> List ingredients you have (e.g., "use only: ground beef, onions"), and the AI will try to use just those.
-                Or, if adding a full custom meal feels like too much work, just type the meal name (e.g., 'Grandma's Apple Pie') and a few key details, and let the AI try to generate the rest for you!
+              <div className="text-xs text-muted-foreground mt-2 p-2 bg-muted/50 rounded-md space-y-1">
+                <div className="flex items-start">
+                  <Info size={14} className="inline mr-1.5 relative -top-px flex-shrink-0 mt-0.5" />
+                  <span>Your general AI preferences from your profile are automatically included. Add more specific requests here for this meal.</span>
+                </div>
+                <div>
+                  <strong className="block mt-1">Pro Tips:</strong>
+                  <ul className="list-disc list-inside pl-1 space-y-0.5">
+                    <li>List ingredients you have (e.g., "use only: ground beef, onions"), and the AI will try to use just those.</li>
+                    <li>If adding a full custom meal feels like too much work, just type the meal name (e.g., 'Spaghetti Bolognese', 'Grandma's Apple Pie') and a few key details, and let the AI try to generate the rest for you!</li>
+                  </ul>
+                </div>
               </div>
               <p className="text-xs text-muted-foreground mt-1 text-right">
                 {ingredientPreferences.length}/{PREFERENCES_MAX_LENGTH} characters
