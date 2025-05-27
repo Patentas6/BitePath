@@ -135,9 +135,7 @@ const AppTour: React.FC<AppTourProps> = ({ startTour, userId, onTourEnd }) => {
         </span>
         <div className="flex items-center space-x-2">
           {index > 0 && <Button {...backProps} variant="outline" size="sm">Back</Button>}
-          {/* Ensure Skip button is always rendered if skipProps exist */}
           {skipProps && <Button {...skipProps} variant="ghost" size="sm">Skip Tour</Button>}
-          {/* Next/Finish button logic */}
           {continuous && !isLastStep && <Button {...primaryProps} size="sm">Next</Button>}
           {continuous && isLastStep && <Button {...primaryProps} size="sm">Finish</Button>}
         </div>
@@ -154,8 +152,9 @@ const AppTour: React.FC<AppTourProps> = ({ startTour, userId, onTourEnd }) => {
       callback={handleJoyrideCallback}
       continuous
       showProgress={false} 
-      showSkipButton={true} // This prop enables skipProps to be passed to tooltipComponent
+      showSkipButton={true}
       tooltipComponent={CustomTooltipComponent}
+      disableOverlayClose={true} // Added this prop
       styles={{
         options: {
           zIndex: 10000,
