@@ -4,40 +4,41 @@
 
 @layer base {
   :root {
-    --background: 43 67% 94.1%; /* Beige (#F8F4E8) - Page background */
-    --foreground: 40 100% 1.4%;  /* Black (#070500) - Small/general text */
+    --background: 43 67% 94.1%; /* Beige (#F8F4E8) - Page background (from Orange-Yellow theme) */
+    /* --- Step 1 Change: Foreground Text --- */
+    --foreground: 100 73% 12%;  /* New: Very Dark Green (#143905) */
 
-    --card: 0 0% 100%; /* White - For cards */
-    --card-foreground: 40 100% 1.4%; /* Black - Text in cards */
+    --card: 0 0% 100%; /* White - For cards (from Orange-Yellow theme) */
+    --card-foreground: 100 73% 12%; /* New: Very Dark Green (#143905) */
 
-    --popover: 0 0% 100%; /* White */
-    --popover-foreground: 40 100% 1.4%; /* Black */
+    --popover: 0 0% 100%; /* White (from Orange-Yellow theme) */
+    --popover-foreground: 100 73% 12%; /* New: Very Dark Green (#143905) */
+    /* --- End Step 1 Change --- */
 
-    /* Primary Orange-Yellow */
-    --primary: 39 98% 52%; /* Orange-Yellow (#FCA311) */
+    /* Primary Orange-Yellow (from Orange-Yellow theme) */
+    --primary: 39 98% 52%; 
     --primary-foreground: 40 100% 1.4%; /* Black - Text on Orange-Yellow buttons */
 
-    --secondary: 210 40% 96.1%; /* Light Gray (#F2F5F9) - For secondary buttons/elements */
-    --secondary-foreground: 40 100% 1.4%; /* Black - Text on light gray secondary elements */
+    --secondary: 210 40% 96.1%; /* Light Gray (from Orange-Yellow theme) */
+    --secondary-foreground: 40 100% 1.4%; /* Black */
 
-    --muted: 43 40% 90%; /* Lighter/Darker Beige variant for muted backgrounds */
-    --muted-foreground: 0 0% 30%;   /* Dark Gray - Muted text */
+    --muted: 43 40% 90%; /* Lighter/Darker Beige (from Orange-Yellow theme) */
+    --muted-foreground: 0 0% 30%;   /* Dark Gray */
 
-    /* Accent Desaturated Cyan/Blue-Gray */
-    --accent: 185 13% 43%; /* Desaturated Cyan/Blue-Gray (#607B7D) - For headings/titles */
-    --accent-foreground: 43 67% 94.1%; /* Beige - Text on Blue accent backgrounds */
+    /* Accent Desaturated Cyan/Blue-Gray (from Orange-Yellow theme) */
+    --accent: 185 13% 43%; 
+    --accent-foreground: 43 67% 94.1%; /* Beige */
 
     --destructive: 0 84.2% 60.2%; /* Standard Red */
     --destructive-foreground: 0 0% 100%; /* White */
 
-    --border: 43 50% 88%; /* Slightly darker Beige - For borders */
-    --input: 0 0% 100%; /* White - For input backgrounds */
+    --border: 43 50% 88%; /* Slightly darker Beige (from Orange-Yellow theme) */
+    --input: 0 0% 100%; /* White */
     
     --ring: hsl(var(--primary)); 
     
     --radius: 0.5rem;
 
-    /* Sidebar specific colors - these are part of the original theme, kept for consistency if sidebar is used */
     --sidebar-background: 0 0% 98%; 
     --sidebar-foreground: 240 5.3% 26.1%;
     --sidebar-primary: 240 5.9% 10%;
@@ -49,7 +50,7 @@
   }
 
   .dark {
-    /* Default dark mode from initial setup, assuming rebuild reverted to this */
+    /* Default dark mode from initial setup */
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
     --card: 222.2 84% 4.9%;
