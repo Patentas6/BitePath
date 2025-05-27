@@ -90,7 +90,11 @@ const exampleGroceryData: Record<Category, CategorizedDisplayListItem[]> = {
   Pantry: [
     { itemName: 'Example: Oats', itemNameClass: "text-foreground", detailsPart: '500g', detailsClass: "text-foreground", uniqueKey: 'ex-oats', originalItemsTooltip: 'Example item for your list' },
   ],
-  'Meat & Poultry': [], Dairy & Eggs: [], Frozen: [], Beverages: [], Other: [] // Ensure all categories exist
+  'Meat & Poultry': [],
+  'Dairy & Eggs': [],
+  Frozen: [],
+  Beverages: [],
+  Other: [] // Ensure all categories exist
 };
 
 
