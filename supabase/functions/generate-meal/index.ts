@@ -177,11 +177,11 @@ serve(async (req) => {
     const { mealType, kinds, styles, preferences, mealData, existingRecipeText, refinementInstructions } = requestBody;
 
     let generatedMealData: GeneratedMeal | undefined;
-    let mealNameForImage: string;
+    let mealNameForImage: string | undefined; // Can be undefined if recipe generation fails
     let anImageShouldBeGenerated = false; 
 
     if (mealData) { 
-        console.log("Received existing meal data for image generation:", mealData.name);
+        console.log("Received existing meal data for image generation (or re-generation):", mealData.name);
         generatedMealData = mealData as GeneratedMeal; 
         mealNameForImage = mealData.name;
         if (typeof generatedMealData.ingredients === 'string') {
@@ -190,12 +190,9 @@ serve(async (req) => {
         } else if (!Array.isArray(generatedMealData.ingredients)) { generatedMealData.ingredients = []; }
         if (!Array.isArray(generatedMealData.meal_tags)) { generatedMealData.meal_tags = []; }
         
-        if (!mealData.image_url) { 
-            anImageShouldBeGenerated = true; 
-            console.log("Proceeding to generate image for:", mealNameForImage);
-        } else {
-            console.log("MealData already contains an image_url. Skipping new image generation.");
-        }
+        anImageShouldBeGenerated = true; 
+        console.log("Proceeding to generate/re-generate image for:", mealNameForImage);
+        
     } else { 
         if (!userIsAdmin) {
             const today = new Date();
@@ -337,9 +334,14 @@ The meal should still generally be a ${mealType || 'general'} type.`;
             console.error("Failed to parse Gemini JSON response:", parseError, "Raw content from Gemini:", generatedContentString);
             throw new Error("Failed to parse recipe from AI. The AI may have returned non-JSON text or incomplete JSON.");
         }
-        console.log(existingRecipeText ? "Refined Recipe Text:" : "Generated Recipe Text:", generatedMealData.name);
-        if (generatedMealData.estimated_calories) console.log("Estimated Calories:", generatedMealData.estimated_calories);
-        if (generatedMealData.servings) console.log("Servings:", generatedMealData.servings);
+        
+        if (generatedMealData) { // Check if recipe generation was successful
+            mealNameForImage = generatedMealData.name;
+            anImageShouldBeGenerated = true; // Always try to generate an image for a new recipe
+            console.log(existingRecipeText ? "Refined Recipe Text:" : "Generated Recipe Text:", generatedMealData.name);
+            if (generatedMealData.estimated_calories) console.log("Estimated Calories:", generatedMealData.estimated_calories);
+            if (generatedMealData.servings) console.log("Servings:", generatedMealData.servings);
+        }
 
 
         if (!userIsAdmin) {
@@ -357,7 +359,7 @@ The meal should still generally be a ${mealType || 'general'} type.`;
         }
     }
 
-    if (anImageShouldBeGenerated) {
+    if (anImageShouldBeGenerated && mealNameForImage) {
         if (!userIsAdmin) { 
             const currentMonthYear = formatDate(new Date(), "yyyy-MM");
             if (userLastImageGenerationReset !== currentMonthYear) {
@@ -366,85 +368,102 @@ The meal should still generally be a ${mealType || 'general'} type.`;
             }
 
             if (userImageGenerationCount >= IMAGE_GENERATION_LIMIT_PER_MONTH) {
-                return new Response(JSON.stringify({ 
-                    error: `You have reached your monthly image generation limit of ${IMAGE_GENERATION_LIMIT_PER_MONTH}.`,
-                    mealData: mealData 
-                }), {
-                    status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+                // If only generating recipe text, and image limit is hit, still return recipe text
+                if (!requestBody.mealData && generatedMealData) {
+                    console.warn(`Image generation limit reached for user ${user.id}, but returning generated recipe text.`);
+                    // Set image_url to undefined or null in generatedMealData if it exists
+                    generatedMealData.image_url = undefined; 
+                } else {
+                    // If specifically asked for an image (mealData was in request) or if recipe generation failed
+                    return new Response(JSON.stringify({ 
+                        error: `You have reached your monthly image generation limit of ${IMAGE_GENERATION_LIMIT_PER_MONTH}.`,
+                        // Include mealData if it was part of the original request and image failed
+                        ...(requestBody.mealData && { mealData: generatedMealData }) 
+                    }), {
+                        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+                    });
+                }
+            }
+        }
+        
+        // Proceed with image generation only if limit not hit (or admin)
+        // This check is now implicitly handled by the return above for non-admins
+        // or by admin status bypassing the limit.
+        if (userIsAdmin || userImageGenerationCount < IMAGE_GENERATION_LIMIT_PER_MONTH || userLastImageGenerationReset !== formatDate(new Date(), "yyyy-MM")) {
+            const serviceAccountJsonStringForImagen = Deno.env.get("VERTEX_SERVICE_ACCOUNT_KEY_JSON");
+            if (!serviceAccountJsonStringForImagen) {
+                console.error("VERTEX_SERVICE_ACCOUNT_KEY_JSON secret not set for Imagen.");
+                if (generatedMealData) generatedMealData.image_url = undefined; 
+                // If only generating recipe text, and Imagen is not configured, still return recipe text
+                // This path is taken if anImageShouldBeGenerated was true but Imagen config is missing
+            } else {
+                const accessTokenForImagen = await getAccessToken(serviceAccountJsonStringForImagen);
+                const saImagen = JSON.parse(serviceAccountJsonStringForImagen);
+                const projectIdImagen = saImagen.project_id;
+                const regionImagen = "us-central1"; 
+                const imagenModelId = "imagegeneration@006";
+                const imagenEndpoint = `https://${regionImagen}-aiplatform.googleapis.com/v1/projects/${projectIdImagen}/locations/${regionImagen}/publishers/google/models/${imagenModelId}:predict`;
+                
+                const imagePromptText = `A vibrant, appetizing, realistic photo of the meal "${mealNameForImage}". Focus on the finished dish presented nicely on a plate or in a bowl, suitable for a food blog. Ensure main ingredients are clearly visible. Good lighting, sharp focus.`;
+                
+                const imagenPayload = {
+                instances: [{ prompt: imagePromptText }],
+                parameters: { sampleCount: 1, aspectRatio: "1:1", outputFormat: "png" }
+                };
+                
+                const imagenResponse = await fetch(imagenEndpoint, {
+                    method: "POST",
+                    headers: { "Authorization": `Bearer ${accessTokenForImagen}`, "Content-Type": "application/json" },
+                    body: JSON.stringify(imagenPayload),
                 });
-            }
-        }
-        
-        const serviceAccountJsonStringForImagen = Deno.env.get("VERTEX_SERVICE_ACCOUNT_KEY_JSON");
-        if (!serviceAccountJsonStringForImagen) {
-            console.error("VERTEX_SERVICE_ACCOUNT_KEY_JSON secret not set for Imagen.");
-            if (generatedMealData) generatedMealData.image_url = undefined; 
-            return new Response(JSON.stringify(generatedMealData || mealData), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
-        }
 
-        const accessTokenForImagen = await getAccessToken(serviceAccountJsonStringForImagen);
-        const saImagen = JSON.parse(serviceAccountJsonStringForImagen);
-        const projectIdImagen = saImagen.project_id;
-        const regionImagen = "us-central1"; 
-        const imagenModelId = "imagegeneration@006";
-        const imagenEndpoint = `https://${regionImagen}-aiplatform.googleapis.com/v1/projects/${projectIdImagen}/locations/${regionImagen}/publishers/google/models/${imagenModelId}:predict`;
-        
-        const imagePromptText = `A vibrant, appetizing, realistic photo of the meal "${mealNameForImage}". Focus on the finished dish presented nicely on a plate or in a bowl, suitable for a food blog. Ensure main ingredients are clearly visible. Good lighting, sharp focus.`;
-        
-        const imagenPayload = {
-          instances: [{ prompt: imagePromptText }],
-          parameters: { sampleCount: 1, aspectRatio: "1:1", outputFormat: "png" }
-        };
-        
-        const imagenResponse = await fetch(imagenEndpoint, {
-            method: "POST",
-            headers: { "Authorization": `Bearer ${accessTokenForImagen}`, "Content-Type": "application/json" },
-            body: JSON.stringify(imagenPayload),
-        });
-
-        let imageUrl: string | undefined = undefined;
-        if (!imagenResponse.ok) {
-            const errorBody = await imagenResponse.text();
-            console.error(`Vertex AI Imagen API error for user ${user.id}: ${imagenResponse.status} ${imagenResponse.statusText}`, errorBody);
-        } else {
-            const imagenData = await imagenResponse.json();
-            const base64EncodedImage = imagenData.predictions?.[0]?.bytesBase64Encoded;
-            if (base64EncodedImage) { 
-                imageUrl = `data:image/png;base64,${base64EncodedImage}`; 
-            }
-        }
-        
-        if (generatedMealData) generatedMealData.image_url = imageUrl;
-        
-        if (!userIsAdmin) { 
-            userImageGenerationCount += 1;
-            const { error: updateError } = await serviceSupabaseClient
-                .from('profiles')
-                .update({ 
-                    image_generation_count: userImageGenerationCount,
-                    last_image_generation_reset: userLastImageGenerationReset 
-                })
-                .eq('id', user.id);
-            if (updateError) {
-                console.error(`Failed to update image generation count for user ${user.id}:`, updateError);
+                let imageUrl: string | undefined = undefined;
+                if (!imagenResponse.ok) {
+                    const errorBody = await imagenResponse.text();
+                    console.error(`Vertex AI Imagen API error for user ${user.id}: ${imagenResponse.status} ${imagenResponse.statusText}`, errorBody);
+                } else {
+                    const imagenData = await imagenResponse.json();
+                    const base64EncodedImage = imagenData.predictions?.[0]?.bytesBase64Encoded;
+                    if (base64EncodedImage) { 
+                        imageUrl = `data:image/png;base64,${base64EncodedImage}`; 
+                    }
+                }
+                
+                if (generatedMealData) generatedMealData.image_url = imageUrl;
+                
+                if (!userIsAdmin) { 
+                    userImageGenerationCount += 1;
+                    const { error: updateError } = await serviceSupabaseClient
+                        .from('profiles')
+                        .update({ 
+                            image_generation_count: userImageGenerationCount,
+                            last_image_generation_reset: userLastImageGenerationReset 
+                        })
+                        .eq('id', user.id);
+                    if (updateError) {
+                        console.error(`Failed to update image generation count for user ${user.id}:`, updateError);
+                    }
+                }
             }
         }
     } 
 
-    if (mealData) { 
+    // Response logic
+    if (requestBody.mealData) { // If the original request was specifically for an image for mealData
          return new Response(
             JSON.stringify({ image_url: generatedMealData?.image_url }), 
             { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
          );
-    } else { 
-        if (!generatedMealData) { 
-            console.error("Critical error: generatedMealData is undefined before final response for recipe text/refinement.");
-            throw new Error("Failed to generate meal data."); 
-        }
+    } else if (generatedMealData) { // If the original request was for recipe text (and then image)
         return new Response(
           JSON.stringify(generatedMealData), 
           { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
         );
+    } else {
+        console.error("Critical error: No meal data to return after processing.");
+        return new Response(JSON.stringify({ error: "Failed to process or generate meal data." }), {
+            status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
     }
 
   } catch (error) {
