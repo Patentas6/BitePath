@@ -164,8 +164,8 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-1 items-center gap-2">
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
             <Label htmlFor="meal-type-buttons" className="text-sm font-medium">Meal Type</Label>
             <div id="meal-type-buttons" className="flex flex-wrap gap-2">
               {PLANNING_MEAL_TYPES.map(type => (
@@ -176,97 +176,99 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
             </div>
           </div>
 
-          <div>
-            <Label className="text-sm font-medium">Filter by tags:</Label>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {MEAL_TAG_OPTIONS.map(tag => (
-                <Button key={tag} variant={selectedTags.includes(tag) ? "default" : "outline"} size="sm" onClick={() => toggleTagFilter(tag)} className="text-xs px-2 py-1 h-auto">
-                  {tag}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 items-center gap-2">
-            <Label className="text-sm font-medium">
-              Select Meal ({isLoadingMeals ? '...' : filteredMeals?.length || 0} matching)
-            </Label>
-            <Popover open={isComboboxOpen} onOpenChange={setIsComboboxOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={isComboboxOpen}
-                  className="w-full justify-between font-normal"
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">
+                Select Meal ({isLoadingMeals ? '...' : filteredMeals?.length || 0} matching)
+              </Label>
+              <Popover open={isComboboxOpen} onOpenChange={setIsComboboxOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={isComboboxOpen}
+                    className="w-full justify-between font-normal"
+                  >
+                    {selectedMealId
+                      ? meals?.find((meal) => meal.id === selectedMealId)?.name
+                      : "Select a meal..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent 
+                  side="bottom" 
+                  sideOffset={5} 
+                  className="w-[--radix-popover-trigger-width] p-0 max-h-72 overflow-y-auto" 
+                  align="start"
+                  avoidCollisions={false}
                 >
-                  {selectedMealId
-                    ? meals?.find((meal) => meal.id === selectedMealId)?.name
-                    : "Select a meal..."}
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent 
-                side="bottom" 
-                sideOffset={5} 
-                className="w-[--radix-popover-trigger-width] p-0 max-h-72 overflow-y-auto" 
-                align="start"
-                avoidCollisions={false}
-              >
-                <Command shouldFilter={false}> 
-                  <CommandInput 
-                    placeholder="Search meal by name..."
-                    value={searchTerm}
-                    onValueChange={(value) => {
-                      setSearchTerm(value);
-                      if (!isComboboxOpen && value) setIsComboboxOpen(true); 
-                    }}
-                  />
-                  <CommandList>
-                    {isLoadingMeals ? (
-                      <div className="p-2 text-sm text-muted-foreground">Loading meals...</div>
-                    ) : mealsError ? (
-                      <div className="p-2 text-sm text-red-500">Error loading meals.</div>
-                    ) : filteredMeals.length === 0 ? (
-                      <CommandEmpty>
-                        {meals && meals.length > 0 ? "No meals match your search/filters." : "No meals found. Add some first!"}
-                      </CommandEmpty>
-                    ) : (
-                      <CommandGroup>
-                        {filteredMeals.map((meal) => (
-                          <CommandItem
-                            key={meal.id}
-                            value={meal.id}
-                            onSelect={(currentValue) => {
-                              setSelectedMealId(currentValue === selectedMealId ? undefined : currentValue);
-                              setIsComboboxOpen(false);
-                              setSearchTerm(""); 
-                            }}
-                            className="cursor-pointer"
-                          >
-                            <Check className={cn("mr-2 h-4 w-4", selectedMealId === meal.id ? "opacity-100" : "opacity-0")} />
-                            <div className="flex items-center space-x-2 overflow-hidden">
-                              {meal.image_url && (
-                                <img src={meal.image_url} alt={meal.name} className="h-8 w-8 object-cover rounded-sm flex-shrink-0" onError={(e) => (e.currentTarget.style.display = 'none')} />
-                              )}
-                              {!meal.image_url && <div className="h-8 w-8 bg-muted rounded-sm flex-shrink-0"></div>}
-                              <div className="flex flex-col overflow-hidden">
-                                <span className="font-medium truncate">{meal.name}</span>
-                                {meal.meal_tags && meal.meal_tags.length > 0 && (
-                                  <div className="flex flex-wrap gap-1 mt-0.5">
-                                    {meal.meal_tags.slice(0,3).map(tag => <Badge key={tag} variant="secondary" className="text-xs px-1 py-0">{tag}</Badge>)}
-                                    {meal.meal_tags.length > 3 && <Badge variant="secondary" className="text-xs px-1 py-0">...</Badge>}
-                                  </div>
+                  <Command shouldFilter={false}> 
+                    <CommandInput 
+                      placeholder="Search meal by name..."
+                      value={searchTerm}
+                      onValueChange={(value) => {
+                        setSearchTerm(value);
+                        if (!isComboboxOpen && value) setIsComboboxOpen(true); 
+                      }}
+                    />
+                    <CommandList>
+                      {isLoadingMeals ? (
+                        <div className="p-2 text-sm text-muted-foreground">Loading meals...</div>
+                      ) : mealsError ? (
+                        <div className="p-2 text-sm text-red-500">Error loading meals.</div>
+                      ) : filteredMeals.length === 0 ? (
+                        <CommandEmpty>
+                          {meals && meals.length > 0 ? "No meals match your search/filters." : "No meals found. Add some first!"}
+                        </CommandEmpty>
+                      ) : (
+                        <CommandGroup>
+                          {filteredMeals.map((meal) => (
+                            <CommandItem
+                              key={meal.id}
+                              value={meal.id}
+                              onSelect={(currentValue) => {
+                                setSelectedMealId(currentValue === selectedMealId ? undefined : currentValue);
+                                setIsComboboxOpen(false);
+                                setSearchTerm(""); 
+                              }}
+                              className="cursor-pointer"
+                            >
+                              <Check className={cn("mr-2 h-4 w-4", selectedMealId === meal.id ? "opacity-100" : "opacity-0")} />
+                              <div className="flex items-center space-x-2 overflow-hidden">
+                                {meal.image_url && (
+                                  <img src={meal.image_url} alt={meal.name} className="h-8 w-8 object-cover rounded-sm flex-shrink-0" onError={(e) => (e.currentTarget.style.display = 'none')} />
                                 )}
+                                {!meal.image_url && <div className="h-8 w-8 bg-muted rounded-sm flex-shrink-0"></div>}
+                                <div className="flex flex-col overflow-hidden">
+                                  <span className="font-medium truncate">{meal.name}</span>
+                                  {meal.meal_tags && meal.meal_tags.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mt-0.5">
+                                      {meal.meal_tags.slice(0,3).map(tag => <Badge key={tag} variant="secondary" className="text-xs px-1 py-0">{tag}</Badge>)}
+                                      {meal.meal_tags.length > 3 && <Badge variant="secondary" className="text-xs px-1 py-0">...</Badge>}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    )}
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      )}
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Filter by tags:</Label>
+              <div className="flex flex-wrap gap-2">
+                {MEAL_TAG_OPTIONS.map(tag => (
+                  <Button key={tag} variant={selectedTags.includes(tag) ? "default" : "outline"} size="sm" onClick={() => toggleTagFilter(tag)} className="text-xs px-2 py-1 h-auto">
+                    {tag}
+                  </Button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
         <DialogFooter>
