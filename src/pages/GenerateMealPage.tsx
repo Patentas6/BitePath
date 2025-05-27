@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react'; // Added useRef
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
@@ -62,7 +62,7 @@ interface RecipeGenerationStatus {
 const GenerateMealPage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const recipeCardRef = useRef<HTMLDivElement>(null); // Ref for scrolling
+  const recipeCardRef = useRef<HTMLDivElement>(null); 
   const [userId, setUserId] = useState<string | null>(null);
 
   const [selectedMealType, setSelectedMealType] = useState<string | undefined>(undefined);
@@ -143,7 +143,7 @@ const GenerateMealPage = () => {
         const daysSinceLastReset = differenceInCalendarDays(today, lastResetDate);
 
         if (daysSinceLastReset >= RECIPE_GENERATION_PERIOD_DAYS) {
-          currentCount = 0; // Period has reset
+          currentCount = 0; 
           periodResetsToday = true;
           daysRemaining = RECIPE_GENERATION_PERIOD_DAYS;
         } else {
@@ -151,11 +151,10 @@ const GenerateMealPage = () => {
         }
       } catch (e) {
         console.warn("Could not parse last_recipe_generation_reset date:", userProfile.last_recipe_generation_reset);
-        currentCount = 0; // Assume reset if date is invalid
+        currentCount = 0; 
         periodResetsToday = true;
       }
     } else {
-      // No reset date means it's a new period or first time
       currentCount = 0;
       periodResetsToday = true;
     }
@@ -277,7 +276,7 @@ const GenerateMealPage = () => {
         if (data?.image_url) {
           setGeneratedMeal(prev => prev ? { ...prev, image_url: data.image_url } : null);
           showSuccess("Image generated!");
-          setTimeout(() => { // Scroll after state update and DOM re-render
+          setTimeout(() => { 
             recipeCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }, 100);
         } else {
@@ -464,7 +463,7 @@ const GenerateMealPage = () => {
         )}
 
         {generatedMeal && (
-          <Card ref={recipeCardRef}> {/* Added ref here */}
+          <Card ref={recipeCardRef}> 
             <CardHeader>
               <div className="flex justify-between items-start gap-4">
                 <div className="flex-grow">
@@ -521,7 +520,7 @@ const GenerateMealPage = () => {
                   onClick={handleRefineRecipeClick}
                   disabled={!refinementPrompt.trim() || isGeneratingRecipe || recipeGenerationMutation.isPending || (!isLoadingProfile && !recipeGenerationStatus.isAdmin && recipeGenerationStatus.limitReached && recipeGenerationStatus.generationsUsedThisPeriod >= RECIPE_GENERATION_LIMIT_PER_PERIOD) }
                   className="w-full mt-2"
-                  variant="secondary"
+                  variant="outline" // Changed from secondary to outline
                 >
                   <Edit2 className="mr-2 h-4 w-4" />
                   {isGeneratingRecipe && recipeGenerationMutation.isLoading && recipeGenerationMutation.variables?.isRefinement ? 'Refining...' : 'Refine Recipe'}
@@ -532,13 +531,12 @@ const GenerateMealPage = () => {
                 </div>
               </div>
 
-              {/* Generate Image button section - always visible if generatedMeal exists */}
               <div className="pt-4 border-t">
                 <Button
                   onClick={handleGenerateImageClick}
                   disabled={isGeneratingImage || generateImageMutation.isPending || isLoadingProfile || (!imageGenerationStatus.isAdmin && imageGenerationStatus.limitReached)}
                   className="w-full mb-2"
-                  variant="outline"
+                  variant="secondary" // Changed from outline to secondary
                 >
                   <ImageIcon className="mr-2 h-4 w-4" />
                   {isGeneratingImage || generateImageMutation.isPending ? 'Generating Image...' : 'Generate Image for this Meal'}
