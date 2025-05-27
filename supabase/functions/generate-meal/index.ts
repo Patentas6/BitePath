@@ -26,6 +26,7 @@ interface GeneratedMeal {
   instructions: string;
   meal_tags: string[];
   image_url?: string;
+  estimated_calories?: string; // Added for calorie tracking
 }
 
 async function getAccessToken(serviceAccountJsonString: string): Promise<string> {
@@ -148,7 +149,7 @@ serve(async (req) => {
 
     const { data: profile, error: profileErrorDb } = await serviceSupabaseClient
       .from('profiles')
-      .select('ai_preferences, is_admin, image_generation_count, last_image_generation_reset, recipe_generation_count, last_recipe_generation_reset')
+      .select('ai_preferences, is_admin, image_generation_count, last_image_generation_reset, recipe_generation_count, last_recipe_generation_reset, track_calories') // Added track_calories
       .eq('id', user.id)
       .single();
 
@@ -161,6 +162,7 @@ serve(async (req) => {
     
     const userIsAdmin = profile?.is_admin || false;
     let userAiPreferences = profile?.ai_preferences || '';
+    const userTracksCalories = profile?.track_calories || false; // Get calorie tracking preference
     
     // Image generation tracking
     let userImageGenerationCount = profile?.image_generation_count || 0;
@@ -170,7 +172,7 @@ serve(async (req) => {
     let userRecipeGenerationCount = profile?.recipe_generation_count || 0;
     let userLastRecipeGenerationResetDateStr = profile?.last_recipe_generation_reset || ''; // YYYY-MM-DD
 
-    console.log(`User profile for ${user.id}: admin=${userIsAdmin}, img_count=${userImageGenerationCount}, img_reset='${userLastImageGenerationReset}', recipe_count=${userRecipeGenerationCount}, recipe_reset='${userLastRecipeGenerationResetDateStr}'`);
+    console.log(`User profile for ${user.id}: admin=${userIsAdmin}, track_calories=${userTracksCalories}, img_count=${userImageGenerationCount}, img_reset='${userLastImageGenerationReset}', recipe_count=${userRecipeGenerationCount}, recipe_reset='${userLastRecipeGenerationResetDateStr}'`);
 
     const requestBody = await req.json();
     const { mealType, kinds, styles, preferences, mealData, existingRecipeText, refinementInstructions } = requestBody;
@@ -178,7 +180,7 @@ serve(async (req) => {
     let generatedMealData: GeneratedMeal | undefined;
     let mealNameForImage: string;
     let anImageShouldBeGenerated = false; 
-    let isRecipeTextGenerationRequest = !mealData; // True if not just an image request
+    let isRecipeTextGenerationRequest = !mealData; 
 
     if (mealData) { 
         console.log("Received existing meal data for image generation:", mealData.name);
@@ -196,7 +198,7 @@ serve(async (req) => {
         } else {
             console.log("MealData already contains an image_url. Skipping new image generation.");
         }
-    } else { // This is a recipe text generation request (initial or refinement)
+    } else { 
         if (!userIsAdmin) {
             const today = new Date();
             const todayStr = formatDate(today, "yyyy-MM-dd");
@@ -215,7 +217,7 @@ serve(async (req) => {
                     }
                 } catch (dateParseError) {
                     console.error(`Error parsing last_recipe_generation_reset date '${userLastRecipeGenerationResetDateStr}':`, dateParseError);
-                    resetRecipePeriod = true; // Treat as needing reset if date is invalid
+                    resetRecipePeriod = true; 
                 }
             }
 
@@ -234,7 +236,6 @@ serve(async (req) => {
             }
         }
 
-        // Proceed with recipe text generation (Gemini call)
         const serviceAccountJsonStringForGemini = Deno.env.get("VERTEX_SERVICE_ACCOUNT_KEY_JSON");
         if (!serviceAccountJsonStringForGemini) { 
             console.error("VERTEX_SERVICE_ACCOUNT_KEY_JSON secret not set for Gemini.");
@@ -254,8 +255,13 @@ serve(async (req) => {
             { "name": "Ingredient Name (string)", "quantity": "Quantity (number or string like '1/2')", "unit": "Unit (string, e.g., 'cup', 'tbsp', 'g', 'piece')", "description": "Optional description (string, e.g., 'finely chopped')" }
           ],
           "instructions": "Detailed cooking instructions (string, newline separated steps).",
-          "meal_tags": ["Tag1 (string)", "Tag2 (string)"] 
-        }`;
+          "meal_tags": ["Tag1 (string)", "Tag2 (string)"]`;
+        
+        if (userTracksCalories) {
+            prompt += `,\n          "estimated_calories": "Estimated total calories for the meal (string, e.g., '550 kcal' or '500-600 kcal')"`;
+        }
+        prompt += `\n        }`;
+
 
         if (existingRecipeText && refinementInstructions) {
             console.log("Request body for recipe refinement:", { mealType, kinds, styles, preferences, existingRecipeTextName: existingRecipeText.name, refinementInstructions });
@@ -264,6 +270,7 @@ Name: ${existingRecipeText.name}
 Ingredients: ${typeof existingRecipeText.ingredients === 'string' ? existingRecipeText.ingredients : JSON.stringify(existingRecipeText.ingredients)}
 Instructions: ${existingRecipeText.instructions}
 Original Tags: ${JSON.stringify(existingRecipeText.meal_tags)}
+${existingRecipeText.estimated_calories ? `Original Estimated Calories: ${existingRecipeText.estimated_calories}` : ''}
 
 Now, please refine this recipe based on the following request: "${refinementInstructions}".
 Ensure the output is a *complete new recipe* in the specified JSON format, incorporating the changes.
@@ -280,6 +287,9 @@ The meal should still generally be a ${mealType || 'general'} type.`;
         if (userAiPreferences) prompt += ` Consider these user profile preferences: ${userAiPreferences}.`;
         if (preferences && !existingRecipeText) { 
              prompt += ` Also consider these specific request preferences: ${preferences}.`;
+        }
+        if (userTracksCalories) {
+            prompt += `\nRemember to include the "estimated_calories" field in your JSON response.`;
         }
         prompt += `\nEnsure the response is ONLY the JSON object, nothing else. Do not wrap it in markdown backticks.`;
 
@@ -323,13 +333,17 @@ The meal should still generally be a ${mealType || 'general'} type.`;
                 console.error("Invalid recipe format from Gemini:", generatedMealData);
                 throw new Error("Invalid recipe format from AI. Check Gemini output structure."); 
             }
+            if (userTracksCalories && generatedMealData.estimated_calories === undefined) {
+                console.warn("User tracks calories, but AI did not return 'estimated_calories'.");
+            }
         } catch (parseError) { 
             console.error("Failed to parse Gemini JSON response:", parseError, "Raw content from Gemini:", generatedContentString);
             throw new Error("Failed to parse recipe from AI. The AI may have returned non-JSON text or incomplete JSON.");
         }
         console.log(existingRecipeText ? "Refined Recipe Text:" : "Generated Recipe Text:", generatedMealData.name);
+        if (generatedMealData.estimated_calories) console.log("Estimated Calories:", generatedMealData.estimated_calories);
 
-        // Increment recipe generation count for non-admins
+
         if (!userIsAdmin) {
             userRecipeGenerationCount += 1;
             const { error: updateRecipeCountError } = await serviceSupabaseClient
@@ -341,7 +355,6 @@ The meal should still generally be a ${mealType || 'general'} type.`;
                 .eq('id', user.id);
             if (updateRecipeCountError) {
                 console.error(`Failed to update recipe generation count for user ${user.id}:`, updateRecipeCountError);
-                // Continue, but log error. The recipe was generated.
             } else {
                 console.log(`Successfully updated recipe generation count for user ${user.id} to ${userRecipeGenerationCount}. Period start: ${userLastRecipeGenerationResetDateStr}`);
             }

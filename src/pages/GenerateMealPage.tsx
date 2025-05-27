@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import { Brain, Save, RefreshCw, Info, Image as ImageIcon, Edit2 } from 'lucide-react';
+import { Brain, Save, RefreshCw, Info, Image as ImageIcon, Edit2, Zap } from 'lucide-react'; // Added Zap for calories
 import AppHeader from "@/components/AppHeader";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { format as formatDateFns, differenceInCalendarDays, addDays, parse as parseDateFns } from "date-fns"; 
@@ -28,6 +28,7 @@ interface GeneratedMeal {
   instructions: string;
   meal_tags: string[];
   image_url?: string;
+  estimated_calories?: string; // Added for calorie tracking
 }
 
 interface UserProfileData {
@@ -36,6 +37,7 @@ interface UserProfileData {
   last_image_generation_reset: string | null; // YYYY-MM
   recipe_generation_count: number | null;
   last_recipe_generation_reset: string | null; // YYYY-MM-DD
+  track_calories?: boolean; // Added to fetch for UI logic if needed, though Edge func handles AI part
 }
 
 const mealTypes = ["Breakfast", "Lunch", "Dinner", "Snack"];
@@ -91,7 +93,7 @@ const GenerateMealPage = () => {
       if (!userId) return null;
       const { data, error } = await supabase
         .from('profiles')
-        .select('is_admin, image_generation_count, last_image_generation_reset, recipe_generation_count, last_recipe_generation_reset') 
+        .select('is_admin, image_generation_count, last_image_generation_reset, recipe_generation_count, last_recipe_generation_reset, track_calories') 
         .eq('id', userId)
         .single();
       if (error && error.code !== 'PGRST116') throw error;
@@ -226,7 +228,7 @@ const GenerateMealPage = () => {
             refetchUserProfile();
             return null; 
         }
-        setGeneratedMeal({ ...data, image_url: undefined }); 
+        setGeneratedMeal({ ...data, image_url: generatedMeal?.image_url }); // Preserve existing image if refining
         setRefinementPrompt(''); 
         showSuccess(params.isRefinement ? "Recipe refined!" : "Recipe generated!");
         refetchUserProfile(); 
@@ -308,6 +310,7 @@ const GenerateMealPage = () => {
             instructions: mealToSave.instructions,
             meal_tags: mealToSave.meal_tags,
             image_url: mealToSave.image_url,
+            estimated_calories: mealToSave.estimated_calories, // Save estimated_calories
           },])
         .select();
       if (error) throw error;
@@ -477,6 +480,12 @@ const GenerateMealPage = () => {
                   <CardDescription>
                     {generatedMeal.image_url ? "Generated Recipe & Image" : "Generated Recipe Text"}
                   </CardDescription>
+                  {generatedMeal.estimated_calories && userProfile?.track_calories && (
+                    <div className="mt-1 text-sm text-primary flex items-center">
+                      <Zap size={14} className="mr-1.5" />
+                      Estimated Calories: {generatedMeal.estimated_calories}
+                    </div>
+                  )}
                 </div>
                 {generatedMeal.image_url && (
                   <div
