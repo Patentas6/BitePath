@@ -60,11 +60,11 @@ const MealList = () => {
     fetchUser();
   }, []);
 
-  const { data: userProfile } = useQuery<{ track_calories: boolean } | null>({
+  const { data: userProfile, isLoading: isLoadingUserProfile } = useQuery<{ track_calories: boolean } | null>({
     queryKey: ['userProfileForMealListDisplay', userId],
     queryFn: async () => {
       if (!userId) return null;
-      console.log("[MealList] Fetching profile for calorie display, userId:", userId);
+      // console.log("[MealList] Fetching profile for calorie display, userId:", userId);
       const { data, error } = await supabase
         .from('profiles')
         .select('track_calories')
@@ -74,20 +74,20 @@ const MealList = () => {
         console.error("[MealList] Error fetching profile for meal list calorie display:", error);
         return { track_calories: false }; 
       }
-      console.log("[MealList] Profile fetched:", data);
+      // console.log("[MealList] Profile fetched:", data);
       return data || { track_calories: false };
     },
     enabled: !!userId,
   });
 
 
-  const { data: meals, isLoading, error } = useQuery<Meal[]>({
+  const { data: meals, isLoading: isLoadingMealsData, error } = useQuery<Meal[]>({
     queryKey: ["meals", userId], 
     queryFn: async () => {
       if (!userId) return []; 
       const { data: { user } } = await supabase.auth.getUser(); 
       if (!user) throw new Error("User not logged in.");
-      console.log("[MealList] Fetching meals, userId:", userId);
+      // console.log("[MealList] Fetching meals, userId:", userId);
       const { data, error } = await supabase
         .from("meals")
         .select("id, name, ingredients, instructions, user_id, meal_tags, image_url, estimated_calories, servings") 
@@ -95,7 +95,7 @@ const MealList = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      console.log("[MealList] Meals fetched:", data);
+      // console.log("[MealList] Meals fetched:", data);
       return data || [];
     },
     enabled: !!userId, 
@@ -180,8 +180,10 @@ const MealList = () => {
       return ingredientsString.substring(0, maxLength) + (ingredientsString.length > maxLength ? '...' : '');
     }
   };
+  
+  const overallIsLoading = isLoadingUserProfile || isLoadingMealsData;
 
-  if (isLoading) {
+  if (overallIsLoading && !meals) { // Show skeleton if initial data (meals) isn't there yet
     return (
       <Card className="hover:shadow-lg transition-shadow duration-200">
         <CardHeader><CardTitle>My Meals</CardTitle></CardHeader>
@@ -254,7 +256,7 @@ const MealList = () => {
             </div>
           </div>
 
-          {meals && meals.length === 0 && (
+          {meals && meals.length === 0 && !overallIsLoading && (
             <div className="text-center py-6 text-muted-foreground">
               <ChefHat className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500 mb-4" />
               <p className="text-lg font-semibold mb-1">No Meals Yet!</p>
@@ -262,7 +264,7 @@ const MealList = () => {
             </div>
           )}
 
-          {meals && meals.length > 0 && filteredMeals.length === 0 && (
+          {meals && meals.length > 0 && filteredMeals.length === 0 && !overallIsLoading && (
             <div className="text-center py-6 text-muted-foreground">
               <Search className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500 mb-3" />
               <p className="text-lg">No meals match your current filters.</p>
@@ -276,7 +278,15 @@ const MealList = () => {
             )}>
               {filteredMeals.map((meal) => {
                 const caloriesPerServing = calculateCaloriesPerServing(meal.estimated_calories, meal.servings);
-                // console.log(`[MealList] Meal: ${meal.name}, Total Cal: ${meal.estimated_calories}, Servings: ${meal.servings}, Profile Track Cal: ${userProfile?.track_calories}, Calculated Per Serving: ${caloriesPerServing}`);
+                const canTrackCalories = userProfile && userProfile.track_calories;
+                const shouldShowCalories = canTrackCalories && caloriesPerServing !== null;
+                
+                // console.log(`[MealList] Rendering Meal: ${meal.name}`);
+                // console.log(`  Total Cal: ${meal.estimated_calories}, Servings: ${meal.servings}`);
+                // console.log(`  Profile Loaded: ${!isLoadingUserProfile}, Track Calories Setting: ${userProfile?.track_calories}`);
+                // console.log(`  Calculated Per Serving: ${caloriesPerServing}`);
+                // console.log(`  Combined Condition (shouldShowCalories): ${shouldShowCalories}`);
+
                 return (
                   <div key={meal.id} className="border p-4 rounded-lg shadow-sm bg-card hover:shadow-md transition-shadow duration-150 space-y-2 flex flex-col">
                     <div className="flex items-start"> 
@@ -308,7 +318,7 @@ const MealList = () => {
                             Servings: {meal.servings}
                           </div>
                         )}
-                         {userProfile?.track_calories && caloriesPerServing !== null && (
+                         {shouldShowCalories && (
                           <div className="mt-1.5 text-xs text-primary flex items-center">
                             <Zap size={12} className="mr-1" />
                             Est. {caloriesPerServing} kcal per serving
