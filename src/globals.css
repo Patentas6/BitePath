@@ -24,15 +24,16 @@
     --muted: 43 40% 90%; /* Lighter/Darker Beige (from Orange-Yellow theme) */
     --muted-foreground: 0 0% 30%;   /* Dark Gray */
 
-    /* --- Step 4 Change: Accent Color --- */
-    --accent: 45 99% 60%; /* New: Yellow/Gold (#FECB32) */
-    --accent-foreground: 100 73% 12%; /* New: Very Dark Green (#143905) for text on accent */
-    /* --- End Step 4 Change --- */
+    /* Accent Yellow/Gold */
+    --accent: 45 99% 60%; 
+    --accent-foreground: 100 73% 12%; /* Very Dark Green */
 
     --destructive: 0 84.2% 60.2%; /* Standard Red */
     --destructive-foreground: 0 0% 100%; /* White */
 
-    --border: 43 50% 88%; /* Slightly darker Beige (from Orange-Yellow theme) */
+    /* --- Step 5 Change: Border Color --- */
+    --border: 21 100% 72%; /* New: Light Orange/Peach (#FFAC6E) */
+    /* --- End Step 5 Change --- */
     --input: 0 0% 100%; /* White */
     
     --ring: hsl(var(--primary)); 
@@ -45,7 +46,7 @@
     --sidebar-primary-foreground: 0 0% 98%;
     --sidebar-accent: 240 4.8% 95.9%;
     --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
+    --sidebar-border: 220 13% 91%; /* This is sidebar specific, distinct from main border */
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
@@ -83,7 +84,7 @@
 
 @layer base {
   * {
-    @apply border-border;
+    @apply border-border; /* This will now use the new --border color */
   }
 
   body {
@@ -96,7 +97,7 @@
   :root h4, :root .h4,
   :root h5, :root .h5,
   :root h6, :root .h6 {
-    color: hsl(var(--accent)); /* This rule makes headings use the accent color */
+    color: hsl(var(--accent)); 
   }
   .dark h1, .dark .h1,
   .dark h2, .dark .h2,
