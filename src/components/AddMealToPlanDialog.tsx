@@ -30,7 +30,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Search, X, Check, ChevronsUpDown } from "lucide-react"; // Added Check, ChevronsUpDown
+import { Search, X, Check, ChevronsUpDown } from "lucide-react"; 
 import { cn } from "@/lib/utils";
 
 interface Meal {
@@ -70,30 +70,33 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
         .from("meals")
         .select("id, name, meal_tags, image_url")
         .eq("user_id", userId)
-        .order("name", { ascending: true }); // Good to sort for combobox
+        .order("name", { ascending: true }); 
       if (error) throw error;
       return data || [];
     },
-    enabled: !!userId && open, // Fetch when dialog opens
+    enabled: !!userId && open, 
   });
 
   useEffect(() => {
     if (open) {
-      setSelectedTags([]); // Reset tags first
+      console.log("[AddMealToPlanDialog] Opening. initialMealType:", initialMealType);
       setSearchTerm("");
       setSelectedMealId(undefined);
 
-      // Set the meal type for saving, based on the slot clicked in the planner
       const validInitialPlanningType = PLANNING_MEAL_TYPES.find(type => type === initialMealType);
       setSelectedMealType(validInitialPlanningType || undefined);
 
-      // Pre-select tag if initialMealType is a valid MealTag (e.g., "Breakfast", "Lunch")
+      // Pre-select tag if initialMealType is a valid MealTag
       if (initialMealType && MEAL_TAG_OPTIONS.includes(initialMealType as MealTag)) {
+        console.log("[AddMealToPlanDialog] Pre-selecting tag:", initialMealType);
         setSelectedTags([initialMealType as MealTag]);
+      } else {
+        console.log("[AddMealToPlanDialog] No valid tag to pre-select from initialMealType or initialMealType is undefined/not a tag. Resetting tags.");
+        setSelectedTags([]); // Ensure tags are reset if no pre-selection
       }
       
     } else {
-      setIsComboboxOpen(false); // Close combobox when dialog closes
+      setIsComboboxOpen(false); 
     }
   }, [open, initialMealType]);
 
@@ -173,8 +176,6 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
-          {/* Meal Type selection UI is removed as it's determined by initialMealType */}
-
           <div>
             <Label className="text-sm font-medium">Filter by tags:</Label>
             <div className="flex flex-wrap gap-2 mt-2">
@@ -203,13 +204,13 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                <Command shouldFilter={false}> {/* We handle filtering via searchTerm state */}
+                <Command shouldFilter={false}> 
                   <CommandInput 
                     placeholder="Search meal by name..."
                     value={searchTerm}
                     onValueChange={(value) => {
                       setSearchTerm(value);
-                      if (!isComboboxOpen && value) setIsComboboxOpen(true); // Open if typing
+                      if (!isComboboxOpen && value) setIsComboboxOpen(true); 
                     }}
                   />
                   <CommandList>
@@ -230,7 +231,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
                             onSelect={(currentValue) => {
                               setSelectedMealId(currentValue === selectedMealId ? undefined : currentValue);
                               setIsComboboxOpen(false);
-                              setSearchTerm(""); // Clear search term on selection
+                              setSearchTerm(""); 
                             }}
                             className="cursor-pointer"
                           >
