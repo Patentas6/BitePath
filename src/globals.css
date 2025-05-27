@@ -4,9 +4,9 @@
 
 @layer base {
   :root {
-    /* --- Test Change: Background Color --- */
-    --background: 62 98% 40%; /* New Test: Lime Green (#C0CB02) */
-    /* --- End Test Change --- */
+    /* --- Reverting Background Color --- */
+    --background: 43 67% 94.1%; /* Back to Beige (#F8F4E8) */
+    /* --- End Revert --- */
     --foreground: 100 73% 12%;  /* Very Dark Green (#143905) */
 
     --card: 0 0% 100%; /* White - For cards */
@@ -53,7 +53,7 @@
 
   .dark {
     /* Default dark mode from initial setup */
-    --background: 222.2 84% 4.9%; /* Dark mode background remains unchanged for now */
+    --background: 222.2 84% 4.9%; 
     --foreground: 210 40% 98%;
     --card: 222.2 84% 4.9%;
     --card-foreground: 210 40% 98%;
