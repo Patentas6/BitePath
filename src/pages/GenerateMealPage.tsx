@@ -434,15 +434,21 @@ const GenerateMealPage = () => {
                 </div>
               </div>
               <div>
-                <Label htmlFor="ingredient-preferences" className="text-base">Any ingredients you want or don't want, or other general preferences?</Label>
+                <Label htmlFor="ingredient-preferences" className="text-base font-semibold">
+                  Tell the AI about your meal vision (Optional)
+                </Label>
                 <Textarea
                   id="ingredient-preferences"
-                  placeholder="e.g., 'use chicken, no cilantro'"
+                  placeholder="e.g., 'Use up: chicken, broccoli, rice', 'Max 500 cals & high protein', 'No nuts, gluten-free'"
                   value={ingredientPreferences}
                   onChange={(e) => setIngredientPreferences(e.target.value)}
                   className="mt-2"
                   maxLength={PREFERENCES_MAX_LENGTH}
                 />
+                <div className="text-xs text-muted-foreground mt-2 p-2 bg-muted/50 rounded-md">
+                  <Info size={14} className="inline mr-1.5 relative -top-px flex-shrink-0" />
+                  <strong>Pro Tip:</strong> List ingredients you have (e.g., "use: ground beef, onions") or set dietary goals (e.g., "under 600 calories", "high protein & low carb"). The more specific you are, the better the AI can tailor the recipe!
+                </div>
                 <p className="text-xs text-muted-foreground mt-1 text-right">
                   {ingredientPreferences.length}/{PREFERENCES_MAX_LENGTH} characters
                 </p>
@@ -520,7 +526,7 @@ const GenerateMealPage = () => {
                   onClick={handleRefineRecipeClick}
                   disabled={!refinementPrompt.trim() || isGeneratingRecipe || recipeGenerationMutation.isPending || (!isLoadingProfile && !recipeGenerationStatus.isAdmin && recipeGenerationStatus.limitReached && recipeGenerationStatus.generationsUsedThisPeriod >= RECIPE_GENERATION_LIMIT_PER_PERIOD) }
                   className="w-full mt-2"
-                  variant="outline" // Changed from secondary to outline
+                  variant="outline" 
                 >
                   <Edit2 className="mr-2 h-4 w-4" />
                   {isGeneratingRecipe && recipeGenerationMutation.isLoading && recipeGenerationMutation.variables?.isRefinement ? 'Refining...' : 'Refine Recipe'}
@@ -536,7 +542,7 @@ const GenerateMealPage = () => {
                   onClick={handleGenerateImageClick}
                   disabled={isGeneratingImage || generateImageMutation.isPending || isLoadingProfile || (!imageGenerationStatus.isAdmin && imageGenerationStatus.limitReached)}
                   className="w-full mb-2"
-                  variant="secondary" // Changed from outline to secondary
+                  variant="secondary" 
                 >
                   <ImageIcon className="mr-2 h-4 w-4" />
                   {isGeneratingImage || generateImageMutation.isPending ? 'Generating Image...' : 'Generate Image for this Meal'}
