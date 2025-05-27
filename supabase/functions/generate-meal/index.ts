@@ -26,7 +26,8 @@ interface GeneratedMeal {
   instructions: string;
   meal_tags: string[];
   image_url?: string;
-  estimated_calories?: string; // Added for calorie tracking
+  estimated_calories?: string;
+  servings?: string; // Added servings
 }
 
 async function getAccessToken(serviceAccountJsonString: string): Promise<string> {
@@ -149,7 +150,7 @@ serve(async (req) => {
 
     const { data: profile, error: profileErrorDb } = await serviceSupabaseClient
       .from('profiles')
-      .select('ai_preferences, is_admin, image_generation_count, last_image_generation_reset, recipe_generation_count, last_recipe_generation_reset, track_calories') // Added track_calories
+      .select('ai_preferences, is_admin, image_generation_count, last_image_generation_reset, recipe_generation_count, last_recipe_generation_reset, track_calories')
       .eq('id', user.id)
       .single();
 
@@ -162,15 +163,13 @@ serve(async (req) => {
     
     const userIsAdmin = profile?.is_admin || false;
     let userAiPreferences = profile?.ai_preferences || '';
-    const userTracksCalories = profile?.track_calories || false; // Get calorie tracking preference
+    const userTracksCalories = profile?.track_calories || false; 
     
-    // Image generation tracking
     let userImageGenerationCount = profile?.image_generation_count || 0;
     let userLastImageGenerationReset = profile?.last_image_generation_reset || '';
     
-    // Recipe generation tracking
     let userRecipeGenerationCount = profile?.recipe_generation_count || 0;
-    let userLastRecipeGenerationResetDateStr = profile?.last_recipe_generation_reset || ''; // YYYY-MM-DD
+    let userLastRecipeGenerationResetDateStr = profile?.last_recipe_generation_reset || '';
 
     console.log(`User profile for ${user.id}: admin=${userIsAdmin}, track_calories=${userTracksCalories}, img_count=${userImageGenerationCount}, img_reset='${userLastImageGenerationReset}', recipe_count=${userRecipeGenerationCount}, recipe_reset='${userLastRecipeGenerationResetDateStr}'`);
 
@@ -180,7 +179,6 @@ serve(async (req) => {
     let generatedMealData: GeneratedMeal | undefined;
     let mealNameForImage: string;
     let anImageShouldBeGenerated = false; 
-    let isRecipeTextGenerationRequest = !mealData; 
 
     if (mealData) { 
         console.log("Received existing meal data for image generation:", mealData.name);
@@ -206,14 +204,12 @@ serve(async (req) => {
 
             if (!userLastRecipeGenerationResetDateStr) {
                 resetRecipePeriod = true;
-                console.log(`User ${user.id}: No recipe generation reset date found. Setting new period.`);
             } else {
                 try {
                     const lastResetDate = parseDate(userLastRecipeGenerationResetDateStr, "yyyy-MM-dd");
                     const daysSinceLastReset = difference(today, lastResetDate, { units: ["days"] }).days || 0;
                     if (daysSinceLastReset >= RECIPE_GENERATION_PERIOD_DAYS) {
                         resetRecipePeriod = true;
-                        console.log(`User ${user.id}: Recipe generation period expired (${daysSinceLastReset} days). Resetting.`);
                     }
                 } catch (dateParseError) {
                     console.error(`Error parsing last_recipe_generation_reset date '${userLastRecipeGenerationResetDateStr}':`, dateParseError);
@@ -227,7 +223,6 @@ serve(async (req) => {
             }
 
             if (userRecipeGenerationCount >= RECIPE_GENERATION_LIMIT_PER_PERIOD) {
-                console.log(`User ${user.id} has reached recipe generation limit of ${RECIPE_GENERATION_LIMIT_PER_PERIOD}. Count: ${userRecipeGenerationCount}, Period Start: ${userLastRecipeGenerationResetDateStr}`);
                 return new Response(JSON.stringify({ 
                     error: `You have reached your recipe generation limit of ${RECIPE_GENERATION_LIMIT_PER_PERIOD} per ${RECIPE_GENERATION_PERIOD_DAYS} days. Please try again later.` 
                 }), {
@@ -255,7 +250,8 @@ serve(async (req) => {
             { "name": "Ingredient Name (string)", "quantity": "Quantity (number or string like '1/2')", "unit": "Unit (string, e.g., 'cup', 'tbsp', 'g', 'piece')", "description": "Optional description (string, e.g., 'finely chopped')" }
           ],
           "instructions": "Detailed cooking instructions (string, newline separated steps).",
-          "meal_tags": ["Tag1 (string)", "Tag2 (string)"]`;
+          "meal_tags": ["Tag1 (string)", "Tag2 (string)"],
+          "servings": "Estimated number of servings this recipe makes (string, e.g., '4 servings' or '2-3 servings')"`;
         
         if (userTracksCalories) {
             prompt += `,\n          "estimated_calories": "Estimated total calories for the meal (string, e.g., '550 kcal' or '500-600 kcal')"`;
@@ -264,13 +260,13 @@ serve(async (req) => {
 
 
         if (existingRecipeText && refinementInstructions) {
-            console.log("Request body for recipe refinement:", { mealType, kinds, styles, preferences, existingRecipeTextName: existingRecipeText.name, refinementInstructions });
             prompt += `\n\nYou previously generated the following recipe:
 Name: ${existingRecipeText.name}
 Ingredients: ${typeof existingRecipeText.ingredients === 'string' ? existingRecipeText.ingredients : JSON.stringify(existingRecipeText.ingredients)}
 Instructions: ${existingRecipeText.instructions}
 Original Tags: ${JSON.stringify(existingRecipeText.meal_tags)}
 ${existingRecipeText.estimated_calories ? `Original Estimated Calories: ${existingRecipeText.estimated_calories}` : ''}
+${existingRecipeText.servings ? `Original Servings: ${existingRecipeText.servings}` : ''}
 
 Now, please refine this recipe based on the following request: "${refinementInstructions}".
 Ensure the output is a *complete new recipe* in the specified JSON format, incorporating the changes.
@@ -278,7 +274,6 @@ The meal should still generally be a ${mealType || 'general'} type.`;
             if (kinds && kinds.length > 0) prompt += ` It should still generally fit these kinds: ${kinds.join(', ')}.`;
             if (styles && styles.length > 0) prompt += ` The style should still generally be: ${styles.join(', ')}.`;
         } else {
-            console.log("Request body for initial recipe text generation:", { mealType, kinds, styles, preferences });
             prompt += `\nThe meal should be a ${mealType || 'general'} type.`;
             if (kinds && kinds.length > 0) prompt += ` It should fit these kinds: ${kinds.join(', ')}.`;
             if (styles && styles.length > 0) prompt += ` The style should be: ${styles.join(', ')}.`;
@@ -291,6 +286,7 @@ The meal should still generally be a ${mealType || 'general'} type.`;
         if (userTracksCalories) {
             prompt += `\nRemember to include the "estimated_calories" field in your JSON response.`;
         }
+        prompt += `\nAlso remember to include the "servings" field.`;
         prompt += `\nEnsure the response is ONLY the JSON object, nothing else. Do not wrap it in markdown backticks.`;
 
         const geminiPayload = {
@@ -316,11 +312,6 @@ The meal should still generally be a ${mealType || 'general'} type.`;
             throw new Error(`Gemini API request failed: ${geminiResponse.status} ${errorMessage}`);
         }
         const geminiData = await geminiResponse.json();
-
-        if (geminiData.candidates?.[0]?.finishReason === "MAX_TOKENS") {
-            console.warn("Gemini response was truncated due to MAX_TOKENS limit even after increasing it.");
-        }
-
         const generatedContentString = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
         
         if (!generatedContentString) { 
@@ -329,9 +320,9 @@ The meal should still generally be a ${mealType || 'general'} type.`;
         }
         try {
             generatedMealData = JSON.parse(generatedContentString);
-            if (!generatedMealData || !generatedMealData.name || !Array.isArray(generatedMealData.ingredients) || !generatedMealData.instructions) { 
-                console.error("Invalid recipe format from Gemini:", generatedMealData);
-                throw new Error("Invalid recipe format from AI. Check Gemini output structure."); 
+            if (!generatedMealData || !generatedMealData.name || !Array.isArray(generatedMealData.ingredients) || !generatedMealData.instructions || generatedMealData.servings === undefined) { 
+                console.error("Invalid recipe format from Gemini (missing servings or other core fields):", generatedMealData);
+                throw new Error("Invalid recipe format from AI. Check Gemini output structure (especially 'servings')."); 
             }
             if (userTracksCalories && generatedMealData.estimated_calories === undefined) {
                 console.warn("User tracks calories, but AI did not return 'estimated_calories'.");
@@ -342,6 +333,7 @@ The meal should still generally be a ${mealType || 'general'} type.`;
         }
         console.log(existingRecipeText ? "Refined Recipe Text:" : "Generated Recipe Text:", generatedMealData.name);
         if (generatedMealData.estimated_calories) console.log("Estimated Calories:", generatedMealData.estimated_calories);
+        if (generatedMealData.servings) console.log("Servings:", generatedMealData.servings);
 
 
         if (!userIsAdmin) {
@@ -355,8 +347,6 @@ The meal should still generally be a ${mealType || 'general'} type.`;
                 .eq('id', user.id);
             if (updateRecipeCountError) {
                 console.error(`Failed to update recipe generation count for user ${user.id}:`, updateRecipeCountError);
-            } else {
-                console.log(`Successfully updated recipe generation count for user ${user.id} to ${userRecipeGenerationCount}. Period start: ${userLastRecipeGenerationResetDateStr}`);
             }
         }
     }
@@ -365,13 +355,11 @@ The meal should still generally be a ${mealType || 'general'} type.`;
         if (!userIsAdmin) { 
             const currentMonthYear = formatDate(new Date(), "yyyy-MM");
             if (userLastImageGenerationReset !== currentMonthYear) {
-                console.log(`User ${user.id}: New month detected for image generation. Resetting count. Old: '${userLastImageGenerationReset}', New: '${currentMonthYear}'`);
                 userImageGenerationCount = 0;
                 userLastImageGenerationReset = currentMonthYear;
             }
 
             if (userImageGenerationCount >= IMAGE_GENERATION_LIMIT_PER_MONTH) {
-                console.log(`User ${user.id} has reached the monthly image generation limit of ${IMAGE_GENERATION_LIMIT_PER_MONTH}. Current count: ${userImageGenerationCount}`);
                 return new Response(JSON.stringify({ 
                     error: `You have reached your monthly image generation limit of ${IMAGE_GENERATION_LIMIT_PER_MONTH}.`,
                     mealData: mealData 
@@ -402,7 +390,6 @@ The meal should still generally be a ${mealType || 'general'} type.`;
           parameters: { sampleCount: 1, aspectRatio: "1:1", outputFormat: "png" }
         };
         
-        console.log(`Attempting to call Imagen for user ${user.id}. Prompt: "${imagePromptText}"`);
         const imagenResponse = await fetch(imagenEndpoint, {
             method: "POST",
             headers: { "Authorization": `Bearer ${accessTokenForImagen}`, "Content-Type": "application/json" },
@@ -413,15 +400,11 @@ The meal should still generally be a ${mealType || 'general'} type.`;
         if (!imagenResponse.ok) {
             const errorBody = await imagenResponse.text();
             console.error(`Vertex AI Imagen API error for user ${user.id}: ${imagenResponse.status} ${imagenResponse.statusText}`, errorBody);
-            console.warn(`Vertex AI Imagen failed. Proceeding without image for user ${user.id}.`);
         } else {
             const imagenData = await imagenResponse.json();
             const base64EncodedImage = imagenData.predictions?.[0]?.bytesBase64Encoded;
             if (base64EncodedImage) { 
                 imageUrl = `data:image/png;base64,${base64EncodedImage}`; 
-                console.log(`Image generated successfully for user ${user.id}.`);
-            } else {
-                console.warn(`No image data returned from Imagen for user ${user.id}. Predictions:`, imagenData.predictions);
             }
         }
         
@@ -438,8 +421,6 @@ The meal should still generally be a ${mealType || 'general'} type.`;
                 .eq('id', user.id);
             if (updateError) {
                 console.error(`Failed to update image generation count for user ${user.id}:`, updateError);
-            } else {
-                console.log(`Successfully updated image generation count for user ${user.id} to ${userImageGenerationCount}. Reset month: ${userLastImageGenerationReset}`);
             }
         }
     } 
