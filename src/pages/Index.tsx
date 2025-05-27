@@ -48,8 +48,8 @@ const Index = () => {
       id: "custom-meal-images",
       title: "Your Recipes, Beautifully Visualized",
       icon: ImagePlus,
-      description: "Bring your family favorites and cherished recipes (like Grandma's secret sauce!) to BitePath. After adding them manually, you can generate a unique, appetizing AI image to make your personal cookbook shine.",
-      imageUrl: "/ADDMEAL.jpeg", // Updated image path
+      description: "Bring your family favorites and cherished recipes (like Grandma's secret Apple pie!) to life with BitePath's image generation. After adding them manually, you can generate a unique, appetizing AI image to make your personal cookbook shine.", // Updated description
+      imageUrl: "/ADDMEAL.jpeg", 
       imageAlt: "BitePath Add Meal with AI Image Generation Screenshot",
       textOrder: "md:order-2",
       imageOrder: "md:order-1",
