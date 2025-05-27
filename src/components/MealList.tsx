@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Trash2, Edit3, Search, ChefHat, List, Grid3X3, Zap, Users } from "lucide-react"; // Added Users
+import { Trash2, Edit3, Search, ChefHat, List, Grid3X3, Zap, Users } from "lucide-react"; 
 import EditMealDialog, { MealForEditing } from "./EditMealDialog";
 import {
   AlertDialog,
@@ -23,12 +23,13 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog"; 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; 
 import { cn } from "@/lib/utils"; 
+import { calculateCaloriesPerServing } from '@/utils/mealUtils'; // Import new util
 
 interface Meal extends MealForEditing {
   meal_tags?: string[] | null;
   image_url?: string | null; 
   estimated_calories?: string | null; 
-  servings?: string | null; // Added servings
+  servings?: string | null; 
 }
 
 interface ParsedIngredient {
@@ -87,7 +88,7 @@ const MealList = () => {
 
       const { data, error } = await supabase
         .from("meals")
-        .select("id, name, ingredients, instructions, user_id, meal_tags, image_url, estimated_calories, servings") // Added servings
+        .select("id, name, ingredients, instructions, user_id, meal_tags, image_url, estimated_calories, servings") 
         .eq("user_id", user.id)
         .order('created_at', { ascending: false });
 
@@ -270,85 +271,88 @@ const MealList = () => {
             <div className={cn(
               layoutView === 'list' ? 'space-y-3' : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'
             )}>
-              {filteredMeals.map((meal) => (
-                <div key={meal.id} className="border p-4 rounded-lg shadow-sm bg-card hover:shadow-md transition-shadow duration-150 space-y-2 flex flex-col">
-                  <div className="flex items-start"> 
-                    {meal.image_url && (
-                       <div
-                         className="h-28 w-28 md:h-32 md:w-32 object-cover rounded-md mr-4 flex-shrink-0 cursor-pointer flex items-center justify-center overflow-hidden bg-muted" 
-                         onClick={() => setViewingImageUrl(meal.image_url || null)}
-                       >
-                         <img
-                           src={meal.image_url}
-                           alt={meal.name}
-                           className="h-full w-full object-cover" 
-                           onError={(e) => (e.currentTarget.style.display = 'none')} 
-                         />
-                       </div>
+              {filteredMeals.map((meal) => {
+                const caloriesPerServing = calculateCaloriesPerServing(meal.estimated_calories, meal.servings);
+                return (
+                  <div key={meal.id} className="border p-4 rounded-lg shadow-sm bg-card hover:shadow-md transition-shadow duration-150 space-y-2 flex flex-col">
+                    <div className="flex items-start"> 
+                      {meal.image_url && (
+                         <div
+                           className="h-28 w-28 md:h-32 md:w-32 object-cover rounded-md mr-4 flex-shrink-0 cursor-pointer flex items-center justify-center overflow-hidden bg-muted" 
+                           onClick={() => setViewingImageUrl(meal.image_url || null)}
+                         >
+                           <img
+                             src={meal.image_url}
+                             alt={meal.name}
+                             className="h-full w-full object-cover" 
+                             onError={(e) => (e.currentTarget.style.display = 'none')} 
+                           />
+                         </div>
+                      )}
+                      <div className="flex-grow pr-2">
+                        <h3 className="text-xl font-semibold text-foreground">{meal.name}</h3>
+                        {meal.meal_tags && meal.meal_tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            {meal.meal_tags.map(tag => (
+                              <Badge key={tag} variant="outline" className="text-xs px-1.5 py-0.5">{tag}</Badge>
+                            ))}
+                          </div>
+                        )}
+                         {meal.servings && (
+                          <div className="mt-1.5 text-xs text-primary flex items-center">
+                            <Users size={12} className="mr-1" />
+                            Servings: {meal.servings}
+                          </div>
+                        )}
+                         {userProfile?.track_calories && caloriesPerServing !== null && (
+                          <div className="mt-1.5 text-xs text-primary flex items-center">
+                            <Zap size={12} className="mr-1" />
+                            Est. {caloriesPerServing} kcal per serving
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex flex-col space-y-2 flex-shrink-0 ml-2"> 
+                        <Button 
+                          variant="outline" 
+                          onClick={() => handleEditClick(meal)} 
+                          aria-label="Edit meal"
+                          className="h-12 w-12 md:h-14 md:w-14 p-0" 
+                        >
+                          <Edit3 className="h-6 w-6 md:h-7 md:w-7" /> 
+                        </Button>
+                        <Button 
+                          variant="destructive" 
+                          onClick={() => handleDeleteClick(meal)} 
+                          aria-label="Delete meal"
+                          className="h-12 w-12 md:h-14 md:w-14 p-0" 
+                        >
+                          <Trash2 className="h-6 w-6 md:h-7 md:w-7" /> 
+                        </Button>
+                      </div>
+                    </div>
+                    {(meal.ingredients || (meal.instructions && meal.instructions.trim() !== "")) && (
+                      <div className="space-y-2 pt-2 border-t border-muted/50 flex-grow"> 
+                        {meal.ingredients && (
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground">Ingredients:</p>
+                            <p className="text-xs text-foreground/80 mt-0.5 pl-2">
+                              {formatIngredientsDisplay(meal.ingredients)}
+                            </p>
+                          </div>
+                        )}
+                        {meal.instructions && meal.instructions.trim() !== "" && (
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground">Instructions:</p>
+                            <p className="text-xs text-foreground/80 mt-0.5 pl-2 whitespace-pre-line">
+                              {meal.instructions.substring(0, 100)}{meal.instructions.length > 100 ? '...' : ''}
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     )}
-                    <div className="flex-grow pr-2">
-                      <h3 className="text-xl font-semibold text-foreground">{meal.name}</h3>
-                      {meal.meal_tags && meal.meal_tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-1.5">
-                          {meal.meal_tags.map(tag => (
-                            <Badge key={tag} variant="outline" className="text-xs px-1.5 py-0.5">{tag}</Badge>
-                          ))}
-                        </div>
-                      )}
-                       {meal.servings && (
-                        <div className="mt-1.5 text-xs text-primary flex items-center">
-                          <Users size={12} className="mr-1" />
-                          Servings: {meal.servings}
-                        </div>
-                      )}
-                       {userProfile?.track_calories && meal.estimated_calories && (
-                        <div className="mt-1.5 text-xs text-primary flex items-center">
-                          <Zap size={12} className="mr-1" />
-                          Est. Calories: {meal.estimated_calories}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex flex-col space-y-2 flex-shrink-0 ml-2"> 
-                      <Button 
-                        variant="outline" 
-                        onClick={() => handleEditClick(meal)} 
-                        aria-label="Edit meal"
-                        className="h-12 w-12 md:h-14 md:w-14 p-0" 
-                      >
-                        <Edit3 className="h-6 w-6 md:h-7 md:w-7" /> 
-                      </Button>
-                      <Button 
-                        variant="destructive" 
-                        onClick={() => handleDeleteClick(meal)} 
-                        aria-label="Delete meal"
-                        className="h-12 w-12 md:h-14 md:w-14 p-0" 
-                      >
-                        <Trash2 className="h-6 w-6 md:h-7 md:w-7" /> 
-                      </Button>
-                    </div>
                   </div>
-                  {(meal.ingredients || (meal.instructions && meal.instructions.trim() !== "")) && (
-                    <div className="space-y-2 pt-2 border-t border-muted/50 flex-grow"> 
-                      {meal.ingredients && (
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Ingredients:</p>
-                          <p className="text-xs text-foreground/80 mt-0.5 pl-2">
-                            {formatIngredientsDisplay(meal.ingredients)}
-                          </p>
-                        </div>
-                      )}
-                      {meal.instructions && meal.instructions.trim() !== "" && (
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Instructions:</p>
-                          <p className="text-xs text-foreground/80 mt-0.5 pl-2 whitespace-pre-line">
-                            {meal.instructions.substring(0, 100)}{meal.instructions.length > 100 ? '...' : ''}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>

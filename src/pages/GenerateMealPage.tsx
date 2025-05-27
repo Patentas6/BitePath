@@ -9,11 +9,12 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import { Brain, Save, RefreshCw, Info, Image as ImageIcon, Edit2, Zap, Users } from 'lucide-react'; // Added Users for servings
+import { Brain, Save, RefreshCw, Info, Image as ImageIcon, Edit2, Zap, Users } from 'lucide-react'; 
 import AppHeader from "@/components/AppHeader";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { format as formatDateFns, differenceInCalendarDays, addDays, parse as parseDateFns } from "date-fns"; 
 import { IMAGE_GENERATION_LIMIT_PER_MONTH, RECIPE_GENERATION_LIMIT_PER_PERIOD, RECIPE_GENERATION_PERIOD_DAYS } from '@/lib/constants';
+import { calculateCaloriesPerServing } from '@/utils/mealUtils'; // Import new util
 
 interface GeneratedIngredient {
   name: string;
@@ -29,7 +30,7 @@ interface GeneratedMeal {
   meal_tags: string[];
   image_url?: string;
   estimated_calories?: string;
-  servings?: string; // Added servings
+  servings?: string; 
 }
 
 interface UserProfileData {
@@ -312,7 +313,7 @@ const GenerateMealPage = () => {
             meal_tags: mealToSave.meal_tags,
             image_url: mealToSave.image_url,
             estimated_calories: mealToSave.estimated_calories,
-            servings: mealToSave.servings, // Save servings
+            servings: mealToSave.servings, 
           },])
         .select();
       if (error) throw error;
@@ -380,6 +381,8 @@ const GenerateMealPage = () => {
     }
     return `Recipe Generations Used: ${recipeGenerationStatus.generationsUsedThisPeriod} / ${RECIPE_GENERATION_LIMIT_PER_PERIOD}. ${resetText}`;
   };
+
+  const caloriesPerServing = generatedMeal ? calculateCaloriesPerServing(generatedMeal.estimated_calories, generatedMeal.servings) : null;
 
 
   return (
@@ -489,10 +492,10 @@ const GenerateMealPage = () => {
                         Servings: {generatedMeal.servings}
                       </div>
                     )}
-                    {generatedMeal.estimated_calories && userProfile?.track_calories && (
+                    {userProfile?.track_calories && caloriesPerServing !== null && (
                       <div className="text-sm text-muted-foreground flex items-center">
                         <Zap size={14} className="mr-1.5 text-primary" />
-                        Estimated Calories: {generatedMeal.estimated_calories}
+                        Est. {caloriesPerServing} kcal per serving
                       </div>
                     )}
                   </div>

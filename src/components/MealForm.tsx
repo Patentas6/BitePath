@@ -19,7 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Trash2, Brain, XCircle, Info, Link2, Zap, Users } from "lucide-react"; // Added Users
+import { PlusCircle, Trash2, Brain, XCircle, Info, Link2, Zap, Users } from "lucide-react"; 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -51,7 +51,7 @@ const mealFormSchema = z.object({
   meal_tags: z.array(z.string()).optional(),
   image_url: z.string().optional(),
   estimated_calories: z.string().optional(), 
-  servings: z.string().optional(), // Added servings
+  servings: z.string().optional(), 
 });
 
 type MealFormValues = z.infer<typeof mealFormSchema>;
@@ -82,7 +82,7 @@ const MealForm: React.FC<MealFormProps> = ({ generationStatus, isLoadingProfile,
       meal_tags: [],
       image_url: "",
       estimated_calories: "", 
-      servings: "", // Added default for servings
+      servings: "", 
     },
   });
 
@@ -118,7 +118,7 @@ const MealForm: React.FC<MealFormProps> = ({ generationStatus, isLoadingProfile,
             meal_tags: values.meal_tags,
             image_url: values.image_url,
             estimated_calories: showCaloriesField ? values.estimated_calories : null,
-            servings: values.servings, // Save servings
+            servings: values.servings, 
           },
         ])
         .select();
@@ -137,7 +137,7 @@ const MealForm: React.FC<MealFormProps> = ({ generationStatus, isLoadingProfile,
         meal_tags: [],
         image_url: "",
         estimated_calories: "", 
-        servings: "", // Reset servings
+        servings: "", 
       });
       setShowImageUrlInput(false); 
       queryClient.invalidateQueries({ queryKey: ["meals"] });
@@ -406,7 +406,7 @@ const MealForm: React.FC<MealFormProps> = ({ generationStatus, isLoadingProfile,
                     <Input placeholder="e.g., 4 or 2-3" {...field} />
                   </FormControl>
                   <FormDescription>
-                    How many people does this meal typically serve?
+                    How many people does this meal typically serve? (e.g., "4", "2-3 servings")
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -421,13 +421,13 @@ const MealForm: React.FC<MealFormProps> = ({ generationStatus, isLoadingProfile,
                   <FormItem>
                     <FormLabel className="flex items-center">
                       <Zap className="mr-2 h-4 w-4 text-primary" />
-                      Estimated Calories (Optional)
+                      Total Estimated Calories (Optional)
                     </FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., 550 or 500-600 kcal" {...field} />
+                      <Input placeholder="e.g., 2200 or 2000-2400 kcal" {...field} />
                     </FormControl>
                     <FormDescription>
-                      Enter a number or a range for the meal's estimated calorie count.
+                      Enter the total estimated calorie count for the entire recipe (all servings). The app will display per-serving calories if servings are also provided.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

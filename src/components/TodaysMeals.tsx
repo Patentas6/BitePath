@@ -7,11 +7,12 @@ import { PLANNING_MEAL_TYPES, PlanningMealType } from "@/lib/constants";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { UtensilsCrossed, Edit, Zap } from "lucide-react"; // Added Zap icon
+import { UtensilsCrossed, Edit, Zap } from "lucide-react"; 
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import AddMealToPlanDialog from "./AddMealToPlanDialog"; 
+import { calculateCaloriesPerServing } from '@/utils/mealUtils'; // Import new util
 
 interface MealPlan {
   id: string;
@@ -21,7 +22,8 @@ interface MealPlan {
   meals: {
     name: string;
     image_url?: string | null;
-    estimated_calories?: string | null; // Added estimated_calories
+    estimated_calories?: string | null; 
+    servings?: string | null; // Added servings
   } | null;
 }
 
@@ -34,13 +36,6 @@ interface TodaysMealsProps {
 }
 
 const MEAL_TYPE_DISPLAY_ORDER: PlanningMealType[] = ["Breakfast", "Brunch Snack", "Lunch", "Afternoon Snack", "Dinner"];
-
-// Helper function to parse calorie strings
-const parseCalories = (calorieString: string | null | undefined): number | null => {
-  if (!calorieString) return null;
-  const match = calorieString.match(/\d+/); // Find the first sequence of digits
-  return match ? parseInt(match[0], 10) : null;
-};
 
 const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
   const today = startOfToday();
@@ -73,7 +68,7 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
       if (!userId) return [];
       const { data, error } = await supabase
         .from("meal_plans")
-        .select("id, meal_id, plan_date, meal_type, meals ( name, image_url, estimated_calories )") // Fetch estimated_calories
+        .select("id, meal_id, plan_date, meal_type, meals ( name, image_url, estimated_calories, servings )") // Fetch servings
         .eq("user_id", userId)
         .eq("plan_date", todayStr);
       if (error) throw error;
@@ -94,11 +89,11 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
     });
   }, [mealPlans]);
 
-  const dailyTotalCalories = useMemo(() => {
+  const dailyTotalCaloriesPerServing = useMemo(() => {
     if (!userProfile?.track_calories || !sortedMealPlans) return null;
     return sortedMealPlans.reduce((total, plan) => {
-      const calories = parseCalories(plan.meals?.estimated_calories);
-      return total + (calories || 0);
+      const caloriesPerServing = calculateCaloriesPerServing(plan.meals?.estimated_calories, plan.meals?.servings);
+      return total + (caloriesPerServing || 0);
     }, 0);
   }, [sortedMealPlans, userProfile]);
 
@@ -118,10 +113,10 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle>Today's Meals ({format(today, 'MMM dd')})</CardTitle>
-            {userProfile?.track_calories && dailyTotalCalories !== null && dailyTotalCalories > 0 && (
+            {userProfile?.track_calories && dailyTotalCaloriesPerServing !== null && dailyTotalCaloriesPerServing > 0 && (
               <div className="text-sm font-semibold text-primary flex items-center">
                 <Zap size={16} className="mr-1.5" />
-                Total Est: {dailyTotalCalories} kcal
+                Total Est: {dailyTotalCaloriesPerServing} kcal (per serving)
               </div>
             )}
           </div>
@@ -136,7 +131,7 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
           ) : (
             <ul className="space-y-3">
               {sortedMealPlans.map(plannedMeal => {
-                const mealCalories = parseCalories(plannedMeal.meals?.estimated_calories);
+                const caloriesPerServing = calculateCaloriesPerServing(plannedMeal.meals?.estimated_calories, plannedMeal.meals?.servings);
                 return (
                   <li key={plannedMeal.id} className="border rounded-md p-3 bg-card shadow-sm flex items-center space-x-3">
                      {plannedMeal.meals?.image_url && (
@@ -159,10 +154,10 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
                        <div className="text-base font-semibold text-foreground mt-1">
                          {plannedMeal.meals?.name || 'Unknown Meal'}
                        </div>
-                       {userProfile?.track_calories && mealCalories !== null && (
+                       {userProfile?.track_calories && caloriesPerServing !== null && (
                          <div className="text-xs text-primary mt-0.5 flex items-center">
                            <Zap size={12} className="mr-1" />
-                           Est. {mealCalories} kcal
+                           Est. {caloriesPerServing} kcal per serving
                          </div>
                        )}
                      </div>

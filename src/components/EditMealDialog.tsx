@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { PlusCircle, Trash2, Zap, Users } from "lucide-react"; // Added Users
+import { PlusCircle, Trash2, Zap, Users } from "lucide-react"; 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -55,7 +55,7 @@ const mealFormSchema = z.object({
   instructions: z.string().optional(),
   meal_tags: z.array(z.string()).optional(),
   estimated_calories: z.string().optional(), 
-  servings: z.string().optional(), // Added servings
+  servings: z.string().optional(), 
 });
 
 type MealFormValues = z.infer<typeof mealFormSchema>;
@@ -69,7 +69,7 @@ export interface MealForEditing {
   meal_tags?: string[] | null;
   image_url?: string | null;
   estimated_calories?: string | null; 
-  servings?: string | null; // Added servings
+  servings?: string | null; 
 }
 
 interface EditMealDialogProps {
@@ -90,7 +90,7 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
       instructions: "",
       meal_tags: [],
       estimated_calories: "", 
-      servings: "", // Added default for servings
+      servings: "", 
     },
   });
 
@@ -131,7 +131,7 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
         instructions: meal.instructions || "",
         meal_tags: meal.meal_tags || [],
         estimated_calories: meal.estimated_calories || "", 
-        servings: meal.servings || "", // Load servings
+        servings: meal.servings || "", 
       });
     } else if (!open) {
       form.reset({
@@ -140,7 +140,7 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
         instructions: "",
         meal_tags: [],
         estimated_calories: "", 
-        servings: "", // Reset servings
+        servings: "", 
       });
     }
   }, [meal, open, form]);
@@ -171,7 +171,7 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
           instructions: values.instructions,
           meal_tags: values.meal_tags,
           estimated_calories: values.estimated_calories, 
-          servings: values.servings, // Save servings
+          servings: values.servings, 
         })
         .eq("id", meal.id)
         .eq("user_id", user.id)
@@ -404,7 +404,7 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
                       <Input placeholder="e.g., 4 or 2-3" {...field} />
                     </FormControl>
                     <FormDescription>
-                      How many people does this meal typically serve?
+                      How many people does this meal typically serve? (e.g., "4", "2-3 servings")
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -417,13 +417,13 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
                   <FormItem>
                     <FormLabel className="flex items-center">
                       <Zap className="mr-2 h-4 w-4 text-primary" />
-                      Estimated Calories (Optional)
+                      Total Estimated Calories (Optional)
                     </FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., 550 or 500-600 kcal" {...field} />
+                      <Input placeholder="e.g., 2200 or 2000-2400 kcal" {...field} />
                     </FormControl>
                     <FormDescription>
-                      Enter a number or a range for the meal's estimated calorie count.
+                      Enter the total estimated calorie count for the entire recipe (all servings). The app will display per-serving calories if servings are also provided.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
