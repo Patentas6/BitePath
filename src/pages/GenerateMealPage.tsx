@@ -439,7 +439,7 @@ const GenerateMealPage = () => {
                 </Label>
                 <Textarea
                   id="ingredient-preferences"
-                  placeholder="e.g., 'Use up: chicken, broccoli, rice', 'Max 500 cals & high protein', 'No nuts, gluten-free'"
+                  placeholder="e.g., 'Use only: chicken, broccoli, rice', 'Max 500 cals', 'No nuts'"
                   value={ingredientPreferences}
                   onChange={(e) => setIngredientPreferences(e.target.value)}
                   className="mt-2"
@@ -447,7 +447,7 @@ const GenerateMealPage = () => {
                 />
                 <div className="text-xs text-muted-foreground mt-2 p-2 bg-muted/50 rounded-md">
                   <Info size={14} className="inline mr-1.5 relative -top-px flex-shrink-0" />
-                  <strong>Pro Tip:</strong> List ingredients you have (e.g., "use: ground beef, onions") or set dietary goals (e.g., "under 600 calories", "high protein & low carb"). The more specific you are, the better the AI can tailor the recipe!
+                  <strong>Pro Tip:</strong> List ingredients you have at home (e.g., "use only: ground beef, onions"), and the AI will try to create a recipe using just those. You can also set goals like "under 600 calories".
                 </div>
                 <p className="text-xs text-muted-foreground mt-1 text-right">
                   {ingredientPreferences.length}/{PREFERENCES_MAX_LENGTH} characters
