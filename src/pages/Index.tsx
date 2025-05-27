@@ -118,10 +118,10 @@ const Index = () => {
       <section className="w-full py-20 text-center bg-gradient-to-r from-primary/20 to-accent/20 dark:from-green-900/30 dark:to-blue-900/30">
         <div className="container mx-auto px-4">
           <h1 className="text-5xl md:text-6xl font-bold text-gray-900 dark:text-white mb-4">
-            Ditch the Dinner Dilemma. Embrace the <BitePathStyled />.
+            Meal Planning, Reimagined. This is <BitePathStyled />.
           </h1>
           <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 mb-8">
-            Plan your week in minutes and get an instant grocery list. Less stress, more delicious meals.
+            Simplify your kitchen routine: Plan meals in moments, generate custom recipes with AI, visualize them with unique images, and get your shopping list instantly.
           </p>
           <Button size="lg" asChild>
             <Link to="/auth?mode=signup"><span>Start Planning for Free</span></Link>
