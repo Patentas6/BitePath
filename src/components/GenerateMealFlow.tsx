@@ -390,6 +390,7 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
                 <Info size={14} className="inline mr-1.5 relative -top-px flex-shrink-0" />
                 Your general AI preferences from your profile are automatically included. Add more specific requests here for this meal.
                 <strong> Pro Tip:</strong> List ingredients you have (e.g., "use only: ground beef, onions"), and the AI will try to use just those.
+                Or, if adding a full custom meal feels like too much work, just type the meal name (e.g., 'Grandma's Apple Pie') and a few key details, and let the AI try to generate the rest for you!
               </div>
               <p className="text-xs text-muted-foreground mt-1 text-right">
                 {ingredientPreferences.length}/{PREFERENCES_MAX_LENGTH} characters
