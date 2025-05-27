@@ -94,7 +94,7 @@ const exampleGroceryData: Record<Category, CategorizedDisplayListItem[]> = {
   'Dairy & Eggs': [],
   Frozen: [],
   Beverages: [],
-  Other: [] // Ensure all categories exist
+  Other: []
 };
 
 
@@ -433,39 +433,26 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
             Plan meals to see their ingredients here. Here's an example of what your list might look like:
           </p>
         )}
-        {(actualIsEmptyList && !showExampleData) ? ( // Only show "Your List is Empty" if not showing examples
-          <div className="text-center py-6 text-muted-foreground">
-            <ShoppingCart className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500 mb-4" />
-            <p className="text-lg font-semibold mb-1">Your List is Empty</p>
-            <p className="text-sm">Plan some meals for today to see ingredients here.</p>
-          </div>
-        ) : viewMode === 'category' ? (
+
+        {showExampleData ? (
           <div className="space-y-4">
             {categoryOrder.map(category => {
-              const itemsInCategory = showExampleData ? exampleGroceryData[category] : categorizedDisplayList[category];
+              const itemsInCategory = exampleGroceryData[category];
               if (itemsInCategory && itemsInCategory.length > 0) {
-                const allItemsInCategoryStruck = !showExampleData && itemsInCategory.every(item => struckItems.has(item.uniqueKey));
                 return (
-                  <div key={category} className={cn(showExampleData && "opacity-80 border-dashed")}>
-                    <h3 
-                      className={`text-md font-semibold text-gray-800 dark:text-gray-200 border-b pb-1 mb-2 ${allItemsInCategoryStruck ? 'line-through text-gray-400 dark:text-gray-600 opacity-70' : ''}`}
-                    >
+                  <div key={category} className="opacity-80 border-dashed border rounded-md p-3">
+                    <h3 className="text-md font-semibold text-gray-700 dark:text-gray-300 border-b border-dashed pb-1 mb-2">
                       {category}
                     </h3>
                     <ul className="space-y-1 text-sm">
                       {itemsInCategory.map((item) => (
                         <li
                           key={item.uniqueKey}
-                          onClick={() => !showExampleData && handleItemClick(item.uniqueKey)}
-                          className={cn(
-                            "p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors",
-                            !showExampleData && "cursor-pointer",
-                            !showExampleData && struckItems.has(item.uniqueKey) ? 'line-through text-gray-400 dark:text-gray-600 opacity-70' : ''
-                          )}
+                          className="p-1 rounded"
                           title={item.originalItemsTooltip}
                         >
-                          <span className={!showExampleData && struckItems.has(item.uniqueKey) ? '' : item.itemNameClass}>{item.itemName}: </span>
-                          {item.detailsPart && <span className={!showExampleData && struckItems.has(item.uniqueKey) ? '' : item.detailsClass}>{item.detailsPart}</span>}
+                          <span className={item.itemNameClass}>{item.itemName}: </span>
+                          {item.detailsPart && <span className={item.detailsClass}>{item.detailsPart}</span>}
                         </li>
                       ))}
                     </ul>
@@ -475,7 +462,48 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
               return null;
             })}
           </div>
-        ) : ( // Meal-wise view (not showing examples for meal-wise view for simplicity)
+        ) : actualIsEmptyList ? (
+          <div className="text-center py-6 text-muted-foreground">
+            <ShoppingCart className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500 mb-4" />
+            <p className="text-lg font-semibold mb-1">Your List is Empty</p>
+            <p className="text-sm">Plan some meals for today to see ingredients here.</p>
+          </div>
+        ) : viewMode === 'category' ? (
+          <div className="space-y-4">
+            {categoryOrder.map(category => {
+              const itemsInCategory = categorizedDisplayList[category];
+              if (itemsInCategory && itemsInCategory.length > 0) {
+                const allItemsInCategoryStruck = itemsInCategory.every(item => struckItems.has(item.uniqueKey));
+                return (
+                  <div key={category}>
+                    <h3 
+                      className={`text-md font-semibold text-gray-800 dark:text-gray-200 border-b pb-1 mb-2 ${allItemsInCategoryStruck ? 'line-through text-gray-400 dark:text-gray-600 opacity-70' : ''}`}
+                    >
+                      {category}
+                    </h3>
+                    <ul className="space-y-1 text-sm">
+                      {itemsInCategory.map((item) => (
+                        <li
+                          key={item.uniqueKey}
+                          onClick={() => handleItemClick(item.uniqueKey)}
+                          className={cn(
+                            "p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer",
+                            struckItems.has(item.uniqueKey) ? 'line-through text-gray-400 dark:text-gray-600 opacity-70' : ''
+                          )}
+                          title={item.originalItemsTooltip}
+                        >
+                          <span className={struckItems.has(item.uniqueKey) ? '' : item.itemNameClass}>{item.itemName}: </span>
+                          {item.detailsPart && <span className={struckItems.has(item.uniqueKey) ? '' : item.detailsClass}>{item.detailsPart}</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              }
+              return null;
+            })}
+          </div>
+        ) : ( 
           mealWiseDisplayList.map(mealItem => (
             <div key={`${mealItem.planDate}-${mealItem.mealName}`} className="mb-4">
               <h3 className="text-md font-semibold text-gray-800 dark:text-gray-200 border-b pb-1 mb-2">
