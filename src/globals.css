@@ -4,8 +4,8 @@
 
 @layer base {
   :root {
-    /* --- User's Custom Liked Light Mode Palette (Beige, Blue, Bright Green, Black) - ACTIVE --- */
-    --background: 43 67% 94.1%; /* Beige (#F8F4E8) - Page background */
+    /* --- User's Custom Liked Light Mode Palette --- */
+    --background: 109 88% 95.3%; /* New Light Green (#ECFEE8) - Page background */
     --foreground: 40 100% 1.4%;  /* Black (#070500) - Small/general text */
 
     --card: 0 0% 100%; /* White - For cards, to contrast with Beige page background */
@@ -21,7 +21,7 @@
     --secondary: 210 40% 96.1%; /* Light Gray - For secondary buttons/elements */
     --secondary-foreground: 40 100% 1.4%; /* Black - Text on light gray secondary elements */
 
-    --muted: 43 40% 90%; /* Lighter/Darker Beige variant for muted backgrounds */
+    --muted: 109 60% 90%; /* Lighter/Darker variant of new background for muted backgrounds */
     --muted-foreground: 0 0% 30%;   /* Dark Gray - Muted text */
 
     --accent: 81.4 14.9% 18.4%; /* New Dark Green/Brown (#313628) */
@@ -30,7 +30,7 @@
     --destructive: 0 84.2% 60.2%; /* Standard Red */
     --destructive-foreground: 0 0% 100%; /* White */
 
-    --border: 43 50% 88%; /* Slightly darker Beige - For borders */
+    --border: 109 60% 88%; /* Slightly darker variant of new background - For borders */
     --input: 0 0% 100%; /* White - For input backgrounds */
     
     /* Ring Color - solid primary for light mode */
