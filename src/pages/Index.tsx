@@ -37,7 +37,7 @@ const Index = () => {
       {/* Hero Section */}
       <section className="w-full py-20 text-center bg-gradient-to-r from-primary/20 to-accent/20 dark:from-green-900/30 dark:to-blue-900/30">
         <div className="container mx-auto px-4">
-          <h1 className="text-5xl md:text-6xl font-bold text-gray-900 dark:text-white mb-4">
+          <h1 className="text-5xl md:text-6xl font-bold dark:text-white mb-4">
             Ditch the Dinner Dilemma. Embrace the BitePath.
           </h1>
           <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 mb-8">
