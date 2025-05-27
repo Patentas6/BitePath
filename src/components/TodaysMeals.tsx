@@ -62,9 +62,9 @@ const exampleMealsData = [
     id: 'ex-dn', 
     meal_type: 'Dinner', 
     meals: { 
-      name: 'Example: Pasta Primavera', 
-      image_url: 'https://placehold.co/100x100/FEF3C7/92400E?text=Dinner',
-      estimated_calories: '600 kcal', 
+      name: 'Example: Spaghetti Carbonara', 
+      image_url: 'https://placehold.co/100x100/FEF3C7/92400E?text=Dinner', // Updated placeholder text
+      estimated_calories: '650 kcal', // Adjusted calories for Carbonara
       servings: '1' 
     } 
   },
