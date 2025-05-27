@@ -2,9 +2,9 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
-import { LayoutDashboard, CalendarDays, BrainCircuit, ShoppingCart, Star } from "lucide-react"; // Added Star for testimonials
+import { LayoutDashboard, CalendarDays, BrainCircuit, ShoppingCart, ImagePlus, Info } from "lucide-react"; // Added ImagePlus for custom meal images, Info for About Us
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"; // Added Card components
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 
 const Index = () => {
   const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
@@ -32,7 +32,7 @@ const Index = () => {
     },
     {
       id: "ai-generation",
-      title: "AI-Powered Meal Generation",
+      title: "AI-Powered Meal Ideas",
       icon: BrainCircuit,
       description: "Never run out of ideas! Describe what you're in the mood for—type, style, ingredients—and let our AI generate a complete meal concept, including a recipe and a unique image.",
       imageUrl: "/Generate_Meal.png", 
@@ -41,32 +41,24 @@ const Index = () => {
       imageOrder: "md:order-2",
     },
     {
+      id: "custom-meal-images",
+      title: "Your Recipes, Beautifully Visualized",
+      icon: ImagePlus,
+      description: "Bring your family favorites and cherished recipes (like Grandma's secret sauce!) to BitePath. After adding them manually, you can generate a unique, appetizing AI image to make your personal cookbook shine.",
+      imageUrl: "/Add_Meal_With_Image.png", // Placeholder - you'll need to create this image
+      imageAlt: "BitePath Add Meal with AI Image Generation Screenshot",
+      textOrder: "md:order-2",
+      imageOrder: "md:order-1",
+    },
+    {
       id: "grocery-lists",
       title: "Smart & Flexible Grocery Lists",
       icon: ShoppingCart,
       description: "Forget manual list-making. BitePath automatically compiles your shopping list from your meal plan. View items conveniently grouped by store category or see them meal-by-meal.",
       imageUrl: "/Grocery_List_by_Meal.png", 
       imageAlt: "BitePath Grocery List Screenshot",
-      textOrder: "md:order-2",
-      imageOrder: "md:order-1",
-    },
-  ];
-
-  const testimonials = [
-    {
-      name: "Sarah P.",
-      quote: "BitePath has revolutionized my meal planning! The AI suggestions are fantastic and the automated grocery list saves me so much time.",
-      stars: 5,
-    },
-    {
-      name: "Mike R.",
-      quote: "As someone who hates deciding what to eat, BitePath is a lifesaver. I love the weekly planner and how easy it is to add my own recipes.",
-      stars: 5,
-    },
-    {
-      name: "Linda K.",
-      quote: "The AI image generation for custom meals is such a fun touch! Makes my recipe book look amazing. Highly recommend!",
-      stars: 4,
+      textOrder: "md:order-1", // Adjusted order for variety
+      imageOrder: "md:order-2",
     },
   ];
 
@@ -86,7 +78,7 @@ const Index = () => {
           <nav className="flex items-center space-x-4">
             <a href="#features-glimpse" className="hover:underline text-sm md:text-base">How It Works</a>
             <a href="#testimonials" className="hover:underline text-sm md:text-base">Testimonials</a>
-            <a href="#pricing-plans" className="hover:underline text-sm md:text-base">Plans</a>
+            <a href="#about-us" className="hover:underline text-sm md:text-base">About Us</a>
             <Link to="/auth" className="hover:underline text-sm md:text-base">Login</Link>
             <Button 
               size="sm" 
@@ -151,81 +143,32 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Testimonials Section */}
+      {/* Testimonials Section - Modified */}
       <section id="testimonials" className="w-full py-16 bg-muted/40 dark:bg-muted/20 text-center">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold mb-12">What Our Users Say</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {testimonials.map((testimonial, index) => (
-              <Card key={index} className="text-left">
-                <CardHeader>
-                  <div className="flex items-center mb-2">
-                    {Array.from({ length: testimonial.stars }).map((_, i) => (
-                      <Star key={i} className="h-5 w-5 text-yellow-400 fill-yellow-400" />
-                    ))}
-                    {Array.from({ length: 5 - testimonial.stars }).map((_, i) => (
-                      <Star key={`empty-${i}`} className="h-5 w-5 text-yellow-400" />
-                    ))}
-                  </div>
-                  <CardTitle>{testimonial.name}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">"{testimonial.quote}"</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <h2 className="text-3xl font-bold mb-4">Testimonials Coming Soon!</h2>
+          <p className="text-lg text-muted-foreground">
+            We're excited to share what our users think about BitePath. Check back later for reviews!
+          </p>
         </div>
       </section>
 
-      {/* Pricing Plans Section */}
-      <section id="pricing-plans" className="w-full py-16 bg-background text-center">
-        <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold mb-4">Choose Your Plan</h2>
-          <p className="text-xl text-muted-foreground mb-12">Start for free, or unlock powerful AI features with Premium.</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            {/* Free Plan Card */}
-            <Card className="flex flex-col">
-              <CardHeader>
-                <CardTitle className="text-2xl">Free</CardTitle>
-                <CardDescription>$0 / month</CardDescription>
-              </CardHeader>
-              <CardContent className="flex-grow space-y-3">
-                <ul className="list-disc list-inside text-left space-y-2 text-muted-foreground">
-                  <li>Plan weekly meals</li>
-                  <li>Automated grocery lists</li>
-                  <li>Save custom recipes</li>
-                  <li>Limited AI meal generations</li>
-                </ul>
-              </CardContent>
-              <CardFooter>
-                <Button asChild className="w-full" variant="outline">
-                  <Link to="/auth?mode=signup">Get Started</Link>
-                </Button>
-              </CardFooter>
-            </Card>
-            {/* Premium Plan Card */}
-            <Card className="border-primary ring-2 ring-primary flex flex-col shadow-lg">
-              <CardHeader>
-                <CardTitle className="text-2xl text-primary">Premium</CardTitle>
-                <CardDescription>$9.99 / month</CardDescription>
-              </CardHeader>
-              <CardContent className="flex-grow space-y-3">
-                <ul className="list-disc list-inside text-left space-y-2 text-muted-foreground">
-                  <li>All Free features, plus:</li>
-                  <li>Unlimited AI meal generations</li>
-                  <li>AI recipe image generation</li>
-                  <li>Advanced AI preferences & refinement</li>
-                  <li>Priority support (Coming Soon)</li>
-                </ul>
-              </CardContent>
-              <CardFooter>
-                <Button asChild className="w-full">
-                  <Link to="/auth?mode=signup">Upgrade to Premium</Link>
-                </Button>
-              </CardFooter>
-            </Card>
+      {/* About Us & Contact Section - New */}
+      <section id="about-us" className="w-full py-16 bg-background text-center">
+        <div className="container mx-auto px-4 max-w-3xl"> {/* Centered and max-width */}
+          <div className="flex justify-center items-center mb-4">
+            <Info className="h-10 w-10 text-primary mr-3" />
+            <h2 className="text-3xl font-bold">About Us & Contact</h2>
           </div>
+          <p className="text-lg text-muted-foreground mb-6">
+            BitePath is dedicated to simplifying your meal planning and grocery shopping experience, 
+            giving you more time to enjoy delicious, home-cooked meals.
+          </p>
+          <p className="text-lg text-muted-foreground">
+            For feedback, support, or business inquiries, please [Your Contact Information/Method Will Go Here]. 
+            We'd love to hear from you!
+          </p>
+          {/* You can add more details or a contact form component here later */}
         </div>
       </section>
 
