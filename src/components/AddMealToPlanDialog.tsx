@@ -92,11 +92,25 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
       console.log("[AddMealToPlanDialog] `selectedMealTypeForSaving` (for database) state set to:", typeForSavingDatabase);
 
       let tagsToPreselect: MealTag[] = [];
-      if (initialMealType && MEAL_TAG_OPTIONS.includes(initialMealType as MealTag)) {
-        console.log(`[AddMealToPlanDialog] Tag Pre-selection: Condition MET. '${initialMealType}' is in MEAL_TAG_OPTIONS.`);
-        tagsToPreselect = [initialMealType as MealTag];
+      const snackTag = MEAL_TAG_OPTIONS.find(tag => tag === "Snack"); // Explicitly find "Snack"
+
+      if (initialMealType) {
+        if (MEAL_TAG_OPTIONS.includes(initialMealType as MealTag)) {
+          // Exact match (e.g., "Breakfast" -> "Breakfast" tag)
+          console.log(`[AddMealToPlanDialog] Tag Pre-selection: Exact match. '${initialMealType}' is in MEAL_TAG_OPTIONS.`);
+          tagsToPreselect = [initialMealType as MealTag];
+        } else if (
+          (initialMealType === "Afternoon Snack" || initialMealType === "Brunch Snack") &&
+          snackTag // Check if "Snack" tag exists in MEAL_TAG_OPTIONS
+        ) {
+          // Specific mapping for "Afternoon Snack" or "Brunch Snack" to "Snack" tag
+          console.log(`[AddMealToPlanDialog] Tag Pre-selection: Mapping '${initialMealType}' to 'Snack' tag.`);
+          tagsToPreselect = [snackTag];
+        } else {
+          console.log(`[AddMealToPlanDialog] Tag Pre-selection: No specific rule for '${initialMealType}'. Resetting tags.`);
+        }
       } else {
-        console.log(`[AddMealToPlanDialog] Tag Pre-selection: Condition NOT MET. initialMealType ('${initialMealType}') is not a direct MealTag or is falsy.`);
+        console.log(`[AddMealToPlanDialog] Tag Pre-selection: initialMealType is falsy. Resetting tags.`);
       }
       setSelectedTags(tagsToPreselect);
       console.log("[AddMealToPlanDialog] `selectedTags` state set to:", tagsToPreselect);
@@ -135,7 +149,6 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
   const addMealToPlanMutation = useMutation({
     mutationFn: async ({ meal_id, plan_date_str, meal_type_str }: { meal_id: string; plan_date_str: string; meal_type_str: string }) => {
       if (!userId) throw new Error("User not authenticated.");
-      // Use selectedMealTypeForSaving for the meal_type to ensure consistency
       if (!selectedMealTypeForSaving) {
         console.error("Save attempt with undefined selectedMealTypeForSaving. This should not happen if initialMealType was valid.");
         throw new Error("Meal type for saving is not defined.");
@@ -143,12 +156,12 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
       const { error: deleteError } = await supabase
         .from("meal_plans")
         .delete()
-        .match({ user_id: userId, plan_date: plan_date_str, meal_type: selectedMealTypeForSaving }); // Use state here
+        .match({ user_id: userId, plan_date: plan_date_str, meal_type: selectedMealTypeForSaving }); 
       if (deleteError) console.warn("Error deleting existing meal plan entry:", deleteError.message);
       
       const { data, error: insertError } = await supabase
         .from("meal_plans")
-        .insert([{ user_id: userId, meal_id: meal_id, plan_date: plan_date_str, meal_type: selectedMealTypeForSaving }]) // Use state here
+        .insert([{ user_id: userId, meal_id: meal_id, plan_date: plan_date_str, meal_type: selectedMealTypeForSaving }]) 
         .select();
       if (insertError) throw insertError;
       return data;
@@ -179,7 +192,6 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
 
   if (!planDate) return null; 
 
-  // Use initialMealType directly for the display in the description
   const descriptionDisplayMealType = initialMealType || "Meal"; 
 
   return (
