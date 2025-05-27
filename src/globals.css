@@ -5,14 +5,14 @@
 @layer base {
   :root {
     /* --- User's Custom Liked Light Mode Palette --- */
-    --background: 234 9.7% 40.4%; /* New Dark Blue/Purple (#5D5F71) - Page background */
-    --foreground: 0 0% 98%;  /* Off-White - Main text */
+    --background: 68 14.6% 79.8%; /* New Light Grayish-Green (#D1D3C4) - Page background */
+    --foreground: 40 100% 1.4%;  /* Black (#070500) - Main text */
 
     --card: 0 0% 100%; /* White - For cards */
-    --card-foreground: 0 0% 98%; /* Off-White - Text in cards (inherits from foreground) */
+    --card-foreground: 40 100% 1.4%; /* Black - Text in cards */
 
     --popover: 0 0% 100%; /* White */
-    --popover-foreground: 0 0% 98%; /* Off-White (inherits from foreground) */
+    --popover-foreground: 40 100% 1.4%; /* Black */
 
     /* Primary Green - #6CAE75 */
     --primary: 128 27% 55%; 
@@ -21,16 +21,16 @@
     --secondary: 210 40% 96.1%; /* Light Gray - For secondary buttons/elements */
     --secondary-foreground: 40 100% 1.4%; /* Black - Text on light gray secondary elements */
 
-    --muted: 234 9% 35%; /* Slightly darker variant of new background for muted backgrounds */
-    --muted-foreground: 0 0% 70%;   /* Lighter Gray - Muted text on dark background */
+    --muted: 68 12% 75%; /* Slightly darker/desaturated variant of new background */
+    --muted-foreground: 0 0% 30%;   /* Dark Gray - Muted text */
 
-    --accent: 128 27% 55%; /* Using Primary Green (#6CAE75) for headings on dark background */
-    --accent-foreground: 40 100% 1.4%; /* Black - Text on accent (green) backgrounds */
+    --accent: 81.4 14.9% 18.4%; /* Dark Green/Brown (#313628) for headings */
+    --accent-foreground: 43 67% 94.1%; /* Beige - Text on dark accent backgrounds */
 
     --destructive: 0 84.2% 60.2%; /* Standard Red */
     --destructive-foreground: 0 0% 100%; /* White */
 
-    --border: 234 9% 30%; /* Darker variant of new background - For borders */
+    --border: 68 12% 70%; /* Darker variant of new background - For borders */
     --input: 0 0% 100%; /* White - For input backgrounds */
     
     /* Ring Color - using primary green for focus rings */
@@ -51,7 +51,7 @@
   }
 
   .dark {
-    /* Dark mode colors remain completely unchanged - this new theme IS a dark theme for light mode */
+    /* Dark mode colors remain completely unchanged */
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
 
@@ -80,6 +80,7 @@
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
     
+    /* Sidebar specific colors for dark mode - unchanged */
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
