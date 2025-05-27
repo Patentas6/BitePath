@@ -1,9 +1,9 @@
-import { useState } from "react"; // Import useState
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 import { LayoutDashboard, CalendarDays, BrainCircuit, ShoppingCart } from "lucide-react";
-import { Dialog, DialogContent } from "@/components/ui/dialog"; // Import Dialog components
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 const Index = () => {
   const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
@@ -14,7 +14,7 @@ const Index = () => {
       title: "Your Daily Dashboard",
       icon: LayoutDashboard,
       description: "Start your day with a clear view. Your dashboard shows all your planned meals for today and the exact ingredients you'll need, making meal prep a breeze.",
-      imageUrl: "/Dashboard.png",
+      imageUrl: "/Dashboard.png", 
       imageAlt: "BitePath Dashboard Screenshot",
       textOrder: "md:order-1",
       imageOrder: "md:order-2",
@@ -24,17 +24,17 @@ const Index = () => {
       title: "Effortless Weekly Planning",
       icon: CalendarDays,
       description: "Map out your meals for the entire week with our intuitive planner. Assign dishes to breakfast, lunch, dinner, and snacks for each day with ease.",
-      imageUrl: "/WeeklyPlanner.png", // Placeholder - ensure this image exists
+      imageUrl: "/Weekly_Calendar.png", 
       imageAlt: "BitePath Weekly Planner Screenshot",
-      textOrder: "md:order-2", // Text on the right for alternating layout
-      imageOrder: "md:order-1", // Image on the left
+      textOrder: "md:order-2",
+      imageOrder: "md:order-1",
     },
     {
       id: "ai-generation",
       title: "AI-Powered Meal Generation",
       icon: BrainCircuit,
       description: "Never run out of ideas! Describe what you're in the mood for—type, style, ingredients—and let our AI generate a complete meal concept, including a recipe and a unique image.",
-      imageUrl: "/AIMealGenerator.png", // Placeholder - ensure this image exists
+      imageUrl: "/Generate_Meal.png", 
       imageAlt: "BitePath AI Meal Generator Screenshot",
       textOrder: "md:order-1",
       imageOrder: "md:order-2",
@@ -44,10 +44,10 @@ const Index = () => {
       title: "Smart & Flexible Grocery Lists",
       icon: ShoppingCart,
       description: "Forget manual list-making. BitePath automatically compiles your shopping list from your meal plan. View items conveniently grouped by store category or see them meal-by-meal.",
-      imageUrl: "/GroceryList.png", // Placeholder - ensure this image exists
+      imageUrl: "/Grocery_List_by_Meal.png", 
       imageAlt: "BitePath Grocery List Screenshot",
-      textOrder: "md:order-2", // Text on the right
-      imageOrder: "md:order-1", // Image on the left
+      textOrder: "md:order-2",
+      imageOrder: "md:order-1",
     },
   ];
 
