@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
-import { LayoutDashboard, CalendarDays, BrainCircuit, ShoppingCart, ImagePlus, Info } from "lucide-react";
+import { LayoutDashboard, CalendarDays, BrainCircuit, ShoppingCart, ImagePlus, Info, Sparkles } from "lucide-react"; // Added Sparkles
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 // Card components are not explicitly used in the final version of Index.tsx based on the last full render,
 // but keeping them in case any styling relies on their base classes or if they are intended for future use.
@@ -48,11 +48,21 @@ const Index = () => {
       id: "custom-meal-images",
       title: "Your Recipes, Beautifully Visualized",
       icon: ImagePlus,
-      description: "Bring your family favorites and cherished recipes (like Grandma's secret Apple pie!) to life with BitePath's image generation. After adding them manually, you can generate a unique, appetizing AI image to make your personal cookbook shine.", // Updated description
+      description: "Bring your family favorites and cherished recipes (like Grandma's secret Apple pie!) to life with BitePath's image generation. After adding them manually, you can generate a unique, appetizing AI image to make your personal cookbook shine.",
       imageUrl: "/ADDMEAL.jpeg", 
       imageAlt: "BitePath Add Meal with AI Image Generation Screenshot",
       textOrder: "md:order-2",
       imageOrder: "md:order-1",
+    },
+    {
+      id: "custom-meal-image-example", // New section for the generated image
+      title: "AI Artwork for Your Recipes",
+      icon: Sparkles, // Using Sparkles icon
+      description: "For example, after adding Grandma's apple pie recipe, BitePath's AI can generate a beautiful, unique image like this, ready for your digital cookbook!",
+      imageUrl: "/ApplePie.png", // The new ApplePie.png image
+      imageAlt: "AI-generated image of an apple pie",
+      textOrder: "md:order-1", // Alternating layout
+      imageOrder: "md:order-2",
     },
     {
       id: "grocery-lists",
@@ -61,8 +71,8 @@ const Index = () => {
       description: "Forget manual list-making. BitePath automatically compiles your shopping list from your meal plan. View items conveniently grouped by store category or see them meal-by-meal.",
       imageUrl: "/Grocery_List_by_Meal.png", 
       imageAlt: "BitePath Grocery List Screenshot",
-      textOrder: "md:order-1", 
-      imageOrder: "md:order-2",
+      textOrder: "md:order-2", // Adjusted order for variety
+      imageOrder: "md:order-1",
     },
   ];
 
