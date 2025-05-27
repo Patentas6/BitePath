@@ -4,9 +4,9 @@
 
 @layer base {
   :root {
-    /* --- Reverting Background Color --- */
-    --background: 43 67% 94.1%; /* Back to Beige (#F8F4E8) */
-    /* --- End Revert --- */
+    /* --- New Background Color --- */
+    --background: 21 100% 72%; /* Light Orange/Peach (#FFAC6E) */
+    /* --- End New Background Color --- */
     --foreground: 100 73% 12%;  /* Very Dark Green (#143905) */
 
     --card: 0 0% 100%; /* White - For cards */
