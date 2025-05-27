@@ -4,20 +4,19 @@
 
 @layer base {
   :root {
-    --background: 43 67% 94.1%; /* Beige (#F8F4E8) - Page background (from Orange-Yellow theme) */
-    /* --- Step 1 Change: Foreground Text --- */
-    --foreground: 100 73% 12%;  /* New: Very Dark Green (#143905) */
+    --background: 43 67% 94.1%; /* Beige (#F8F4E8) - Page background */
+    --foreground: 100 73% 12%;  /* Very Dark Green (#143905) */
 
-    --card: 0 0% 100%; /* White - For cards (from Orange-Yellow theme) */
-    --card-foreground: 100 73% 12%; /* New: Very Dark Green (#143905) */
+    --card: 0 0% 100%; /* White - For cards */
+    --card-foreground: 100 73% 12%; /* Very Dark Green (#143905) */
 
-    --popover: 0 0% 100%; /* White (from Orange-Yellow theme) */
-    --popover-foreground: 100 73% 12%; /* New: Very Dark Green (#143905) */
-    /* --- End Step 1 Change --- */
+    --popover: 0 0% 100%; /* White */
+    --popover-foreground: 100 73% 12%; /* Very Dark Green (#143905) */
 
-    /* Primary Orange-Yellow (from Orange-Yellow theme) */
-    --primary: 39 98% 52%; 
-    --primary-foreground: 40 100% 1.4%; /* Black - Text on Orange-Yellow buttons */
+    /* --- Step 2 Change: Primary Color --- */
+    --primary: 16 96% 55%; /* New: Bright Orange-Red (#F95F21) */
+    --primary-foreground: 0 0% 100%; /* New: White - For text on primary */
+    /* --- End Step 2 Change --- */
 
     --secondary: 210 40% 96.1%; /* Light Gray (from Orange-Yellow theme) */
     --secondary-foreground: 40 100% 1.4%; /* Black */
@@ -35,7 +34,7 @@
     --border: 43 50% 88%; /* Slightly darker Beige (from Orange-Yellow theme) */
     --input: 0 0% 100%; /* White */
     
-    --ring: hsl(var(--primary)); 
+    --ring: hsl(var(--primary)); /* Will now pick up the new primary color */
     
     --radius: 0.5rem;
 
