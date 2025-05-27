@@ -395,7 +395,7 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
                   <strong className="block mt-1">Pro Tips:</strong>
                   <ul className="list-disc list-inside pl-1 space-y-0.5">
                     <li>List ingredients you have (e.g., "use only: ground beef, onions"), and the AI will try to use just those.</li>
-                    <li>If adding a full custom meal feels like too much work, just type the meal name (e.g., 'Spaghetti Bolognese', 'Grandma's Apple Pie') and a few key details, and let the AI try to generate the rest for you!</li>
+                    <li>If adding a full custom meal feels like too much work, just type the meal name (e.g., 'Spaghetti Bolognese'), and let the AI try to generate the rest for you!</li>
                   </ul>
                 </div>
               </div>
