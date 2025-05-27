@@ -9,8 +9,9 @@ import { PLANNING_MEAL_TYPES, PlanningMealType } from "@/lib/constants";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, XCircle, Plus, Zap } from "lucide-react"; // Added Zap
+import { ChevronLeft, ChevronRight, XCircle, Plus, Zap } from "lucide-react"; 
 import AddMealToPlanDialog from "./AddMealToPlanDialog";
+import { calculateCaloriesPerServing } from '@/utils/mealUtils'; 
 
 interface MealPlan {
   id: string;
@@ -19,7 +20,8 @@ interface MealPlan {
   meal_type?: string;
   meals: {
     name: string;
-    estimated_calories?: string | null; // Added estimated_calories
+    estimated_calories?: string | null; 
+    servings?: string | null; 
   } | null;
 }
 
@@ -33,13 +35,6 @@ interface WeeklyPlannerProps {
 }
 
 const MEAL_TYPE_DISPLAY_ORDER: PlanningMealType[] = ["Breakfast", "Brunch Snack", "Lunch", "Afternoon Snack", "Dinner"];
-
-// Helper function to parse calorie strings (can be moved to a utils file if used elsewhere)
-const parseCalories = (calorieString: string | null | undefined): number | null => {
-  if (!calorieString) return null;
-  const match = calorieString.match(/\d+/);
-  return match ? parseInt(match[0], 10) : null;
-};
 
 const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart }) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -75,7 +70,7 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart 
       const end = format(addDays(currentWeekStart, 6), 'yyyy-MM-dd');
       const { data, error } = await supabase
         .from("meal_plans")
-        .select("id, meal_id, plan_date, meal_type, meals ( name, estimated_calories )") // Fetch estimated_calories
+        .select("id, meal_id, plan_date, meal_type, meals ( name, estimated_calories, servings )") 
         .eq("user_id", userId)
         .gte("plan_date", start)
         .lte("plan_date", end);
@@ -144,7 +139,7 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart 
     return grouped;
   }, [mealPlans]);
 
-  const dailyTotalsByDate = useMemo(() => {
+  const dailyTotalsByDatePerServing = useMemo(() => {
     if (!userProfile?.track_calories || !mealPlans) return new Map<string, number>();
     const totals = new Map<string, number>();
     daysOfWeek.forEach(day => {
@@ -153,8 +148,8 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart 
       let dailySum = 0;
       if (mealsForDay) {
         mealsForDay.forEach(plan => {
-          const calories = parseCalories(plan.meals?.estimated_calories);
-          dailySum += calories || 0;
+          const caloriesPerServing = calculateCaloriesPerServing(plan.meals?.estimated_calories, plan.meals?.servings);
+          dailySum += caloriesPerServing || 0;
         });
       }
       if (dailySum > 0) {
@@ -175,7 +170,7 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart 
         <div className="grid grid-cols-7 gap-2 text-center mb-2">
           {daysOfWeek.map(day => {
             const dateKey = format(day, 'yyyy-MM-dd');
-            const dailyTotal = dailyTotalsByDate.get(dateKey);
+            const dailyTotal = dailyTotalsByDatePerServing.get(dateKey);
             return (
               <div
                 key={day.toISOString()}
@@ -206,13 +201,13 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart 
               <div key={day.toISOString() + "-slots"} className={cn("flex flex-col space-y-1", isDayPast && "opacity-60")}>
                 {MEAL_TYPE_DISPLAY_ORDER.map(mealType => {
                   const plannedMeal = mealsForDayMap?.get(mealType);
-                  const mealCalories = parseCalories(plannedMeal?.meals?.estimated_calories);
+                  const caloriesPerServing = calculateCaloriesPerServing(plannedMeal?.meals?.estimated_calories, plannedMeal?.meals?.servings);
                   return (
                     <div
                       key={mealType}
                       onClick={() => !isDayPast && handleAddOrChangeMealClick(day, plannedMeal ? mealType : undefined)}
                       className={cn(
-                        "border rounded-md p-2 text-xs flex flex-col justify-between overflow-hidden relative transition-colors min-h-[70px]", // Adjusted min height
+                        "border rounded-md p-2 text-xs flex flex-col justify-between overflow-hidden relative transition-colors min-h-[70px]", 
                         isDayPast ? "bg-gray-100 dark:bg-gray-700/50 cursor-not-allowed" : "bg-card hover:bg-card/80 cursor-pointer"
                       )}
                     >
@@ -230,13 +225,13 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart 
                           )}>
                             {plannedMeal.meals?.name || 'Unknown Meal'}
                           </div>
-                          {userProfile?.track_calories && mealCalories !== null && (
+                          {userProfile?.track_calories && caloriesPerServing !== null && (
                             <div className={cn(
                               "text-[10px] text-primary self-start flex items-center mt-0.5",
                               isDayPast && "text-gray-500 dark:text-gray-500"
                             )}>
                               <Zap size={10} className="mr-0.5" />
-                              {mealCalories} kcal
+                              {caloriesPerServing} kcal / serv
                             </div>
                           )}
                           {!isDayPast && (

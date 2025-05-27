@@ -27,7 +27,7 @@ interface GeneratedMeal {
   meal_tags: string[];
   image_url?: string;
   estimated_calories?: string;
-  servings?: string; // Added servings
+  servings?: string; 
 }
 
 async function getAccessToken(serviceAccountJsonString: string): Promise<string> {
@@ -273,6 +273,7 @@ Ensure the output is a *complete new recipe* in the specified JSON format, incor
 The meal should still generally be a ${mealType || 'general'} type.`;
             if (kinds && kinds.length > 0) prompt += ` It should still generally fit these kinds: ${kinds.join(', ')}.`;
             if (styles && styles.length > 0) prompt += ` The style should still generally be: ${styles.join(', ')}.`;
+            prompt += `\nIMPORTANT: If the refinement request involves changing the number of servings, ensure all ingredient quantities are scaled proportionally. For example, if changing from 2 servings to 4 servings, all ingredient quantities should be doubled. If changing from 4 servings to 2, quantities should be halved. Apply this scaling consistently to all ingredients. Do not invert the scaling for any ingredients.`;
         } else {
             prompt += `\nThe meal should be a ${mealType || 'general'} type.`;
             if (kinds && kinds.length > 0) prompt += ` It should fit these kinds: ${kinds.join(', ')}.`;
