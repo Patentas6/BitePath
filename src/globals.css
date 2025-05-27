@@ -4,36 +4,36 @@
 
 @layer base {
   :root {
-    /* --- User's Custom Liked Light Mode Palette --- */
-    --background: 0 0% 89.8%; /* New Light Gray (#e5e5e5) - Page background */
-    --foreground: 254 31.4% 26.9%;  /* Dark Purple (#392F5A) - Main text */
+    /* --- User's Custom Liked Light Mode Palette (Beige, Blue, Bright Green, Black) - ACTIVE --- */
+    --background: 43 67% 94.1%; /* Beige (#F8F4E8) - Page background */
+    --foreground: 40 100% 1.4%;  /* Black (#070500) - Small/general text */
 
-    --card: 0 0% 100%; /* White - For cards */
-    --card-foreground: 254 31.4% 26.9%; /* Dark Purple - Text in cards */
+    --card: 0 0% 100%; /* White - For cards, to contrast with Beige page background */
+    --card-foreground: 40 100% 1.4%; /* Black - Text in cards */
 
     --popover: 0 0% 100%; /* White */
-    --popover-foreground: 254 31.4% 26.9%; /* Dark Purple - Text in popovers */
+    --popover-foreground: 40 100% 1.4%; /* Black */
 
-    /* Primary Orange - #fca311 */
-    --primary: 37.3 97.5% 52.7%; 
-    --primary-foreground: 40 100% 1.4%; /* Black - Text on Orange buttons (kept for contrast) */
+    /* Primary Green - Updated to #6CAE75 */
+    --primary: 128 27% 55%; /* New Green (#6CAE75) */
+    --primary-foreground: 40 100% 1.4%; /* Black - Text on Green buttons */
 
     --secondary: 210 40% 96.1%; /* Light Gray - For secondary buttons/elements */
-    --secondary-foreground: 254 31.4% 26.9%; /* Dark Purple - Text on light gray secondary elements */
+    --secondary-foreground: 40 100% 1.4%; /* Black - Text on light gray secondary elements */
 
-    --muted: 0 0% 85%; /* Slightly darker gray for muted backgrounds */
+    --muted: 43 40% 90%; /* Lighter/Darker Beige variant for muted backgrounds */
     --muted-foreground: 0 0% 30%;   /* Dark Gray - Muted text */
 
-    --accent: 81.4 14.9% 18.4%; /* Dark Green/Brown (#313628) for headings */
-    --accent-foreground: 43 67% 94.1%; /* Beige - Text on dark accent backgrounds */
+    --accent: 234.7 98.2% 54.5%; /* Blue (#1A26FC) - For headings/titles (see base style below) */
+    --accent-foreground: 43 67% 94.1%; /* Beige - Text on Blue accent backgrounds */
 
     --destructive: 0 84.2% 60.2%; /* Standard Red */
     --destructive-foreground: 0 0% 100%; /* White */
 
-    --border: 0 0% 80%; /* Darker gray for borders */
+    --border: 43 50% 88%; /* Slightly darker Beige - For borders */
     --input: 0 0% 100%; /* White - For input backgrounds */
     
-    /* Ring Color - using primary orange for focus rings */
+    /* Ring Color - solid primary for light mode */
     --ring: hsl(var(--primary)); 
     /* --- End User's Custom Palette --- */
 
@@ -78,7 +78,7 @@
 
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --ring: 212.7 26.8% 83.9%; /* Dark mode ring remains as defined for dark theme */
     
     /* Sidebar specific colors for dark mode - unchanged */
     --sidebar-background: 240 5.9% 10%;
