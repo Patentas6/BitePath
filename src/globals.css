@@ -4,9 +4,7 @@
 
 @layer base {
   :root {
-    /* --- New Background Color --- */
     --background: 40 50% 98%; /* Very Light Warm Off-White (#FCFBF9) */
-    /* --- End New Background Color --- */
     --foreground: 100 73% 12%;  /* Very Dark Green (#143905) */
 
     --card: 0 0% 100%; /* White - For cards */
@@ -15,9 +13,10 @@
     --popover: 0 0% 100%; /* White */
     --popover-foreground: 100 73% 12%; /* Very Dark Green (#143905) */
 
-    /* Primary Bright Orange-Red */
-    --primary: 16 96% 55%; 
-    --primary-foreground: 0 0% 100%; /* White */
+    /* --- New Primary Button Color --- */
+    --primary: 174 100% 37.1%; /* Teal (#00BFA9) */
+    --primary-foreground: 0 0% 100%; /* White (remains good for Teal) */
+    /* --- End New Primary Button Color --- */
 
     /* Secondary Lime Green */
     --secondary: 62 98% 40%; 
@@ -59,8 +58,12 @@
     --card-foreground: 210 40% 98%;
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    
+    /* --- Dark Mode Primary Button Color (matching light mode for consistency for now) --- */
+    --primary: 174 100% 37.1%; /* Teal (#00BFA9) */
+    --primary-foreground: 0 0% 100%; /* White */
+    /* --- End Dark Mode Primary Button Color --- */
+
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
     --muted: 217.2 32.6% 17.5%;
@@ -71,7 +74,8 @@
     --destructive-foreground: 210 40% 98%;
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --ring: hsl(var(--primary)); /* Updated to use the new primary for dark mode ring too */
+
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
