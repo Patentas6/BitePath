@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
-import { LayoutDashboard, CalendarDays, BrainCircuit, ShoppingCart, ImagePlus, Info, Sparkles } from "lucide-react"; // Added Sparkles
+import { LayoutDashboard, CalendarDays, BrainCircuit, ShoppingCart, ImagePlus, Info, Sparkles } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 // Card components are not explicitly used in the final version of Index.tsx based on the last full render,
 // but keeping them in case any styling relies on their base classes or if they are intended for future use.
@@ -12,6 +12,13 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 
 const Index = () => {
   const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
+
+  const BitePathStyled = () => (
+    <>
+      <span className="text-accent dark:text-foreground">Bite</span>
+      <span className="text-primary dark:text-primary">Path</span>
+    </>
+  );
 
   const imageSections = [
     {
@@ -48,30 +55,30 @@ const Index = () => {
       id: "custom-meal-images",
       title: "Your Recipes, Beautifully Visualized",
       icon: ImagePlus,
-      description: "Bring your family favorites and cherished recipes (like Grandma's secret Apple pie!) to life with BitePath's image generation. After adding them manually, you can generate a unique, appetizing AI image to make your personal cookbook shine.",
+      description: <>Bring your family favorites and cherished recipes (like Grandma's secret Apple pie!) to life with <BitePathStyled />'s image generation. After adding them manually, you can generate a unique, appetizing AI image to make your personal cookbook shine.</>,
       imageUrl: "/ADDMEAL.jpeg", 
       imageAlt: "BitePath Add Meal with AI Image Generation Screenshot",
       textOrder: "md:order-2",
       imageOrder: "md:order-1",
     },
     {
-      id: "custom-meal-image-example", // New section for the generated image
+      id: "custom-meal-image-example", 
       title: "AI Artwork for Your Recipes",
-      icon: Sparkles, // Using Sparkles icon
-      description: "For example, after adding Grandma's apple pie recipe, BitePath's AI can generate a beautiful, unique image like this, ready for your digital cookbook!",
-      imageUrl: "/ApplePie.png", // The new ApplePie.png image
+      icon: Sparkles, 
+      description: <>For example, after adding Grandma's apple pie recipe, <BitePathStyled />'s AI can generate a beautiful, unique image like this, ready for your digital cookbook!</>,
+      imageUrl: "/ApplePie.png", 
       imageAlt: "AI-generated image of an apple pie",
-      textOrder: "md:order-1", // Alternating layout
+      textOrder: "md:order-1", 
       imageOrder: "md:order-2",
     },
     {
       id: "grocery-lists",
       title: "Smart & Flexible Grocery Lists",
       icon: ShoppingCart,
-      description: "Forget manual list-making. BitePath automatically compiles your shopping list from your meal plan. View items conveniently grouped by store category or see them meal-by-meal.",
+      description: <><BitePathStyled /> automatically compiles your shopping list from your meal plan. View items conveniently grouped by store category or see them meal-by-meal.</>,
       imageUrl: "/Grocery_List_by_Meal.png", 
       imageAlt: "BitePath Grocery List Screenshot",
-      textOrder: "md:order-2", // Adjusted order for variety
+      textOrder: "md:order-2", 
       imageOrder: "md:order-1",
     },
   ];
@@ -111,7 +118,7 @@ const Index = () => {
       <section className="w-full py-20 text-center bg-gradient-to-r from-primary/20 to-accent/20 dark:from-green-900/30 dark:to-blue-900/30">
         <div className="container mx-auto px-4">
           <h1 className="text-5xl md:text-6xl font-bold text-gray-900 dark:text-white mb-4">
-            Ditch the Dinner Dilemma. Embrace the BitePath.
+            Ditch the Dinner Dilemma. Embrace the <BitePathStyled />.
           </h1>
           <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 mb-8">
             Plan your week in minutes and get an instant grocery list. Less stress, more delicious meals.
@@ -125,7 +132,7 @@ const Index = () => {
       {/* "Glimpse Inside BitePath" Section */}
       <section id="features-glimpse" className="w-full py-16 bg-background">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl md:text-4xl font-bold text-center mb-16">A Glimpse Inside BitePath</h2>
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-16">A Glimpse Inside <BitePathStyled /></h2>
           
           {imageSections.map((section, index) => (
             <div key={section.id} className={`flex flex-col md:flex-row items-center gap-8 md:gap-12 ${index < imageSections.length - 1 ? 'mb-16' : ''}`}>
@@ -162,7 +169,7 @@ const Index = () => {
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold mb-4">Testimonials Coming Soon!</h2>
           <p className="text-lg text-muted-foreground">
-            We're excited to share what our users think about BitePath. Check back later for reviews!
+            We're excited to share what our users think about <BitePathStyled />. Check back later for reviews!
           </p>
         </div>
       </section>
@@ -175,7 +182,7 @@ const Index = () => {
             <h2 className="text-3xl font-bold">About Us & Contact</h2>
           </div>
           <p className="text-lg text-muted-foreground mb-6">
-            BitePath is dedicated to simplifying your meal planning and grocery shopping experience, 
+            <BitePathStyled /> is dedicated to simplifying your meal planning and grocery shopping experience, 
             giving you more time to enjoy delicious, home-cooked meals.
           </p>
           <p className="text-lg text-muted-foreground">
@@ -187,7 +194,7 @@ const Index = () => {
 
       <footer className="w-full py-8 bg-gray-800 text-white text-center dark:bg-black">
         <div className="container mx-auto px-4">
-          <p>&copy; 2025 BitePath. All rights reserved.</p>
+          <p>&copy; 2025 <BitePathStyled />. All rights reserved.</p>
         </div>
       </footer>
 
