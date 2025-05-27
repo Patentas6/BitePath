@@ -24,7 +24,7 @@
     --muted: 43 40% 90%; /* Lighter/Darker Beige variant for muted backgrounds */
     --muted-foreground: 0 0% 30%;   /* Dark Gray - Muted text */
 
-    --accent: 234.7 98.2% 54.5%; /* Blue (#1A26FC) - For headings/titles (see base style below) */
+    --accent: 185 13% 43%; /* Desaturated Cyan/Blue-Gray (#607B7D) - For headings/titles (see base style below) */
     --accent-foreground: 43 67% 94.1%; /* Beige - Text on Blue accent backgrounds */
 
     --destructive: 0 84.2% 60.2%; /* Standard Red */
