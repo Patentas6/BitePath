@@ -4,7 +4,7 @@ import { showError, showSuccess } from "@/utils/toast";
 import { format, addDays, isSameDay, isToday, isPast, startOfToday, parseISO } from "date-fns";
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import { PLANNING_MEAL_TYPES } from "@/lib/constants"; 
+import { PLANNING_MEAL_TYPES, PlanningMealType } from "@/lib/constants"; 
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -32,6 +32,8 @@ const MEAL_TYPE_DISPLAY_ORDER: PlanningMealType[] = ["Breakfast", "Brunch Snack"
 const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart }) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedDateForDialog, setSelectedDateForDialog] = useState<Date | null>(null);
+  const [selectedMealTypeForDialog, setSelectedMealTypeForDialog] = useState<PlanningMealType | undefined>(undefined);
+
 
   const queryClient = useQueryClient();
   const today = startOfToday();
@@ -65,7 +67,13 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart 
       showSuccess("Meal removed from plan!");
       refetchMealPlans();
       queryClient.invalidateQueries({
-        queryKey: ["groceryListSource", userId, format(startOfToday(), 'yyyy-MM-dd')] 
+        queryKey: ["groceryListSource"] 
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["todaysGroceryListSource"]
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["todaysMealPlans"]
       });
     },
     onError: (error) => {
@@ -83,36 +91,27 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart 
     return Array.from({ length: 7 }).map((_, i) => addDays(currentWeekStart, i));
   }, [currentWeekStart]);
 
-  const handleAddMealClick = (day: Date) => {
+  const handleAddOrChangeMealClick = (day: Date, mealType?: PlanningMealType) => {
     if (isPast(day) && !isToday(day)) {
         console.log("Cannot plan for a past date (excluding today).");
         return;
     }
     setSelectedDateForDialog(day);
+    setSelectedMealTypeForDialog(mealType); // Pass the specific mealType if changing, or undefined if adding to an empty slot
     setIsDialogOpen(true);
   };
 
-  const mealPlansByDate = useMemo(() => {
-    const grouped = new Map<string, MealPlan[]>();
+  const mealPlansByDateAndType = useMemo(() => {
+    const grouped = new Map<string, Map<string, MealPlan>>(); // Outer key: date, Inner key: meal_type
     mealPlans?.forEach(plan => {
-      const dateKey = format(parseISO(plan.plan_date), 'yyyy-MM-dd'); 
+      const dateKey = format(parseISO(plan.plan_date), 'yyyy-MM-dd');
+      const mealTypeKey = plan.meal_type || 'Unknown';
+
       if (!grouped.has(dateKey)) {
-        grouped.set(dateKey, []);
+        grouped.set(dateKey, new Map<string, MealPlan>());
       }
-      grouped.get(dateKey)?.push(plan);
+      grouped.get(dateKey)?.set(mealTypeKey, plan);
     });
-
-    grouped.forEach((plans, dateKey) => {
-        plans.sort((a, b) => {
-            const aIndex = MEAL_TYPE_DISPLAY_ORDER.indexOf(a.meal_type as PlanningMealType);
-            const bIndex = MEAL_TYPE_DISPLAY_ORDER.indexOf(b.meal_type as PlanningMealType);
-            if (aIndex === -1 && bIndex === -1) return 0;
-            if (aIndex === -1) return 1;
-            if (bIndex === -1) return -1;
-            return aIndex - bIndex;
-        });
-    });
-
     return grouped;
   }, [mealPlans]);
 
@@ -122,7 +121,7 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart 
 
   return (
     <>
-      <div className="bg-muted p-4 rounded-lg shadow"> {/* Added wrapper with background and padding */}
+      <div className="bg-muted p-4 rounded-lg shadow">
         <div className="grid grid-cols-7 gap-2 text-center mb-2">
           {daysOfWeek.map(day => (
             <div
@@ -140,65 +139,56 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart 
         <div className="grid grid-cols-7 gap-2">
           {daysOfWeek.map(day => {
             const isDayPast = isPast(day) && !isToday(day);
-            const dateKey = format(day, 'yyyy-MM-dd'); 
-            const mealsForDay = mealPlansByDate.get(dateKey) || [];
+            const dateKey = format(day, 'yyyy-MM-dd');
+            const mealsForDayMap = mealPlansByDateAndType.get(dateKey);
 
             return (
-              <div key={day.toISOString() + "-meals"} className={cn("flex flex-col space-y-2", isDayPast && "opacity-60")}>
-                 {!isDayPast && (
-                   <Button
-                     variant="outline"
-                     size="sm"
-                     className="w-full h-10 flex items-center justify-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 bg-background hover:bg-background/90" // Added bg-background
-                     onClick={() => handleAddMealClick(day)}
-                     disabled={isDayPast}
-                   >
-                     <Plus className="h-4 w-4 mr-1" /> Add Meal
-                   </Button>
-                 )}
-                 {isDayPast && (
-                    <div className="w-full h-10 flex items-center justify-center text-gray-400 dark:text-gray-600 text-sm italic">
-                       Past
-                    </div>
-                 )}
-                {mealsForDay.length > 0 ? (
-                  mealsForDay.map(plannedMeal => (
+              <div key={day.toISOString() + "-slots"} className={cn("flex flex-col space-y-1", isDayPast && "opacity-60")}>
+                {MEAL_TYPE_DISPLAY_ORDER.map(mealType => {
+                  const plannedMeal = mealsForDayMap?.get(mealType);
+                  return (
                     <div
-                      key={plannedMeal.id}
+                      key={mealType}
+                      onClick={() => !isDayPast && handleAddOrChangeMealClick(day, plannedMeal ? mealType : undefined)}
                       className={cn(
-                        "border rounded-md p-2 text-xs flex flex-col justify-between overflow-hidden relative transition-colors",
-                        isDayPast ? "bg-gray-100 dark:bg-gray-700/50" : "bg-card" 
+                        "border rounded-md p-2 text-xs flex flex-col justify-between overflow-hidden relative transition-colors min-h-[60px]", // Ensure min height for slot
+                        isDayPast ? "bg-gray-100 dark:bg-gray-700/50 cursor-not-allowed" : "bg-card hover:bg-card/80 cursor-pointer"
                       )}
                     >
-                      <div className={cn(
-                        "font-medium self-start text-gray-600 dark:text-gray-400",
-                        isDayPast && "text-gray-500 dark:text-gray-500"
-                      )}>
-                        {plannedMeal.meal_type || 'Meal'}
-                      </div>
-                      <div className={cn(
-                        "text-sm font-medium truncate self-start flex-grow mt-1",
-                        isDayPast ? "line-through text-gray-500 dark:text-gray-500" : "text-foreground"
-                      )}>
-                        {plannedMeal.meals?.name || 'Unknown Meal'}
-                      </div>
-                      {!isDayPast && (
-                        <button
-                          onClick={(e) => handleRemoveMeal(plannedMeal.id, e)}
-                          className="absolute top-1 right-1 p-0.5 rounded-full text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors"
-                          aria-label="Remove meal"
-                        >
-                          <XCircle size={16} />
-                        </button>
+                      {plannedMeal ? (
+                        <>
+                          <div className={cn(
+                            "font-medium self-start text-gray-600 dark:text-gray-400 text-[10px] leading-tight", // Smaller meal type text
+                            isDayPast && "text-gray-500 dark:text-gray-500"
+                          )}>
+                            {plannedMeal.meal_type || mealType}
+                          </div>
+                          <div className={cn(
+                            "text-xs font-semibold truncate self-start flex-grow mt-0.5", // Adjusted text size
+                            isDayPast ? "line-through text-gray-500 dark:text-gray-500" : "text-foreground"
+                          )}>
+                            {plannedMeal.meals?.name || 'Unknown Meal'}
+                          </div>
+                          {!isDayPast && (
+                            <button
+                              onClick={(e) => handleRemoveMeal(plannedMeal.id, e)}
+                              className="absolute top-0.5 right-0.5 p-0.5 rounded-full text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-500/80 hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors"
+                              aria-label="Remove meal"
+                            >
+                              <XCircle size={14} />
+                            </button>
+                          )}
+                        </>
+                      ) : (
+                        // Placeholder for empty slot
+                        <div className="flex flex-col items-center justify-center h-full">
+                          <span className="text-[10px] text-muted-foreground/70">{mealType}</span>
+                          {!isDayPast && <Plus size={14} className="text-muted-foreground/50 mt-0.5" />}
+                        </div>
                       )}
                     </div>
-                  ))
-                ) : (
-                  !isDayPast && (
-                     <div className="text-xs italic self-start mt-1 flex-grow flex items-center justify-start text-gray-400 dark:text-gray-500">
-                     </div>
-                  )
-                )}
+                  );
+                })}
               </div>
             );
           })}
@@ -210,11 +200,13 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart 
         onOpenChange={(isOpen) => {
           setIsDialogOpen(isOpen);
           if (!isOpen) {
-             setSelectedDateForDialog(null); 
+             setSelectedDateForDialog(null);
+             setSelectedMealTypeForDialog(undefined);
           }
         }}
         planDate={selectedDateForDialog}
         userId={userId}
+        initialMealType={selectedMealTypeForDialog}
       />
     </>
   );
