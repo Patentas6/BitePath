@@ -4,38 +4,41 @@
 
 @layer base {
   :root {
-    /* --- User's Custom Liked Light Mode Palette (Beige, Blue, Bright Green, Black) - ACTIVE --- */
-    --background: 43 67% 94.1%; /* Beige (#F8F4E8) - Page background */
-    --foreground: 40 100% 1.4%;  /* Black (#070500) - Small/general text */
+    /* --- New Custom Color Scheme --- */
+    --background: 43 67% 94.1%; /* Beige (#F8F4E8) - Page background (Unchanged) */
+    --foreground: 207 46% 12%;  /* New: Very Dark Blue/Near Black (#11222C) - General text */
 
-    --card: 0 0% 100%; /* White - For cards, to contrast with Beige page background */
-    --card-foreground: 40 100% 1.4%; /* Black - Text in cards */
+    --card: 0 0% 100%; /* White - For cards (Unchanged) */
+    --card-foreground: 207 46% 12%; /* New: Very Dark Blue/Near Black (#11222C) - Text in cards */
 
-    --popover: 0 0% 100%; /* White */
-    --popover-foreground: 40 100% 1.4%; /* Black */
+    --popover: 0 0% 100%; /* White (Unchanged) */
+    --popover-foreground: 207 46% 12%; /* New: Very Dark Blue/Near Black (#11222C) - Text in popovers */
 
-    /* Primary Orange-Yellow - Updated to #FCA311 */
-    --primary: 39 98% 52%; /* New Orange-Yellow (#FCA311) */
-    --primary-foreground: 40 100% 1.4%; /* Black - Text on Orange-Yellow buttons */
+    /* Primary Orange */
+    --primary: 35 100% 48%; /* New: Orange (#F69000) */
+    --primary-foreground: 40 100% 1.4%; /* Black - Text on Orange buttons (Unchanged) */
 
-    --secondary: 210 40% 96.1%; /* Light Gray - For secondary buttons/elements */
-    --secondary-foreground: 40 100% 1.4%; /* Black - Text on light gray secondary elements */
+    /* Secondary Medium Teal/Cyan */
+    --secondary: 180 40% 51%; /* New: Medium Teal/Cyan (#53B1B1) */
+    --secondary-foreground: 40 100% 1.4%; /* Black - Text on Teal buttons */
 
-    --muted: 43 40% 90%; /* Lighter/Darker Beige variant for muted backgrounds */
-    --muted-foreground: 0 0% 30%;   /* Dark Gray - Muted text */
+    --muted: 43 40% 90%; /* Lighter/Darker Beige variant for muted backgrounds (Unchanged) */
+    --muted-foreground: 0 0% 30%;   /* Dark Gray - Muted text (Unchanged) */
 
-    --accent: 185 13% 43%; /* Desaturated Cyan/Blue-Gray (#607B7D) - For headings/titles (see base style below) */
-    --accent-foreground: 43 67% 94.1%; /* Beige - Text on Blue accent backgrounds */
+    /* Accent Dark Teal */
+    --accent: 180 53% 22%; /* New: Dark Teal (#1C5858) - For headings/titles */
+    --accent-foreground: 43 67% 94.1%; /* Beige - Text on Dark Teal backgrounds (Unchanged) */
 
-    --destructive: 0 84.2% 60.2%; /* Standard Red */
-    --destructive-foreground: 0 0% 100%; /* White */
+    --destructive: 0 84.2% 60.2%; /* Standard Red (Unchanged) */
+    --destructive-foreground: 0 0% 100%; /* White (Unchanged) */
 
-    --border: 43 50% 88%; /* Slightly darker Beige - For borders */
-    --input: 0 0% 100%; /* White - For input backgrounds */
+    /* Border Yellow */
+    --border: 46 92% 55%; /* New: Yellow (#F6C624) - For borders */
+    --input: 0 0% 100%; /* White - For input backgrounds (Unchanged) */
     
-    /* Ring Color - solid primary for light mode */
+    /* Ring Color - will follow primary (Orange) */
     --ring: hsl(var(--primary)); 
-    /* --- End User's Custom Palette --- */
+    /* --- End New Custom Color Scheme --- */
 
     --radius: 0.5rem;
 
@@ -51,7 +54,7 @@
   }
 
   .dark {
-    /* Dark mode colors remain completely unchanged */
+    /* Dark mode colors remain completely unchanged as per previous setup */
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
 
@@ -78,9 +81,8 @@
 
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%; /* Dark mode ring remains as defined for dark theme */
+    --ring: 212.7 26.8% 83.9%;
     
-    /* Sidebar specific colors for dark mode - unchanged */
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
