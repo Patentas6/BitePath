@@ -30,7 +30,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Search, X, Check, ChevronsUpDown } from "lucide-react"; // Added Check, ChevronsUpDown
+import { Search, X, Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Meal {
@@ -70,11 +70,11 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
         .from("meals")
         .select("id, name, meal_tags, image_url")
         .eq("user_id", userId)
-        .order("name", { ascending: true }); // Good to sort for combobox
+        .order("name", { ascending: true }); 
       if (error) throw error;
       return data || [];
     },
-    enabled: !!userId && open, // Fetch when dialog opens
+    enabled: !!userId && open, 
   });
 
   useEffect(() => {
@@ -85,7 +85,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
       const validInitialType = PLANNING_MEAL_TYPES.find(type => type === initialMealType);
       setSelectedMealType(validInitialType || undefined);
     } else {
-      setIsComboboxOpen(false); // Close combobox when dialog closes
+      setIsComboboxOpen(false); 
     }
   }, [open, initialMealType]);
 
@@ -203,14 +203,19 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                <Command shouldFilter={false}> {/* We handle filtering via searchTerm state */}
+              <PopoverContent 
+                side="bottom" 
+                sideOffset={5} 
+                className="w-[--radix-popover-trigger-width] p-0" 
+                align="start"
+              >
+                <Command shouldFilter={false}> 
                   <CommandInput 
                     placeholder="Search meal by name..."
                     value={searchTerm}
                     onValueChange={(value) => {
                       setSearchTerm(value);
-                      if (!isComboboxOpen && value) setIsComboboxOpen(true); // Open if typing
+                      if (!isComboboxOpen && value) setIsComboboxOpen(true); 
                     }}
                   />
                   <CommandList>
@@ -231,7 +236,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
                             onSelect={(currentValue) => {
                               setSelectedMealId(currentValue === selectedMealId ? undefined : currentValue);
                               setIsComboboxOpen(false);
-                              setSearchTerm(""); // Clear search term on selection
+                              setSearchTerm(""); 
                             }}
                             className="cursor-pointer"
                           >
