@@ -1,12 +1,59 @@
+import { useState } from "react"; // Import useState
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
-import { LayoutDashboard, CalendarDays, BrainCircuit, ShoppingCart } from "lucide-react"; // Icons for the new section
+import { LayoutDashboard, CalendarDays, BrainCircuit, ShoppingCart } from "lucide-react";
+import { Dialog, DialogContent } from "@/components/ui/dialog"; // Import Dialog components
 
 const Index = () => {
+  const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
+
+  const imageSections = [
+    {
+      id: "dashboard",
+      title: "Your Daily Dashboard",
+      icon: LayoutDashboard,
+      description: "Start your day with a clear view. Your dashboard shows all your planned meals for today and the exact ingredients you'll need, making meal prep a breeze.",
+      imageUrl: "/Dashboard.png",
+      imageAlt: "BitePath Dashboard Screenshot",
+      textOrder: "md:order-1",
+      imageOrder: "md:order-2",
+    },
+    {
+      id: "weekly-planning",
+      title: "Effortless Weekly Planning",
+      icon: CalendarDays,
+      description: "Map out your meals for the entire week with our intuitive planner. Assign dishes to breakfast, lunch, dinner, and snacks for each day with ease.",
+      imageUrl: "/WeeklyPlanner.png", // Placeholder - ensure this image exists
+      imageAlt: "BitePath Weekly Planner Screenshot",
+      textOrder: "md:order-2", // Text on the right for alternating layout
+      imageOrder: "md:order-1", // Image on the left
+    },
+    {
+      id: "ai-generation",
+      title: "AI-Powered Meal Generation",
+      icon: BrainCircuit,
+      description: "Never run out of ideas! Describe what you're in the mood for—type, style, ingredients—and let our AI generate a complete meal concept, including a recipe and a unique image.",
+      imageUrl: "/AIMealGenerator.png", // Placeholder - ensure this image exists
+      imageAlt: "BitePath AI Meal Generator Screenshot",
+      textOrder: "md:order-1",
+      imageOrder: "md:order-2",
+    },
+    {
+      id: "grocery-lists",
+      title: "Smart & Flexible Grocery Lists",
+      icon: ShoppingCart,
+      description: "Forget manual list-making. BitePath automatically compiles your shopping list from your meal plan. View items conveniently grouped by store category or see them meal-by-meal.",
+      imageUrl: "/GroceryList.png", // Placeholder - ensure this image exists
+      imageAlt: "BitePath Grocery List Screenshot",
+      textOrder: "md:order-2", // Text on the right
+      imageOrder: "md:order-1", // Image on the left
+    },
+  ];
+
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="w-full p-4 bg-background shadow-sm sticky top-0 z-50"> {/* Added sticky header */}
+      <header className="w-full p-4 bg-background shadow-sm sticky top-0 z-50">
         <div className="container mx-auto flex justify-between items-center">
           <div className="flex items-center space-x-3">
             <Link 
@@ -18,10 +65,8 @@ const Index = () => {
             </Link>
           </div>
           <nav className="flex items-center space-x-4">
-            <a href="#features-glimpse" className="hover:underline text-sm md:text-base">How It Works</a> {/* Updated link */}
+            <a href="#features-glimpse" className="hover:underline text-sm md:text-base">How It Works</a>
             <a href="#features" className="hover:underline text-sm md:text-base">Core Features</a>
-            {/* <a href="#pricing" className="hover:underline text-sm md:text-base">Pricing</a> */}
-            {/* <a href="#testimonials" className="hover:underline text-sm md:text-base">Testimonials</a> */}
             <Link to="/auth" className="hover:underline text-sm md:text-base">Login</Link>
             <Button 
               size="sm" 
@@ -54,89 +99,39 @@ const Index = () => {
       {/* New "Glimpse Inside BitePath" Section */}
       <section id="features-glimpse" className="w-full py-16 bg-background">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">A Glimpse Inside BitePath</h2>
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-16">A Glimpse Inside BitePath</h2>
           
-          {/* Feature 1: Dashboard */}
-          <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12 mb-16">
-            <div className="md:w-1/2 order-2 md:order-1">
-              <div className="flex items-center mb-3">
-                <LayoutDashboard className="h-8 w-8 text-primary mr-3" />
-                <h3 className="text-2xl font-semibold">Your Daily Dashboard</h3>
+          {imageSections.map((section, index) => (
+            <div key={section.id} className={`flex flex-col md:flex-row items-center gap-8 md:gap-12 ${index < imageSections.length - 1 ? 'mb-16' : ''}`}>
+              <div className={`md:w-1/2 ${section.textOrder}`}>
+                <div className="flex items-center mb-3">
+                  <section.icon className="h-8 w-8 text-primary mr-3" />
+                  <h3 className="text-2xl font-semibold">{section.title}</h3>
+                </div>
+                <p className="text-muted-foreground text-lg">
+                  {section.description}
+                </p>
               </div>
-              <p className="text-muted-foreground text-lg">
-                Start your day with a clear view. Your dashboard shows all your planned meals for today and the exact ingredients you'll need, making meal prep a breeze.
-              </p>
-            </div>
-            <div className="md:w-1/2 order-1 md:order-2 bg-muted rounded-lg p-6 shadow-lg flex items-center justify-center">
-              <img 
-                src="/Dashboard.png" 
-                alt="BitePath Dashboard" 
-                className="rounded-lg shadow-xl max-w-full h-auto"
-              />
-            </div>
-          </div>
-
-          {/* Feature 2: Weekly Planning */}
-          <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12 mb-16">
-            <div className="md:w-1/2">
-              <div className="flex items-center mb-3">
-                <CalendarDays className="h-8 w-8 text-primary mr-3" />
-                <h3 className="text-2xl font-semibold">Effortless Weekly Planning</h3>
-              </div>
-              <p className="text-muted-foreground text-lg">
-                Map out your meals for the entire week with our intuitive planner. Assign dishes to breakfast, lunch, dinner, and snacks for each day with ease.
-              </p>
-            </div>
-            <div className="md:w-1/2 bg-muted rounded-lg p-6 shadow-lg flex items-center justify-center">
-              {/* Replace this div with your actual image tag for Weekly Planner */}
-              <div className="aspect-video bg-gray-300 dark:bg-gray-700 rounded flex items-center justify-center">
-                <p className="text-gray-500 dark:text-gray-400">Screenshot of Weekly Planner</p>
+              <div className={`md:w-1/2 ${section.imageOrder} bg-muted rounded-lg p-6 shadow-lg flex items-center justify-center`}>
+                <button 
+                  type="button" 
+                  onClick={() => setViewingImageUrl(section.imageUrl)}
+                  className="focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-lg overflow-hidden"
+                  aria-label={`View larger image of ${section.imageAlt}`}
+                >
+                  <img 
+                    src={section.imageUrl} 
+                    alt={section.imageAlt} 
+                    className="rounded-lg shadow-xl max-w-full h-auto cursor-pointer transition-transform hover:scale-105"
+                  />
+                </button>
               </div>
             </div>
-          </div>
-
-          {/* Feature 3: AI Meal Generation */}
-          <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12 mb-16">
-            <div className="md:w-1/2 order-2 md:order-1">
-              <div className="flex items-center mb-3">
-                <BrainCircuit className="h-8 w-8 text-primary mr-3" />
-                <h3 className="text-2xl font-semibold">AI-Powered Meal Generation</h3>
-              </div>
-              <p className="text-muted-foreground text-lg">
-                Never run out of ideas! Describe what you're in the mood for—type, style, ingredients—and let our AI generate a complete meal concept, including a recipe and a unique image.
-              </p>
-            </div>
-            <div className="md:w-1/2 order-1 md:order-2 bg-muted rounded-lg p-6 shadow-lg flex items-center justify-center">
-              {/* Replace this div with your actual image tag for AI Meal Generator */}
-              <div className="aspect-video bg-gray-300 dark:bg-gray-700 rounded flex items-center justify-center">
-                <p className="text-gray-500 dark:text-gray-400">Screenshot of AI Meal Generator</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Feature 4: Smart Grocery Lists */}
-          <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12">
-            <div className="md:w-1/2">
-              <div className="flex items-center mb-3">
-                <ShoppingCart className="h-8 w-8 text-primary mr-3" />
-                <h3 className="text-2xl font-semibold">Smart & Flexible Grocery Lists</h3>
-              </div>
-              <p className="text-muted-foreground text-lg">
-                Forget manual list-making. BitePath automatically compiles your shopping list from your meal plan. View items conveniently grouped by store category or see them meal-by-meal.
-              </p>
-            </div>
-            <div className="md:w-1/2 bg-muted rounded-lg p-6 shadow-lg flex items-center justify-center">
-              {/* Replace this div with your actual image tag for Grocery List */}
-              <div className="aspect-video bg-gray-300 dark:bg-gray-700 rounded flex items-center justify-center">
-                <p className="text-gray-500 dark:text-gray-400">Screenshot of Grocery List</p>
-              </div>
-            </div>
-          </div>
-
+          ))}
         </div>
       </section>
 
-      {/* Features Section Placeholder */}
+      {/* Core Features Section */}
       <section id="features" className="w-full py-16 bg-background text-center">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold mb-8">Core Features</h2>
@@ -161,53 +156,24 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Testimonials Section Placeholder */}
-      {/* <section id="testimonials" className="w-full py-16 bg-background text-center"> */}
-        {/* <div className="container mx-auto px-4"> */}
-          {/* <div className="bg-card p-8 border rounded-lg shadow-sm dark:border-gray-700 max-w-3xl mx-auto"> */}
-            {/* <h2 className="text-3xl font-bold mb-8">What Our Users Say</h2> */}
-            {/* <p className="text-muted-foreground">Testimonials coming soon!</p> */}
-          {/* </div> */}
-        {/* </div> */}
-      {/* </section> */}
-
-      {/* Pricing Section Placeholder */}
-      {/* <section id="pricing" className="w-full py-16 bg-background text-center"> */}
-        {/* <div className="container mx-auto px-4"> */}
-          {/* <h2 className="text-3xl font-bold mb-8">Simple Pricing</h2> */}
-          {/* <div className="grid grid-cols-2 gap-4 max-w-lg mx-auto">  */}
-            {/* <div className="p-6 border rounded-lg shadow-sm flex flex-col dark:border-gray-700 bg-card"> */}
-              {/* <h3 className="text-2xl font-bold mb-4">Free</h3> */}
-              {/* <p className="text-muted-foreground mb-4">Limited features to get you started.</p> */}
-              {/* <ul className="text-left text-muted-foreground mb-6 flex-grow"> */}
-                {/* <li>✓ Basic planning</li> */}
-                {/* <li>✓ Limited meal library</li> */}
-                {/* <li>✓ Grocery list generation</li> */}
-              {/* </ul> */}
-              {/* <Button variant="outline" className="w-full" asChild> */}
-                {/* <Link to="/auth?mode=signup"><span>Sign Up for Free</span></Link> */}
-              {/* </Button> */}
-            {/* </div> */}
-            {/* <div className="p-6 border rounded-lg shadow-sm flex flex-col dark:border-gray-700 bg-card"> */}
-              {/* <h3 className="text-2xl font-bold mb-4">Premium</h3> */}
-              {/* <p className="text-muted-foreground mb-4">Unlock full potential.</p> */}
-               {/* <ul className="text-left text-muted-foreground mb-6 flex-grow"> */}
-                {/* <li>✓ Unlimited planning</li> */}
-                {/* <li>✓ Unlimited meal library</li> */}
-                {/* <li>✓ Advanced grocery list</li> */}
-                {/* <li>✓ Priority support</li> */}
-              {/* </ul> */}
-              {/* <Button className="w-full"><span>Go Premium</span></Button> */}
-            {/* </div> */}
-          {/* </div> */}
-        {/* </div> */}
-      {/* </section> */}
-
       <footer className="w-full py-8 bg-gray-800 text-white text-center dark:bg-black">
         <div className="container mx-auto px-4">
           <p>&copy; 2025 BitePath. All rights reserved.</p>
         </div>
       </footer>
+
+      {/* Dialog for viewing enlarged image */}
+      <Dialog open={!!viewingImageUrl} onOpenChange={(isOpen) => !isOpen && setViewingImageUrl(null)}>
+        <DialogContent className="max-w-screen-lg w-[90vw] h-[85vh] p-2 sm:p-4 flex items-center justify-center bg-background">
+          {viewingImageUrl && (
+            <img
+              src={viewingImageUrl}
+              alt="Enlarged view"
+              className="max-w-full max-h-full object-contain rounded-md"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
