@@ -48,6 +48,7 @@ const Auth = () => {
           .eq('id', session.user.id)
           .single();
         
+        // Navigate without the tour flag if session already exists
         if (profile && profile.first_name) {
           navigate("/dashboard", { replace: true });
         } else {
@@ -59,7 +60,6 @@ const Auth = () => {
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === "SIGNED_IN" && session) {
-        sessionStorage.setItem('justLoggedInForTour', 'true'); // Set flag for tour
         showSuccess("Logged in successfully!");
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
@@ -69,14 +69,17 @@ const Auth = () => {
 
         if (profileError && profileError.code !== 'PGRST116') { 
           console.error("Error fetching profile after sign in:", profileError);
-          navigate("/dashboard", { replace: true }); 
+          // Navigate to dashboard with tour flag even if profile fetch fails, profile page will handle missing info
+          navigate("/dashboard", { replace: true, state: { justLoggedInForTour: true } }); 
           return;
         }
 
         if (profile && profile.first_name && profile.last_name) {
-          navigate("/dashboard", { replace: true });
+          navigate("/dashboard", { replace: true, state: { justLoggedInForTour: true } });
         } else {
-          navigate("/profile", { replace: true });
+          // If profile is incomplete, navigate to profile page, also with the flag
+          // The tour might not be relevant there, but the flag passing mechanism is consistent
+          navigate("/profile", { replace: true, state: { justLoggedInForTour: true } });
         }
       }
     });

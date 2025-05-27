@@ -4,25 +4,28 @@ import TodaysGroceryList from "@/components/TodaysGroceryList";
 import { supabase } from "@/lib/supabase";
 import { useEffect, useState, useMemo } from "react";
 import type { User } from "@supabase/supabase-js";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom"; // Import useLocation
 import AppTour from "@/components/AppTour";
 import { useQuery } from '@tanstack/react-query';
 
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const navigate = useNavigate();
+  const location = useLocation(); // Get location object
   const [isClient, setIsClient] = useState(false);
   const [justLoggedInForTour, setJustLoggedInForTour] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
-    const flag = sessionStorage.getItem('justLoggedInForTour');
-    console.log('[Dashboard] Reading sessionStorage justLoggedInForTour:', flag);
-    if (flag === 'true') {
+    // Check location state for the tour flag
+    if (location.state?.justLoggedInForTour) {
+      console.log('[Dashboard] Reading location.state.justLoggedInForTour: true');
       setJustLoggedInForTour(true);
-      console.log('[Dashboard] Set justLoggedInForTour state to true');
-      sessionStorage.removeItem('justLoggedInForTour');
-      console.log('[Dashboard] Removed justLoggedInForTour from sessionStorage');
+      // Clear the state from location history
+      navigate(location.pathname, { replace: true, state: {} });
+      console.log('[Dashboard] Cleared justLoggedInForTour from location state.');
+    } else {
+      console.log('[Dashboard] No justLoggedInForTour flag in location.state.');
     }
 
     const getSession = async () => {
@@ -35,8 +38,7 @@ const Dashboard = () => {
       }
     };
     getSession();
-    // AppHeader's onAuthStateChange will also handle navigation on sign out
-  }, [navigate]);
+  }, [navigate, location]); // Add location to dependency array
 
   const { data: profileTourStatus, isLoading: isLoadingTourStatus, error: profileTourError } = useQuery<{ has_completed_tour: boolean } | null>({
     queryKey: ['userProfileForDashboardTour', user?.id],
@@ -54,7 +56,7 @@ const Dashboard = () => {
       
       if (error && error.code !== 'PGRST116') { 
         console.error("[Dashboard] Error fetching tour status for dashboard:", error);
-        throw error; // Throw error to be caught by useQuery
+        throw error;
       }
       if (!data) {
         console.log('[Dashboard] profileTourStatus queryFn: No profile data found, returning { has_completed_tour: false }');
@@ -68,7 +70,7 @@ const Dashboard = () => {
   });
 
   console.log('[Dashboard] States before useMemo for shouldStartTour:', {
-    justLoggedInForTour,
+    justLoggedInForTour, // This is now from local state, derived from location.state
     profileTourStatus,
     isLoadingTourStatus,
     profileTourError: profileTourError?.message
