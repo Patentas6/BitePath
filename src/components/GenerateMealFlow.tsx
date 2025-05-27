@@ -88,8 +88,12 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
     if (userProfile?.ai_preferences && !ingredientPreferences) {
       setIngredientPreferences(userProfile.ai_preferences.substring(0, PREFERENCES_MAX_LENGTH));
     }
-  }, [userProfile?.ai_preferences]);
+  }, [userProfile?.ai_preferences, ingredientPreferences]); // Added ingredientPreferences to dependency array
 
+  // Log userProfile whenever it changes
+  useEffect(() => {
+    console.log("[GenerateMealFlow] UserProfile Prop:", userProfile);
+  }, [userProfile]);
 
   const handleKindChange = (kind: string, checked: boolean) => {
     setSelectedKinds(prev =>
@@ -122,7 +126,7 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
         mealType: selectedMealType,
         kinds: selectedKinds,
         styles: selectedStyles,
-        preferences: ingredientPreferences, // This now includes user's profile preferences potentially
+        preferences: ingredientPreferences, 
       };
 
       if (params.isRefinement && params.currentMeal && params.refinementText) {
@@ -133,6 +137,8 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
       try {
         const { data, error: functionError } = await supabase.functions.invoke('generate-meal', { body: bodyPayload });
         dismissToast(loadingToastId);
+
+        console.log("[GenerateMealFlow] AI Recipe Response Data:", data); // Log AI response
 
         if (functionError) {
             if (functionError.message.includes("Functions_Relay_Error") && functionError.message.includes("429")) {
@@ -300,7 +306,14 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
     return `Recipe Generations Used: ${recipeGenerationStatus.generationsUsedThisPeriod} / ${RECIPE_GENERATION_LIMIT_PER_PERIOD}. ${resetText}`;
   };
 
-  const caloriesPerServing = generatedMeal ? calculateCaloriesPerServing(generatedMeal.estimated_calories, generatedMeal.servings) : null;
+  const caloriesPerServing = useMemo(() => {
+    if (generatedMeal) {
+      const cps = calculateCaloriesPerServing(generatedMeal.estimated_calories, generatedMeal.servings);
+      console.log(`[GenerateMealFlow] GeneratedMeal EstCal: "${generatedMeal.estimated_calories}", Serv: "${generatedMeal.servings}", Calculated CPS: ${cps}`);
+      return cps;
+    }
+    return null;
+  }, [generatedMeal]);
 
   return (
     <div className="space-y-6">
