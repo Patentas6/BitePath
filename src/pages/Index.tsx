@@ -40,7 +40,10 @@ const Index = () => {
           <h1 className="text-5xl md:text-6xl font-bold dark:text-white mb-4">
             Ditch the Dinner Dilemma. Embrace the BitePath.
           </h1>
-          <p className="text-xl md:text-2xl text-foreground dark:text-gray-300 mb-8"> {/* Changed text-gray-600 to text-foreground */}
+          <p 
+            className="text-xl md:text-2xl dark:text-gray-300 mb-8" 
+            style={{ color: '#392F5A' }} /* TESTING: Direct inline style */
+          >
             Plan your week in minutes and get an instant grocery list. Less stress, more delicious meals.
           </p>
           <Button size="lg" asChild>
