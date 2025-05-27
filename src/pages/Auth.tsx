@@ -42,7 +42,6 @@ const Auth = () => {
     const checkSessionAndRedirect = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        // User already has a session, check profile and redirect
         const { data: profile } = await supabase
           .from('profiles')
           .select('first_name')
@@ -52,8 +51,6 @@ const Auth = () => {
         if (profile && profile.first_name) {
           navigate("/dashboard", { replace: true });
         } else {
-          // If profile exists but no first_name, or profile doesn't exist yet (should be handled by trigger)
-          // but as a fallback, guide to profile page.
           navigate("/profile", { replace: true });
         }
       }
@@ -62,24 +59,23 @@ const Auth = () => {
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === "SIGNED_IN" && session) {
+        sessionStorage.setItem('justLoggedInForTour', 'true'); // Set flag for tour
         showSuccess("Logged in successfully!");
-        // Check profile to decide redirection
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('first_name, last_name')
           .eq('id', session.user.id)
           .single();
 
-        if (profileError && profileError.code !== 'PGRST116') { // PGRST116 means no rows found
+        if (profileError && profileError.code !== 'PGRST116') { 
           console.error("Error fetching profile after sign in:", profileError);
-          navigate("/dashboard", { replace: true }); // Fallback to dashboard
+          navigate("/dashboard", { replace: true }); 
           return;
         }
 
         if (profile && profile.first_name && profile.last_name) {
           navigate("/dashboard", { replace: true });
         } else {
-          // If profile is incomplete (e.g. first_name or last_name is missing)
           navigate("/profile", { replace: true });
         }
       }
@@ -137,8 +133,6 @@ const Auth = () => {
               },
             }}
             providers={['google']}
-            // Redirect is handled by onAuthStateChange now
-            // redirectTo={`${window.location.origin}/dashboard`} 
             localization={{
               variables: {
                 sign_in: { email_label: "Email address", password_label: "Password", button_label: "Sign in", social_provider_text: "Sign in with {{provider}}", link_text: "Already have an account? Sign in" },

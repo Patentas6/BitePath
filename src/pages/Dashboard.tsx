@@ -2,7 +2,7 @@ import AppHeader from "@/components/AppHeader";
 import TodaysMeals from "@/components/TodaysMeals";
 import TodaysGroceryList from "@/components/TodaysGroceryList";
 import { supabase } from "@/lib/supabase";
-import { useEffect, useState, useMemo } from "react"; // Added useMemo here
+import { useEffect, useState, useMemo } from "react";
 import type { User } from "@supabase/supabase-js";
 import { useNavigate } from "react-router-dom";
 import AppTour from "@/components/AppTour";
@@ -12,9 +12,16 @@ const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const navigate = useNavigate();
   const [isClient, setIsClient] = useState(false);
+  const [justLoggedInForTour, setJustLoggedInForTour] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
+    const flag = sessionStorage.getItem('justLoggedInForTour');
+    if (flag === 'true') {
+      setJustLoggedInForTour(true);
+      sessionStorage.removeItem('justLoggedInForTour'); // Clear flag after reading
+    }
+
     const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
@@ -37,26 +44,24 @@ const Dashboard = () => {
         .eq('id', user.id)
         .single();
       
-      if (error && error.code !== 'PGRST116') { // PGRST116 means no row found
+      if (error && error.code !== 'PGRST116') { 
         console.error("Error fetching tour status for dashboard:", error);
-        return { has_completed_tour: false }; // Assume not completed if error or no profile
+        return { has_completed_tour: false }; 
       }
-      if (!data) return { has_completed_tour: false }; // No profile row, assume not completed
+      if (!data) return { has_completed_tour: false }; 
       return data;
     },
-    enabled: !!user?.id && isClient, // Only run query if user and client are ready
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    enabled: !!user?.id && isClient, 
+    staleTime: 5 * 60 * 1000, 
   });
 
   const shouldStartTour = useMemo(() => {
     if (isLoadingTourStatus || !profileTourStatus) {
-      // If still loading or profileTourStatus is null (e.g. user just signed up and profile might not be there instantly)
-      // default to true if it's a new user context (which is hard to determine here without more flags)
-      // For now, if profileTourStatus is explicitly fetched and says false, or is null/undefined, start tour.
-      return profileTourStatus === null || profileTourStatus?.has_completed_tour === false;
+      return false; // Don't start if profile status is not ready
     }
-    return !profileTourStatus.has_completed_tour;
-  }, [profileTourStatus, isLoadingTourStatus]);
+    // Start tour only if it's a fresh login AND the tour hasn't been completed yet
+    return justLoggedInForTour && !profileTourStatus.has_completed_tour;
+  }, [profileTourStatus, isLoadingTourStatus, justLoggedInForTour]);
 
 
   if (!user && !isLoadingTourStatus) { 
@@ -66,7 +71,6 @@ const Dashboard = () => {
   if (user && isLoadingTourStatus && isClient) {
      return <div className="min-h-screen flex items-center justify-center">Loading dashboard...</div>;
   }
-
 
   return (
     <div className="min-h-screen bg-background text-foreground p-4">
