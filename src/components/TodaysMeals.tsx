@@ -7,21 +7,26 @@ import { PLANNING_MEAL_TYPES, PlanningMealType } from "@/lib/constants";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { UtensilsCrossed, Edit } from "lucide-react"; // Added Edit icon
+import { UtensilsCrossed, Edit, Zap } from "lucide-react"; // Added Zap icon
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import AddMealToPlanDialog from "./AddMealToPlanDialog"; // Import the dialog
+import AddMealToPlanDialog from "./AddMealToPlanDialog"; 
 
 interface MealPlan {
   id: string;
   meal_id: string;
   plan_date: string;
-  meal_type?: string | null; // meal_type can be null from DB
+  meal_type?: string | null; 
   meals: {
     name: string;
     image_url?: string | null;
+    estimated_calories?: string | null; // Added estimated_calories
   } | null;
+}
+
+interface UserProfileData {
+  track_calories?: boolean;
 }
 
 interface TodaysMealsProps {
@@ -30,6 +35,13 @@ interface TodaysMealsProps {
 
 const MEAL_TYPE_DISPLAY_ORDER: PlanningMealType[] = ["Breakfast", "Brunch Snack", "Lunch", "Afternoon Snack", "Dinner"];
 
+// Helper function to parse calorie strings
+const parseCalories = (calorieString: string | null | undefined): number | null => {
+  if (!calorieString) return null;
+  const match = calorieString.match(/\d+/); // Find the first sequence of digits
+  return match ? parseInt(match[0], 10) : null;
+};
+
 const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
   const today = startOfToday();
   const todayStr = format(today, 'yyyy-MM-dd');
@@ -37,14 +49,31 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
   const [isChangeMealDialogOpen, setIsChangeMealDialogOpen] = useState(false);
   const [mealToChange, setMealToChange] = useState<{ planDate: Date; mealType: PlanningMealType | string | null } | null>(null);
 
+  const { data: userProfile, isLoading: isLoadingProfile } = useQuery<UserProfileData | null>({
+    queryKey: ['userProfileForTodaysMeals', userId],
+    queryFn: async () => {
+      if (!userId) return null;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('track_calories')
+        .eq('id', userId)
+        .single();
+      if (error && error.code !== 'PGRST116') {
+        console.error("Error fetching profile for Today's Meals:", error);
+        return { track_calories: false }; 
+      }
+      return data || { track_calories: false };
+    },
+    enabled: !!userId,
+  });
 
-  const { data: mealPlans, isLoading, error } = useQuery<MealPlan[]>({
+  const { data: mealPlans, isLoading: isLoadingMealPlans, error } = useQuery<MealPlan[]>({
     queryKey: ["todaysMealPlans", userId, todayStr],
     queryFn: async () => {
       if (!userId) return [];
       const { data, error } = await supabase
         .from("meal_plans")
-        .select("id, meal_id, plan_date, meal_type, meals ( name, image_url )")
+        .select("id, meal_id, plan_date, meal_type, meals ( name, image_url, estimated_calories )") // Fetch estimated_calories
         .eq("user_id", userId)
         .eq("plan_date", todayStr);
       if (error) throw error;
@@ -65,11 +94,20 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
     });
   }, [mealPlans]);
 
+  const dailyTotalCalories = useMemo(() => {
+    if (!userProfile?.track_calories || !sortedMealPlans) return null;
+    return sortedMealPlans.reduce((total, plan) => {
+      const calories = parseCalories(plan.meals?.estimated_calories);
+      return total + (calories || 0);
+    }, 0);
+  }, [sortedMealPlans, userProfile]);
+
   const handleChangeMealClick = (planDate: Date, mealType: PlanningMealType | string | null) => {
     setMealToChange({ planDate, mealType });
     setIsChangeMealDialogOpen(true);
   };
 
+  const isLoading = isLoadingMealPlans || isLoadingProfile;
 
   if (isLoading) return <Card className="hover:shadow-lg transition-shadow duration-200"><CardHeader><CardTitle>Today's Meals</CardTitle></CardHeader><CardContent><Skeleton className="h-32 w-full" /></CardContent></Card>;
   if (error) return <Card className="hover:shadow-lg transition-shadow duration-200"><CardHeader><CardTitle>Today's Meals</CardTitle></CardHeader><CardContent><p className="text-red-500 dark:text-red-400">Error loading today's meals.</p></CardContent></Card>;
@@ -78,7 +116,15 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
     <>
       <Card className="hover:shadow-lg transition-shadow duration-200 flex flex-col">
         <CardHeader>
-          <CardTitle>Today's Meals ({format(today, 'MMM dd')})</CardTitle>
+          <div className="flex justify-between items-center">
+            <CardTitle>Today's Meals ({format(today, 'MMM dd')})</CardTitle>
+            {userProfile?.track_calories && dailyTotalCalories !== null && dailyTotalCalories > 0 && (
+              <div className="text-sm font-semibold text-primary flex items-center">
+                <Zap size={16} className="mr-1.5" />
+                Total Est: {dailyTotalCalories} kcal
+              </div>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="flex-grow">
           {sortedMealPlans.length === 0 ? (
@@ -89,39 +135,48 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
             </div>
           ) : (
             <ul className="space-y-3">
-              {sortedMealPlans.map(plannedMeal => (
-                <li key={plannedMeal.id} className="border rounded-md p-3 bg-card shadow-sm flex items-center space-x-3">
-                   {plannedMeal.meals?.image_url && (
-                    <div
-                      className="h-24 w-24 object-cover rounded-md flex-shrink-0 cursor-pointer flex items-center justify-center overflow-hidden bg-muted" 
-                      onClick={() => setViewingImageUrl(plannedMeal.meals?.image_url || null)}
-                    >
-                      <img
-                        src={plannedMeal.meals.image_url}
-                        alt={plannedMeal.meals.name || 'Meal image'}
-                        className="h-full w-full object-cover"
-                        onError={(e) => (e.currentTarget.style.display = 'none')}
-                      />
-                    </div>
-                   )}
-                   <div className="flex-grow">
-                     <div className="font-medium text-gray-600 dark:text-gray-400 text-sm">
-                       {plannedMeal.meal_type || 'Meal'}
+              {sortedMealPlans.map(plannedMeal => {
+                const mealCalories = parseCalories(plannedMeal.meals?.estimated_calories);
+                return (
+                  <li key={plannedMeal.id} className="border rounded-md p-3 bg-card shadow-sm flex items-center space-x-3">
+                     {plannedMeal.meals?.image_url && (
+                      <div
+                        className="h-24 w-24 object-cover rounded-md flex-shrink-0 cursor-pointer flex items-center justify-center overflow-hidden bg-muted" 
+                        onClick={() => setViewingImageUrl(plannedMeal.meals?.image_url || null)}
+                      >
+                        <img
+                          src={plannedMeal.meals.image_url}
+                          alt={plannedMeal.meals.name || 'Meal image'}
+                          className="h-full w-full object-cover"
+                          onError={(e) => (e.currentTarget.style.display = 'none')}
+                        />
+                      </div>
+                     )}
+                     <div className="flex-grow">
+                       <div className="font-medium text-gray-600 dark:text-gray-400 text-sm">
+                         {plannedMeal.meal_type || 'Meal'}
+                       </div>
+                       <div className="text-base font-semibold text-foreground mt-1">
+                         {plannedMeal.meals?.name || 'Unknown Meal'}
+                       </div>
+                       {userProfile?.track_calories && mealCalories !== null && (
+                         <div className="text-xs text-primary mt-0.5 flex items-center">
+                           <Zap size={12} className="mr-1" />
+                           Est. {mealCalories} kcal
+                         </div>
+                       )}
                      </div>
-                     <div className="text-base font-semibold text-foreground mt-1">
-                       {plannedMeal.meals?.name || 'Unknown Meal'}
-                     </div>
-                   </div>
-                   <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => handleChangeMealClick(parseISO(plannedMeal.plan_date), plannedMeal.meal_type)}
-                      className="ml-auto"
-                    >
-                     <Edit className="h-4 w-4 mr-2" /> Change
-                   </Button>
-                </li>
-              ))}
+                     <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => handleChangeMealClick(parseISO(plannedMeal.plan_date), plannedMeal.meal_type)}
+                        className="ml-auto"
+                      >
+                       <Edit className="h-4 w-4 mr-2" /> Change
+                     </Button>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </CardContent>
