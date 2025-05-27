@@ -9,9 +9,10 @@ import { Button } from "@/components/ui/button";
 import { ShoppingCart, Utensils, LayoutGrid } from "lucide-react";
 import { Link } from "react-router-dom";
 import { convertToPreferredSystem } from "@/utils/conversionUtils"; 
+import { cn } from "@/lib/utils";
 
 const SHARED_LOCAL_STORAGE_KEY = 'bitepath-struckSharedGroceryItems';
-const GROCERY_VIEW_MODE_KEY = 'bitepath-groceryViewMode'; // Same key for consistent preference
+const GROCERY_VIEW_MODE_KEY = 'bitepath-groceryViewMode';
 
 interface PlannedMealWithIngredients {
   plan_date: string;
@@ -77,9 +78,21 @@ interface CategorizedDisplayListItem {
 
 interface MealWiseDisplayItem {
   mealName: string;
-  planDate: string; // Though for Today's list, it's always today
+  planDate: string;
   ingredients: CategorizedDisplayListItem[];
 }
+
+const exampleGroceryData: Record<Category, CategorizedDisplayListItem[]> = {
+  Produce: [
+    { itemName: 'Example: Banana', itemNameClass: "text-foreground", detailsPart: '2 pieces', detailsClass: "text-foreground", uniqueKey: 'ex-banana', originalItemsTooltip: 'Example item for your list' },
+    { itemName: 'Example: Spinach', itemNameClass: "text-foreground", detailsPart: '1 bag (150g)', detailsClass: "text-foreground", uniqueKey: 'ex-spinach-bag', originalItemsTooltip: 'Example item for your list' },
+  ],
+  Pantry: [
+    { itemName: 'Example: Oats', itemNameClass: "text-foreground", detailsPart: '500g', detailsClass: "text-foreground", uniqueKey: 'ex-oats', originalItemsTooltip: 'Example item for your list' },
+  ],
+  'Meat & Poultry': [], Dairy & Eggs: [], Frozen: [], Beverages: [], Other: [] // Ensure all categories exist
+};
+
 
 interface TodaysGroceryListProps {
   userId: string;
@@ -268,7 +281,7 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
 
     plannedMealsData.forEach(pm => {
       if (!pm.meals) return;
-      const mealKey = `${pm.plan_date}-${pm.meals.name}`; // plan_date is todayStr for this component
+      const mealKey = `${pm.plan_date}-${pm.meals.name}`;
       let mealEntry = mealsMap.get(mealKey);
       if (!mealEntry) {
         mealEntry = { mealName: pm.meals.name, planDate: pm.plan_date, ingredients: [] };
@@ -305,7 +318,7 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
         } catch (e) { console.warn("Error parsing ingredients for meal-wise view (Today's List):", e); }
       }
     });
-    return Array.from(mealsMap.values()); // No need to sort by date, it's all today
+    return Array.from(mealsMap.values());
   }, [plannedMealsData, displaySystem]);
   
   useEffect(() => {
@@ -387,9 +400,11 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
     }));
   };
 
-  const isEmptyList = viewMode === 'category' 
+  const actualIsEmptyList = viewMode === 'category' 
     ? Object.values(categorizedDisplayList).every(list => list.length === 0)
     : mealWiseDisplayList.length === 0;
+  
+  const showExampleData = actualIsEmptyList && !isLoading && !error;
 
   if (isLoading) return <Card className="hover:shadow-lg transition-shadow duration-200"><CardHeader><CardTitle>Today's Ingredients</CardTitle></CardHeader><CardContent><Skeleton className="h-32 w-full" /></CardContent></Card>;
   if (error) return <Card className="hover:shadow-lg transition-shadow duration-200"><CardHeader><CardTitle>Today's Ingredients</CardTitle></CardHeader><CardContent><Alert variant="destructive"><AlertTitle>Error</AlertTitle><AlertDescription>Could not load today's ingredients: {error.message}</AlertDescription></Alert></CardContent></Card>;
@@ -409,20 +424,25 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
         </Button>
       </CardHeader>
       <CardContent className="flex-grow">
-        {isEmptyList ? (
+        {showExampleData && (
+          <p className="text-sm text-muted-foreground mb-3">
+            Plan meals to see their ingredients here. Here's an example of what your list might look like:
+          </p>
+        )}
+        {(actualIsEmptyList && !showExampleData) ? ( // Only show "Your List is Empty" if not showing examples
           <div className="text-center py-6 text-muted-foreground">
             <ShoppingCart className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500 mb-4" />
-            <p className="text-lg font-semibold mb-1">No Ingredients Needed</p>
-            <p className="text-sm">Plan meals for today to see ingredients here.</p>
+            <p className="text-lg font-semibold mb-1">Your List is Empty</p>
+            <p className="text-sm">Plan some meals for today to see ingredients here.</p>
           </div>
         ) : viewMode === 'category' ? (
           <div className="space-y-4">
             {categoryOrder.map(category => {
-              const itemsInCategory = categorizedDisplayList[category];
+              const itemsInCategory = showExampleData ? exampleGroceryData[category] : categorizedDisplayList[category];
               if (itemsInCategory && itemsInCategory.length > 0) {
-                const allItemsInCategoryStruck = itemsInCategory.every(item => struckItems.has(item.uniqueKey));
+                const allItemsInCategoryStruck = !showExampleData && itemsInCategory.every(item => struckItems.has(item.uniqueKey));
                 return (
-                  <div key={category}>
+                  <div key={category} className={cn(showExampleData && "opacity-80 border-dashed")}>
                     <h3 
                       className={`text-md font-semibold text-gray-800 dark:text-gray-200 border-b pb-1 mb-2 ${allItemsInCategoryStruck ? 'line-through text-gray-400 dark:text-gray-600 opacity-70' : ''}`}
                     >
@@ -432,12 +452,16 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
                       {itemsInCategory.map((item) => (
                         <li
                           key={item.uniqueKey}
-                          onClick={() => handleItemClick(item.uniqueKey)}
-                          className={`cursor-pointer p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${struckItems.has(item.uniqueKey) ? 'line-through text-gray-400 dark:text-gray-600 opacity-70' : ''}`}
+                          onClick={() => !showExampleData && handleItemClick(item.uniqueKey)}
+                          className={cn(
+                            "p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors",
+                            !showExampleData && "cursor-pointer",
+                            !showExampleData && struckItems.has(item.uniqueKey) ? 'line-through text-gray-400 dark:text-gray-600 opacity-70' : ''
+                          )}
                           title={item.originalItemsTooltip}
                         >
-                          <span className={struckItems.has(item.uniqueKey) ? '' : item.itemNameClass}>{item.itemName}: </span>
-                          {item.detailsPart && <span className={struckItems.has(item.uniqueKey) ? '' : item.detailsClass}>{item.detailsPart}</span>}
+                          <span className={!showExampleData && struckItems.has(item.uniqueKey) ? '' : item.itemNameClass}>{item.itemName}: </span>
+                          {item.detailsPart && <span className={!showExampleData && struckItems.has(item.uniqueKey) ? '' : item.detailsClass}>{item.detailsPart}</span>}
                         </li>
                       ))}
                     </ul>
@@ -447,7 +471,7 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
               return null;
             })}
           </div>
-        ) : ( // Meal-wise view for Today's Grocery List
+        ) : ( // Meal-wise view (not showing examples for meal-wise view for simplicity)
           mealWiseDisplayList.map(mealItem => (
             <div key={`${mealItem.planDate}-${mealItem.mealName}`} className="mb-4">
               <h3 className="text-md font-semibold text-gray-800 dark:text-gray-200 border-b pb-1 mb-2">

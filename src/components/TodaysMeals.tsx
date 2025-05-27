@@ -7,12 +7,12 @@ import { PLANNING_MEAL_TYPES, PlanningMealType } from "@/lib/constants";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { UtensilsCrossed, Edit, Zap } from "lucide-react"; 
+import { UtensilsCrossed, Edit, Zap, Image as ImageIcon } from "lucide-react"; 
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import AddMealToPlanDialog from "./AddMealToPlanDialog"; 
-import { calculateCaloriesPerServing } from '@/utils/mealUtils'; // Import new util
+import { calculateCaloriesPerServing } from '@/utils/mealUtils';
 
 interface MealPlan {
   id: string;
@@ -23,7 +23,7 @@ interface MealPlan {
     name: string;
     image_url?: string | null;
     estimated_calories?: string | null; 
-    servings?: string | null; // Added servings
+    servings?: string | null;
   } | null;
 }
 
@@ -36,6 +36,39 @@ interface TodaysMealsProps {
 }
 
 const MEAL_TYPE_DISPLAY_ORDER: PlanningMealType[] = ["Breakfast", "Brunch Snack", "Lunch", "Afternoon Snack", "Dinner"];
+
+const exampleMealsData = [
+  { 
+    id: 'ex-bf', 
+    meal_type: 'Breakfast', 
+    meals: { 
+      name: 'Example: Yogurt & Granola', 
+      image_url: null, // No image for example, or use a placeholder icon/path
+      estimated_calories: '350 kcal', 
+      servings: '1' 
+    } 
+  },
+  { 
+    id: 'ex-ln', 
+    meal_type: 'Lunch', 
+    meals: { 
+      name: 'Example: Salad with Chicken', 
+      image_url: null,
+      estimated_calories: '500 kcal', 
+      servings: '1' 
+    } 
+  },
+  { 
+    id: 'ex-dn', 
+    meal_type: 'Dinner', 
+    meals: { 
+      name: 'Example: Pasta Primavera', 
+      image_url: null,
+      estimated_calories: '600 kcal', 
+      servings: '1' 
+    } 
+  },
+];
 
 const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
   const today = startOfToday();
@@ -68,7 +101,7 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
       if (!userId) return [];
       const { data, error } = await supabase
         .from("meal_plans")
-        .select("id, meal_id, plan_date, meal_type, meals ( name, image_url, estimated_calories, servings )") // Fetch servings
+        .select("id, meal_id, plan_date, meal_type, meals ( name, image_url, estimated_calories, servings )")
         .eq("user_id", userId)
         .eq("plan_date", todayStr);
       if (error) throw error;
@@ -90,7 +123,7 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
   }, [mealPlans]);
 
   const dailyTotalCaloriesPerServing = useMemo(() => {
-    if (!userProfile?.track_calories || !sortedMealPlans) return null;
+    if (!userProfile?.track_calories || !sortedMealPlans || sortedMealPlans.length === 0) return null;
     return sortedMealPlans.reduce((total, plan) => {
       const caloriesPerServing = calculateCaloriesPerServing(plan.meals?.estimated_calories, plan.meals?.servings);
       return total + (caloriesPerServing || 0);
@@ -107,22 +140,41 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
   if (isLoading) return <Card className="hover:shadow-lg transition-shadow duration-200"><CardHeader><CardTitle>Today's Meals</CardTitle></CardHeader><CardContent><Skeleton className="h-32 w-full" /></CardContent></Card>;
   if (error) return <Card className="hover:shadow-lg transition-shadow duration-200"><CardHeader><CardTitle>Today's Meals</CardTitle></CardHeader><CardContent><p className="text-red-500 dark:text-red-400">Error loading today's meals.</p></CardContent></Card>;
 
+  const showExampleData = sortedMealPlans.length === 0 && !isLoading && !error;
+  const displayPlans = showExampleData ? exampleMealsData : sortedMealPlans;
+  
+  const exampleTotalCalories = useMemo(() => {
+    if (!userProfile?.track_calories || !showExampleData) return null;
+    return exampleMealsData.reduce((total, plan) => {
+      const caloriesPerServing = calculateCaloriesPerServing(plan.meals?.estimated_calories, plan.meals?.servings);
+      return total + (caloriesPerServing || 0);
+    }, 0);
+  }, [showExampleData, userProfile]);
+
+  const currentTotalCalories = showExampleData ? exampleTotalCalories : dailyTotalCaloriesPerServing;
+
+
   return (
     <>
       <Card className="hover:shadow-lg transition-shadow duration-200 flex flex-col">
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle>Today's Meals ({format(today, 'MMM dd')})</CardTitle>
-            {userProfile?.track_calories && dailyTotalCaloriesPerServing !== null && dailyTotalCaloriesPerServing > 0 && (
+            {userProfile?.track_calories && currentTotalCalories !== null && currentTotalCalories > 0 && (
               <div className="text-sm font-semibold text-primary flex items-center">
                 <Zap size={16} className="mr-1.5" />
-                Total Est: {dailyTotalCaloriesPerServing} kcal (per serving)
+                Total Est: {currentTotalCalories} kcal (per serving)
               </div>
             )}
           </div>
+          {showExampleData && (
+            <p className="text-sm text-muted-foreground mt-1">
+              Plan meals in <Link to="/planning" className="underline hover:text-foreground">Plan & Shop</Link> to see them here. Here's an example:
+            </p>
+          )}
         </CardHeader>
         <CardContent className="flex-grow">
-          {sortedMealPlans.length === 0 ? (
+          {displayPlans.length === 0 && !showExampleData ? ( // This case should ideally not be hit if showExampleData logic is correct
             <div className="text-center py-6 text-muted-foreground">
               <UtensilsCrossed className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500 mb-4" />
               <p className="text-lg font-semibold mb-1">No Meals Planned</p>
@@ -130,14 +182,14 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
             </div>
           ) : (
             <ul className="space-y-3">
-              {sortedMealPlans.map(plannedMeal => {
+              {displayPlans.map(plannedMeal => {
                 const caloriesPerServing = calculateCaloriesPerServing(plannedMeal.meals?.estimated_calories, plannedMeal.meals?.servings);
                 return (
-                  <li key={plannedMeal.id} className="border rounded-md p-3 bg-card shadow-sm flex items-center space-x-3">
-                     {plannedMeal.meals?.image_url && (
+                  <li key={plannedMeal.id} className={cn("border rounded-md p-3 bg-card shadow-sm flex items-center space-x-3", showExampleData && "opacity-80 border-dashed")}>
+                     {plannedMeal.meals?.image_url ? (
                       <div
                         className="h-24 w-24 object-cover rounded-md flex-shrink-0 cursor-pointer flex items-center justify-center overflow-hidden bg-muted" 
-                        onClick={() => setViewingImageUrl(plannedMeal.meals?.image_url || null)}
+                        onClick={() => !showExampleData && plannedMeal.meals?.image_url && setViewingImageUrl(plannedMeal.meals.image_url)}
                       >
                         <img
                           src={plannedMeal.meals.image_url}
@@ -146,6 +198,10 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
                           onError={(e) => (e.currentTarget.style.display = 'none')}
                         />
                       </div>
+                     ) : (
+                       <div className="h-24 w-24 rounded-md flex-shrink-0 flex items-center justify-center bg-muted text-muted-foreground">
+                         <ImageIcon size={32} />
+                       </div>
                      )}
                      <div className="flex-grow">
                        <div className="font-medium text-gray-600 dark:text-gray-400 text-sm">
@@ -161,14 +217,16 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
                          </div>
                        )}
                      </div>
-                     <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => handleChangeMealClick(parseISO(plannedMeal.plan_date), plannedMeal.meal_type)}
-                        className="ml-auto"
-                      >
-                       <Edit className="h-4 w-4 mr-2" /> Change
-                     </Button>
+                     {!showExampleData && (
+                       <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleChangeMealClick(parseISO((plannedMeal as MealPlan).plan_date), plannedMeal.meal_type)}
+                          className="ml-auto"
+                        >
+                         <Edit className="h-4 w-4 mr-2" /> Change
+                       </Button>
+                     )}
                   </li>
                 );
               })}
