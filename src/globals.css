@@ -6,20 +6,20 @@
   :root {
     /* --- User's Custom Liked Light Mode Palette --- */
     --background: 0 0% 89.8%; /* New Light Gray (#e5e5e5) - Page background */
-    --foreground: 40 100% 1.4%;  /* Black (#070500) - Main text */
+    --foreground: 254 31.4% 26.9%;  /* Dark Purple (#392F5A) - Main text */
 
     --card: 0 0% 100%; /* White - For cards */
-    --card-foreground: 40 100% 1.4%; /* Black - Text in cards */
+    --card-foreground: 254 31.4% 26.9%; /* Dark Purple - Text in cards */
 
     --popover: 0 0% 100%; /* White */
-    --popover-foreground: 40 100% 1.4%; /* Black */
+    --popover-foreground: 254 31.4% 26.9%; /* Dark Purple - Text in popovers */
 
     /* Primary Orange - #fca311 */
     --primary: 37.3 97.5% 52.7%; 
-    --primary-foreground: 40 100% 1.4%; /* Black - Text on Orange buttons */
+    --primary-foreground: 40 100% 1.4%; /* Black - Text on Orange buttons (kept for contrast) */
 
     --secondary: 210 40% 96.1%; /* Light Gray - For secondary buttons/elements */
-    --secondary-foreground: 40 100% 1.4%; /* Black - Text on light gray secondary elements */
+    --secondary-foreground: 254 31.4% 26.9%; /* Dark Purple - Text on light gray secondary elements */
 
     --muted: 0 0% 85%; /* Slightly darker gray for muted backgrounds */
     --muted-foreground: 0 0% 30%;   /* Dark Gray - Muted text */
