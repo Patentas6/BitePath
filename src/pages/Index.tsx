@@ -2,8 +2,9 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
-import { LayoutDashboard, CalendarDays, BrainCircuit, ShoppingCart } from "lucide-react";
+import { LayoutDashboard, CalendarDays, BrainCircuit, ShoppingCart, Star } from "lucide-react"; // Added Star for testimonials
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"; // Added Card components
 
 const Index = () => {
   const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
@@ -51,6 +52,24 @@ const Index = () => {
     },
   ];
 
+  const testimonials = [
+    {
+      name: "Sarah P.",
+      quote: "BitePath has revolutionized my meal planning! The AI suggestions are fantastic and the automated grocery list saves me so much time.",
+      stars: 5,
+    },
+    {
+      name: "Mike R.",
+      quote: "As someone who hates deciding what to eat, BitePath is a lifesaver. I love the weekly planner and how easy it is to add my own recipes.",
+      stars: 5,
+    },
+    {
+      name: "Linda K.",
+      quote: "The AI image generation for custom meals is such a fun touch! Makes my recipe book look amazing. Highly recommend!",
+      stars: 4,
+    },
+  ];
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="w-full p-4 bg-background shadow-sm sticky top-0 z-50">
@@ -66,7 +85,8 @@ const Index = () => {
           </div>
           <nav className="flex items-center space-x-4">
             <a href="#features-glimpse" className="hover:underline text-sm md:text-base">How It Works</a>
-            <a href="#features" className="hover:underline text-sm md:text-base">Core Features</a>
+            <a href="#testimonials" className="hover:underline text-sm md:text-base">Testimonials</a>
+            <a href="#pricing-plans" className="hover:underline text-sm md:text-base">Plans</a>
             <Link to="/auth" className="hover:underline text-sm md:text-base">Login</Link>
             <Button 
               size="sm" 
@@ -96,7 +116,7 @@ const Index = () => {
         </div>
       </section>
 
-      {/* New "Glimpse Inside BitePath" Section */}
+      {/* "Glimpse Inside BitePath" Section */}
       <section id="features-glimpse" className="w-full py-16 bg-background">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl md:text-4xl font-bold text-center mb-16">A Glimpse Inside BitePath</h2>
@@ -131,27 +151,80 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Core Features Section */}
-      <section id="features" className="w-full py-16 bg-background text-center">
+      {/* Testimonials Section */}
+      <section id="testimonials" className="w-full py-16 bg-muted/40 dark:bg-muted/20 text-center">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold mb-8">Core Features</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8"> 
-            <div className="p-6 border rounded-lg shadow-sm dark:border-gray-700 bg-card">
-              <h3 className="text-xl font-semibold mb-2">AI-Powered Meal Ideas</h3>
-              <p className="text-muted-foreground">Discover new recipes with AI-generated meal suggestions, complete with ingredients, instructions, and even an image.</p>
-            </div>
-            <div className="p-6 border rounded-lg shadow-sm dark:border-gray-700 bg-card">
-              <h3 className="text-xl font-semibold mb-2">Effortless Weekly Planning</h3>
-              <p className="text-muted-foreground">Visually organize your breakfast, lunch, dinner, and snacks by easily assigning meals to your weekly calendar.</p>
-            </div>
-            <div className="p-6 border rounded-lg shadow-sm dark:border-gray-700 bg-card">
-              <h3 className="text-xl font-semibold mb-2">Automated Grocery Lists</h3>
-              <p className="text-muted-foreground">Instantly generate a categorized grocery list from your weekly meal plan, saving you time and effort.</p>
-            </div>
-            <div className="p-6 border rounded-lg shadow-sm dark:border-gray-700 bg-card">
-              <h3 className="text-xl font-semibold mb-2">Personalize Your Recipes</h3>
-              <p className="text-muted-foreground">Add your own custom meals and recipes. You can even generate a unique AI image to bring your culinary creations to life!</p>
-            </div>
+          <h2 className="text-3xl font-bold mb-12">What Our Users Say</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {testimonials.map((testimonial, index) => (
+              <Card key={index} className="text-left">
+                <CardHeader>
+                  <div className="flex items-center mb-2">
+                    {Array.from({ length: testimonial.stars }).map((_, i) => (
+                      <Star key={i} className="h-5 w-5 text-yellow-400 fill-yellow-400" />
+                    ))}
+                    {Array.from({ length: 5 - testimonial.stars }).map((_, i) => (
+                      <Star key={`empty-${i}`} className="h-5 w-5 text-yellow-400" />
+                    ))}
+                  </div>
+                  <CardTitle>{testimonial.name}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground">"{testimonial.quote}"</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing Plans Section */}
+      <section id="pricing-plans" className="w-full py-16 bg-background text-center">
+        <div className="container mx-auto px-4">
+          <h2 className="text-3xl font-bold mb-4">Choose Your Plan</h2>
+          <p className="text-xl text-muted-foreground mb-12">Start for free, or unlock powerful AI features with Premium.</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            {/* Free Plan Card */}
+            <Card className="flex flex-col">
+              <CardHeader>
+                <CardTitle className="text-2xl">Free</CardTitle>
+                <CardDescription>$0 / month</CardDescription>
+              </CardHeader>
+              <CardContent className="flex-grow space-y-3">
+                <ul className="list-disc list-inside text-left space-y-2 text-muted-foreground">
+                  <li>Plan weekly meals</li>
+                  <li>Automated grocery lists</li>
+                  <li>Save custom recipes</li>
+                  <li>Limited AI meal generations</li>
+                </ul>
+              </CardContent>
+              <CardFooter>
+                <Button asChild className="w-full" variant="outline">
+                  <Link to="/auth?mode=signup">Get Started</Link>
+                </Button>
+              </CardFooter>
+            </Card>
+            {/* Premium Plan Card */}
+            <Card className="border-primary ring-2 ring-primary flex flex-col shadow-lg">
+              <CardHeader>
+                <CardTitle className="text-2xl text-primary">Premium</CardTitle>
+                <CardDescription>$9.99 / month</CardDescription>
+              </CardHeader>
+              <CardContent className="flex-grow space-y-3">
+                <ul className="list-disc list-inside text-left space-y-2 text-muted-foreground">
+                  <li>All Free features, plus:</li>
+                  <li>Unlimited AI meal generations</li>
+                  <li>AI recipe image generation</li>
+                  <li>Advanced AI preferences & refinement</li>
+                  <li>Priority support (Coming Soon)</li>
+                </ul>
+              </CardContent>
+              <CardFooter>
+                <Button asChild className="w-full">
+                  <Link to="/auth?mode=signup">Upgrade to Premium</Link>
+                </Button>
+              </CardFooter>
+            </Card>
           </div>
         </div>
       </section>
