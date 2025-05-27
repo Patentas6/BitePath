@@ -43,7 +43,7 @@ const exampleMealsData = [
     meal_type: 'Breakfast', 
     meals: { 
       name: 'Example: Yogurt & Granola', 
-      image_url: null, // No image for example, or use a placeholder icon/path
+      image_url: null, 
       estimated_calories: '350 kcal', 
       servings: '1' 
     } 
@@ -73,10 +73,13 @@ const exampleMealsData = [
 const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
   const today = startOfToday();
   const todayStr = format(today, 'yyyy-MM-dd');
+  
+  // All useState hooks at the top
   const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
   const [isChangeMealDialogOpen, setIsChangeMealDialogOpen] = useState(false);
   const [mealToChange, setMealToChange] = useState<{ planDate: Date; mealType: PlanningMealType | string | null } | null>(null);
 
+  // All useQuery hooks
   const { data: userProfile, isLoading: isLoadingProfile } = useQuery<UserProfileData | null>({
     queryKey: ['userProfileForTodaysMeals', userId],
     queryFn: async () => {
@@ -110,6 +113,7 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
     enabled: !!userId,
   });
 
+  // All useMemo hooks
   const sortedMealPlans = useMemo(() => {
     if (!mealPlans) return [];
     return [...mealPlans].sort((a, b) => {
@@ -130,19 +134,13 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
     }, 0);
   }, [sortedMealPlans, userProfile]);
 
-  const handleChangeMealClick = (planDate: Date, mealType: PlanningMealType | string | null) => {
-    setMealToChange({ planDate, mealType });
-    setIsChangeMealDialogOpen(true);
-  };
-
+  // Calculate isLoading *after* all data-fetching hooks
   const isLoading = isLoadingMealPlans || isLoadingProfile;
-
-  if (isLoading) return <Card className="hover:shadow-lg transition-shadow duration-200"><CardHeader><CardTitle>Today's Meals</CardTitle></CardHeader><CardContent><Skeleton className="h-32 w-full" /></CardContent></Card>;
-  if (error) return <Card className="hover:shadow-lg transition-shadow duration-200"><CardHeader><CardTitle>Today's Meals</CardTitle></CardHeader><CardContent><p className="text-red-500 dark:text-red-400">Error loading today's meals.</p></CardContent></Card>;
-
-  const showExampleData = sortedMealPlans.length === 0 && !isLoading && !error;
-  const displayPlans = showExampleData ? exampleMealsData : sortedMealPlans;
   
+  // Calculate showExampleData *after* isLoading, error, and sortedMealPlans are determined
+  // This ensures sortedMealPlans is based on the latest mealPlans data before this check
+  const showExampleData = !isLoading && !error && sortedMealPlans.length === 0;
+
   const exampleTotalCalories = useMemo(() => {
     if (!userProfile?.track_calories || !showExampleData) return null;
     return exampleMealsData.reduce((total, plan) => {
@@ -151,8 +149,19 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
     }, 0);
   }, [showExampleData, userProfile]);
 
-  const currentTotalCalories = showExampleData ? exampleTotalCalories : dailyTotalCaloriesPerServing;
 
+  // Early returns *after* all hooks have been called
+  if (isLoading) return <Card className="hover:shadow-lg transition-shadow duration-200"><CardHeader><CardTitle>Today's Meals</CardTitle></CardHeader><CardContent><Skeleton className="h-32 w-full" /></CardContent></Card>;
+  if (error) return <Card className="hover:shadow-lg transition-shadow duration-200"><CardHeader><CardTitle>Today's Meals</CardTitle></CardHeader><CardContent><p className="text-red-500 dark:text-red-400">Error loading today's meals.</p></CardContent></Card>;
+
+  // Remaining component logic
+  const handleChangeMealClick = (planDate: Date, mealType: PlanningMealType | string | null) => {
+    setMealToChange({ planDate, mealType });
+    setIsChangeMealDialogOpen(true);
+  };
+  
+  const displayPlans = showExampleData ? exampleMealsData : sortedMealPlans;
+  const currentTotalCalories = showExampleData ? exampleTotalCalories : dailyTotalCaloriesPerServing;
 
   return (
     <>
@@ -174,7 +183,7 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
           )}
         </CardHeader>
         <CardContent className="flex-grow">
-          {displayPlans.length === 0 && !showExampleData ? ( // This case should ideally not be hit if showExampleData logic is correct
+          {displayPlans.length === 0 && !showExampleData ? (
             <div className="text-center py-6 text-muted-foreground">
               <UtensilsCrossed className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500 mb-4" />
               <p className="text-lg font-semibold mb-1">No Meals Planned</p>
