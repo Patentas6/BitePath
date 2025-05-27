@@ -9,7 +9,7 @@ import MealForm, { GenerationStatusInfo as MealFormGenerationStatus } from "@/co
 import GenerateMealFlow from "@/components/GenerateMealFlow"; // We'll create this next
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'; // For consistent styling
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Brain } from 'lucide-react'; // Added Brain for Generate tab
 
 interface UserProfileDataForLimits {
   is_admin: boolean;
@@ -36,7 +36,7 @@ export interface CombinedGenerationLimits {
 
 const ManageMealEntryPage = () => {
   const [userId, setUserId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'add' | 'generate'>('add');
+  const [activeTab, setActiveTab] = useState<'generate' | 'add'>('generate'); // Default to 'generate'
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -146,15 +146,15 @@ const ManageMealEntryPage = () => {
         <AppHeader />
         <div className="flex justify-center items-center mb-0">
             <h1 className="text-xl sm:text-3xl font-bold flex items-center">
-              <PlusCircle className="mr-2 h-6 w-6" /> 
+              {activeTab === 'generate' ? <Brain className="mr-2 h-6 w-6" /> : <PlusCircle className="mr-2 h-6 w-6" />}
               {activeTab === 'add' ? 'Add Your Own Meal' : 'Generate Meal with AI'}
             </h1>
         </div>
         
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'add' | 'generate')} className="w-full">
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'generate' | 'add')} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="add">Add Manually</TabsTrigger>
             <TabsTrigger value="generate">Generate with AI</TabsTrigger>
+            <TabsTrigger value="add">Add Manually</TabsTrigger>
           </TabsList>
           <TabsContent value="add" className="mt-4">
             <MealForm 
