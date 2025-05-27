@@ -116,6 +116,7 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart 
   }, [currentWeekStart]);
 
   const handleAddOrChangeMealClick = (day: Date, mealType?: PlanningMealType) => {
+    console.log("[WeeklyPlanner] handleAddOrChangeMealClick - Day:", day, "MealType from slot:", mealType); // LOG 1
     if (isPast(day) && !isToday(day)) {
         console.log("Cannot plan for a past date (excluding today).");
         return;
@@ -161,6 +162,11 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart 
 
   const isLoading = isLoadingMealPlans || isLoadingProfile;
 
+  // Log selectedMealTypeForDialog when isDialogOpen is true, before rendering the dialog
+  if (isDialogOpen) {
+    console.log("[WeeklyPlanner] Rendering dialog. `selectedMealTypeForDialog` state is:", selectedMealTypeForDialog); // LOG 2
+  }
+
   if (isLoading) return <Card><CardHeader><CardTitle>Weekly Plan</CardTitle></CardHeader><CardContent><Skeleton className="h-64 w-full" /></CardContent></Card>;
   if (error) return <Card><CardHeader><CardTitle>Weekly Plan</CardTitle></CardHeader><CardContent><p className="text-red-500 dark:text-red-400">Error loading meal plans.</p></CardContent></Card>;
 
@@ -199,13 +205,13 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart 
 
             return (
               <div key={day.toISOString() + "-slots"} className={cn("flex flex-col space-y-1", isDayPast && "opacity-60")}>
-                {MEAL_TYPE_DISPLAY_ORDER.map(mealType => {
+                {MEAL_TYPE_DISPLAY_ORDER.map(mealType => { // mealType here is "Breakfast", "Lunch", etc.
                   const plannedMeal = mealsForDayMap?.get(mealType);
                   const caloriesPerServing = calculateCaloriesPerServing(plannedMeal?.meals?.estimated_calories, plannedMeal?.meals?.servings);
                   return (
                     <div
                       key={mealType}
-                      onClick={() => !isDayPast && handleAddOrChangeMealClick(day, plannedMeal ? mealType : undefined)}
+                      onClick={() => !isDayPast && handleAddOrChangeMealClick(day, mealType)} // mealType is passed here
                       className={cn(
                         "border rounded-md p-2 text-xs flex flex-col justify-between overflow-hidden relative transition-colors min-h-[70px]", 
                         isDayPast ? "bg-gray-100 dark:bg-gray-700/50 cursor-not-allowed" : "bg-card hover:bg-card/80 cursor-pointer"
@@ -259,19 +265,21 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart 
         </div>
       </div>
 
-      <AddMealToPlanDialog
-        open={isDialogOpen}
-        onOpenChange={(isOpen) => {
-          setIsDialogOpen(isOpen);
-          if (!isOpen) {
-             setSelectedDateForDialog(null);
-             setSelectedMealTypeForDialog(undefined);
-          }
-        }}
-        planDate={selectedDateForDialog}
-        userId={userId}
-        initialMealType={selectedMealTypeForDialog}
-      />
+      {isDialogOpen && ( // Conditionally render the dialog to ensure props are fresh
+        <AddMealToPlanDialog
+          open={isDialogOpen}
+          onOpenChange={(isOpen) => {
+            setIsDialogOpen(isOpen);
+            if (!isOpen) {
+               setSelectedDateForDialog(null);
+               setSelectedMealTypeForDialog(undefined); // Reset when closing
+            }
+          }}
+          planDate={selectedDateForDialog}
+          userId={userId}
+          initialMealType={selectedMealTypeForDialog}
+        />
+      )}
     </>
   );
 };
