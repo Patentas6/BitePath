@@ -42,7 +42,7 @@ interface GenerateMealFlowProps {
   imageGenerationStatus: CombinedGenerationLimits['image'];
   isLoadingProfile: boolean;
   userProfile: UserProfileDataForAI | null;
-  onEditGeneratedMeal: (meal: GeneratedMeal) => void; // New prop
+  onEditGeneratedMeal: (meal: GeneratedMeal) => void; 
 }
 
 const mealTypes = ["Breakfast", "Lunch", "Dinner", "Snack"];
@@ -57,7 +57,7 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
   imageGenerationStatus,
   isLoadingProfile,
   userProfile,
-  onEditGeneratedMeal, // Destructure new prop
+  onEditGeneratedMeal, 
 }) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -368,7 +368,7 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
               </Label>
               <Textarea
                 id="gen-ingredient-preferences"
-                placeholder="e.g., 'Use only: chicken, broccoli, rice', 'Max 500 cals', 'No nuts'"
+                placeholder="e.g., 'Use only: chicken, broccoli, rice', 'Max 500 cals', 'No nuts, no onions'"
                 value={ingredientPreferences}
                 onChange={(e) => setIngredientPreferences(e.target.value)}
                 className="mt-2"
@@ -513,7 +513,7 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
               <Button
                 onClick={handleSaveMeal}
                 disabled={isSaving || saveMealMutation.isPending}
-                className="w-full" // sm:col-span-1
+                className="w-full" 
               >
                 <Save className="mr-2 h-4 w-4" />
                 {isSaving || saveMealMutation.isPending ? 'Saving...' : 'Save to My Meals'}
@@ -521,7 +521,7 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
               <Button
                 onClick={() => onEditGeneratedMeal(generatedMeal)}
                 variant="outline"
-                className="w-full" // sm:col-span-1
+                className="w-full" 
                 disabled={isSaving || saveMealMutation.isPending || isGeneratingRecipe || recipeGenerationMutation.isPending || isGeneratingImage || generateImageMutation.isPending}
               >
                 <Edit2 className="mr-2 h-4 w-4" />
@@ -531,7 +531,7 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
                 onClick={handleGenerateNewRecipeRequest}
                 variant="outline"
                 disabled={isGeneratingRecipe || recipeGenerationMutation.isPending || isSaving || saveMealMutation.isPending || isGeneratingImage || generateImageMutation.isPending}
-                className="w-full" // sm:col-span-1
+                className="w-full" 
               >
                 <RefreshCw className="mr-2 h-4 w-4" />
                 Generate New Recipe
