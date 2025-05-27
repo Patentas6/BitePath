@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { PlusCircle, Trash2 } from "lucide-react";
+import { PlusCircle, Trash2, Zap } from "lucide-react"; // Added Zap
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -37,10 +37,10 @@ const ingredientSchema = z.object({
   name: z.string().min(1, { message: "Ingredient name is required." }),
   quantity: z.union([
     z.coerce.number().positive({ message: "Quantity must be a positive number." }),
-    z.literal("").transform(() => undefined), // Allow empty string, transform to undefined
-    z.null().transform(() => undefined) // Allow null, transform to undefined
+    z.literal("").transform(() => undefined), 
+    z.null().transform(() => undefined) 
   ]).optional(),
-  unit: z.string().min(1, { message: "Unit is required." }), // Unit remains required if quantity is present
+  unit: z.string().min(1, { message: "Unit is required." }), 
   description: z.string().optional(),
 }).refine(data => {
   return data.quantity === undefined || (data.quantity !== undefined && data.unit && data.unit.trim() !== "");
@@ -54,6 +54,7 @@ const mealFormSchema = z.object({
   ingredients: z.array(ingredientSchema).optional(),
   instructions: z.string().optional(),
   meal_tags: z.array(z.string()).optional(),
+  estimated_calories: z.string().optional(), // Added estimated_calories
 });
 
 type MealFormValues = z.infer<typeof mealFormSchema>;
@@ -66,6 +67,7 @@ export interface MealForEditing {
   user_id: string;
   meal_tags?: string[] | null;
   image_url?: string | null;
+  estimated_calories?: string | null; // Added estimated_calories
 }
 
 interface EditMealDialogProps {
@@ -85,10 +87,11 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
       ingredients: [{ name: "", quantity: "", unit: "", description: "" }],
       instructions: "",
       meal_tags: [],
+      estimated_calories: "", // Added default
     },
   });
 
-  const { fields, append, remove } = useFieldArray({ // `replace` is not used, removed from destructuring
+  const { fields, append, remove } = useFieldArray({ 
     control: form.control,
     name: "ingredients",
   });
@@ -106,12 +109,11 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
               unit: item.unit || "",
               description: item.description || "",
             }));
-          } else if (Array.isArray(parsed) && parsed.length === 0) { // Handle empty ingredients array
+          } else if (Array.isArray(parsed) && parsed.length === 0) { 
             parsedIngredients = [];
           }
         } catch (e) {
           console.warn("Failed to parse ingredients JSON for editing, starting fresh for this meal:", e);
-          // Keep default if parsing fails and it's not an empty array
            if (meal.ingredients !== "[]") {
              parsedIngredients = [{ name: "", quantity: "", unit: "", description: "" }];
            } else {
@@ -125,6 +127,7 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
         ingredients: parsedIngredients.length > 0 ? parsedIngredients : [{ name: "", quantity: "", unit: "", description: "" }],
         instructions: meal.instructions || "",
         meal_tags: meal.meal_tags || [],
+        estimated_calories: meal.estimated_calories || "", // Load estimated_calories
       });
     } else if (!open) {
       form.reset({
@@ -132,6 +135,7 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
         ingredients: [{ name: "", quantity: "", unit: "", description: "" }],
         instructions: "",
         meal_tags: [],
+        estimated_calories: "", // Reset estimated_calories
       });
     }
   }, [meal, open, form]);
@@ -161,6 +165,7 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
           ingredients: ingredientsJSON,
           instructions: values.instructions,
           meal_tags: values.meal_tags,
+          estimated_calories: values.estimated_calories, // Save estimated_calories
         })
         .eq("id", meal.id)
         .eq("user_id", user.id)
@@ -376,6 +381,25 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
                     <FormControl>
                       <Textarea placeholder="Cooking steps..." {...field} rows={5} />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="estimated_calories"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center">
+                      <Zap className="mr-2 h-4 w-4 text-primary" />
+                      Estimated Calories (Optional)
+                    </FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., 550 or 500-600 kcal" {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      Enter a number or a range for the meal's estimated calorie count.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

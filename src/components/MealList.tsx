@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Trash2, Edit3, Search, ChefHat, List, Grid3X3 } from "lucide-react"; 
+import { Trash2, Edit3, Search, ChefHat, List, Grid3X3, Zap } from "lucide-react"; // Added Zap
 import EditMealDialog, { MealForEditing } from "./EditMealDialog";
 import {
   AlertDialog,
@@ -27,11 +27,12 @@ import { cn } from "@/lib/utils";
 interface Meal extends MealForEditing {
   meal_tags?: string[] | null;
   image_url?: string | null; 
+  estimated_calories?: string | null; // Added estimated_calories
 }
 
 interface ParsedIngredient {
   name: string;
-  quantity: number | string | null; // Allow null for quantity
+  quantity: number | string | null; 
   unit: string;
   description?: string;
 }
@@ -45,24 +46,54 @@ const MealList = () => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [mealToDelete, setMealToDelete] = useState<MealForEditing | null>(null);
   const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null); 
+  const [userId, setUserId] = useState<string | null>(null);
 
   const queryClient = useQueryClient();
 
-  const { data: meals, isLoading, error } = useQuery<Meal[]>({
-    queryKey: ["meals"],
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data } = await supabase.auth.getUser();
+      setUserId(data.user?.id || null);
+    };
+    fetchUser();
+  }, []);
+
+  const { data: userProfile } = useQuery<{ track_calories: boolean } | null>({
+    queryKey: ['userProfileForMealListDisplay', userId],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      if (!userId) return null;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('track_calories')
+        .eq('id', userId)
+        .single();
+      if (error && error.code !== 'PGRST116') {
+        console.error("Error fetching profile for meal list calorie display:", error);
+        return { track_calories: false }; 
+      }
+      return data || { track_calories: false };
+    },
+    enabled: !!userId,
+  });
+
+
+  const { data: meals, isLoading, error } = useQuery<Meal[]>({
+    queryKey: ["meals", userId], // Add userId to queryKey if meals are user-specific
+    queryFn: async () => {
+      if (!userId) return []; // Or throw error if user must be present
+      const { data: { user } } = await supabase.auth.getUser(); // Re-check user for safety, though userId should be set
       if (!user) throw new Error("User not logged in.");
 
       const { data, error } = await supabase
         .from("meals")
-        .select("id, name, ingredients, instructions, user_id, meal_tags, image_url") 
+        .select("id, name, ingredients, instructions, user_id, meal_tags, image_url, estimated_calories") // Added estimated_calories
         .eq("user_id", user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       return data || [];
     },
+    enabled: !!userId, // Only run query if userId is available
   });
 
   const deleteMealMutation = useMutation({
@@ -80,7 +111,7 @@ const MealList = () => {
     },
     onSuccess: () => {
       showSuccess("Meal deleted successfully!");
-      queryClient.invalidateQueries({ queryKey: ["meals"] });
+      queryClient.invalidateQueries({ queryKey: ["meals", userId] });
       queryClient.invalidateQueries({ queryKey: ["mealPlans"] });
       queryClient.invalidateQueries({ queryKey: ["groceryListSource"] });
       queryClient.invalidateQueries({ queryKey: ["todaysGroceryListSource"] });
@@ -249,7 +280,7 @@ const MealList = () => {
                          <img
                            src={meal.image_url}
                            alt={meal.name}
-                           className="h-full w-full object-cover" // Changed to w-full and object-cover for better fit
+                           className="h-full w-full object-cover" 
                            onError={(e) => (e.currentTarget.style.display = 'none')} 
                          />
                        </div>
@@ -263,23 +294,29 @@ const MealList = () => {
                           ))}
                         </div>
                       )}
+                       {userProfile?.track_calories && meal.estimated_calories && (
+                        <div className="mt-1.5 text-xs text-primary flex items-center">
+                          <Zap size={12} className="mr-1" />
+                          Est. Calories: {meal.estimated_calories}
+                        </div>
+                      )}
                     </div>
-                    <div className="flex flex-col space-y-2 flex-shrink-0 ml-2"> {/* Changed to flex-col for button stacking */}
+                    <div className="flex flex-col space-y-2 flex-shrink-0 ml-2"> 
                       <Button 
                         variant="outline" 
                         onClick={() => handleEditClick(meal)} 
                         aria-label="Edit meal"
-                        className="h-12 w-12 md:h-14 md:w-14 p-0" // Increased size
+                        className="h-12 w-12 md:h-14 md:w-14 p-0" 
                       >
-                        <Edit3 className="h-6 w-6 md:h-7 md:w-7" /> {/* Increased icon size */}
+                        <Edit3 className="h-6 w-6 md:h-7 md:w-7" /> 
                       </Button>
                       <Button 
                         variant="destructive" 
                         onClick={() => handleDeleteClick(meal)} 
                         aria-label="Delete meal"
-                        className="h-12 w-12 md:h-14 md:w-14 p-0" // Increased size
+                        className="h-12 w-12 md:h-14 md:w-14 p-0" 
                       >
-                        <Trash2 className="h-6 w-6 md:h-7 md:w-7" /> {/* Increased icon size */}
+                        <Trash2 className="h-6 w-6 md:h-7 md:w-7" /> 
                       </Button>
                     </div>
                   </div>

@@ -19,7 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Trash2, Brain, XCircle, Info, Link2 } from "lucide-react"; // Added Link2
+import { PlusCircle, Trash2, Brain, XCircle, Info, Link2, Zap } from "lucide-react"; // Added Zap
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -50,6 +50,7 @@ const mealFormSchema = z.object({
   instructions: z.string().optional(),
   meal_tags: z.array(z.string()).optional(),
   image_url: z.string().optional(),
+  estimated_calories: z.string().optional(), // Added estimated_calories
 });
 
 type MealFormValues = z.infer<typeof mealFormSchema>;
@@ -78,6 +79,7 @@ const MealForm: React.FC<MealFormProps> = ({ generationStatus, isLoadingProfile 
       instructions: "",
       meal_tags: [],
       image_url: "",
+      estimated_calories: "", // Added default
     },
   });
 
@@ -112,6 +114,7 @@ const MealForm: React.FC<MealFormProps> = ({ generationStatus, isLoadingProfile 
             instructions: values.instructions,
             meal_tags: values.meal_tags,
             image_url: values.image_url,
+            estimated_calories: values.estimated_calories, // Save estimated_calories
           },
         ])
         .select();
@@ -129,6 +132,7 @@ const MealForm: React.FC<MealFormProps> = ({ generationStatus, isLoadingProfile 
         instructions: "",
         meal_tags: [],
         image_url: "",
+        estimated_calories: "", // Reset estimated_calories
       });
       setShowImageUrlInput(false); // Reset this state too
       queryClient.invalidateQueries({ queryKey: ["meals"] });
@@ -379,6 +383,26 @@ const MealForm: React.FC<MealFormProps> = ({ generationStatus, isLoadingProfile 
                   <FormControl>
                     <Textarea placeholder="Cooking steps..." {...field} rows={5} />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <FormField
+              control={form.control}
+              name="estimated_calories"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center">
+                    <Zap className="mr-2 h-4 w-4 text-primary" />
+                    Estimated Calories (Optional)
+                  </FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., 550 or 500-600 kcal" {...field} />
+                  </FormControl>
+                  <FormDescription>
+                    Enter a number or a range for the meal's estimated calorie count.
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
