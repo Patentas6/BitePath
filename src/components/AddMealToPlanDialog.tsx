@@ -156,7 +156,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl"> {/* Changed from sm:max-w-md to sm:max-w-xl */}
+      <DialogContent className="sm:max-w-3xl"> {/* Changed from sm:max-w-xl to sm:max-w-3xl */}
         <DialogHeader>
           <DialogTitle>Add / Change Meal</DialogTitle> 
           <DialogDescription>
