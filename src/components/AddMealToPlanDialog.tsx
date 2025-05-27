@@ -79,11 +79,19 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
 
   useEffect(() => {
     if (open) {
-      setSelectedTags([]);
+      setSelectedTags([]); // Reset tags first
       setSearchTerm("");
       setSelectedMealId(undefined);
-      const validInitialType = PLANNING_MEAL_TYPES.find(type => type === initialMealType);
-      setSelectedMealType(validInitialType || undefined);
+
+      // Set the meal type for saving, based on the slot clicked in the planner
+      const validInitialPlanningType = PLANNING_MEAL_TYPES.find(type => type === initialMealType);
+      setSelectedMealType(validInitialPlanningType || undefined);
+
+      // Pre-select tag if initialMealType is a valid MealTag (e.g., "Breakfast", "Lunch")
+      if (initialMealType && MEAL_TAG_OPTIONS.includes(initialMealType as MealTag)) {
+        setSelectedTags([initialMealType as MealTag]);
+      }
+      
     } else {
       setIsComboboxOpen(false); // Close combobox when dialog closes
     }
@@ -145,7 +153,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
 
   const handleSave = () => {
     if (!selectedMealId || !planDate || !selectedMealType) { 
-      showError("Please select a meal and a meal type.");
+      showError("Please select a meal. The meal type is set by the planner slot.");
       return;
     }
     const plan_date_str = format(planDate, "yyyy-MM-dd");
@@ -160,21 +168,12 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
         <DialogHeader>
           <DialogTitle>Add / Change Meal</DialogTitle> 
           <DialogDescription>
-            Select a meal and a meal type for {format(planDate, "EEEE, MMM dd, yyyy")}. 
+            For {initialMealType ? `${initialMealType} on ` : ''}{format(planDate, "EEEE, MMM dd, yyyy")}.
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-1 items-center gap-2">
-            <Label htmlFor="meal-type-buttons" className="text-sm font-medium">Meal Type</Label>
-            <div id="meal-type-buttons" className="flex flex-wrap gap-2">
-              {PLANNING_MEAL_TYPES.map(type => (
-                <Button key={type} variant={selectedMealType === type ? "default" : "outline"} size="sm" onClick={() => setSelectedMealType(type)} className="text-xs px-3 py-1.5 h-auto">
-                  {type}
-                </Button>
-              ))}
-            </div>
-          </div>
+          {/* Meal Type selection UI is removed as it's determined by initialMealType */}
 
           <div>
             <Label className="text-sm font-medium">Filter by tags:</Label>
