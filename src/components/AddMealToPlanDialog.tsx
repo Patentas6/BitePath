@@ -210,6 +210,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
                 sideOffset={5} 
                 className="w-[--radix-popover-trigger-width] p-0 max-h-72 overflow-y-auto" 
                 align="start"
+                avoidCollisions={false}
               >
                 <Command shouldFilter={false}> 
                   <CommandInput 
