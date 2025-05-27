@@ -55,28 +55,28 @@ export const calculateCaloriesPerServing = (
   servingsStr: string | null | undefined
 ): number | null => {
   const totalCalories = parseFirstNumber(totalCaloriesStr);
-  
   let servings: number | null = null;
 
   if (servingsStr && servingsStr.trim() !== "") {
     servings = extractServingsCount(servingsStr);
   }
 
-  // If servingsStr didn't yield a number, try to extract from totalCaloriesStr as a fallback
-  // This is less ideal but can catch cases where servings are embedded like "500 calories (serves 2)"
-  // Only do this if servings is still null AND totalCaloriesStr is present.
   if (servings === null && totalCaloriesStr) {
     const servingsFromCalorieStr = extractServingsCount(totalCaloriesStr);
     if (servingsFromCalorieStr) {
-        // console.log(`[mealUtils] Extracted servings (${servingsFromCalorieStr}) from calorie string: "${totalCaloriesStr}"`);
         servings = servingsFromCalorieStr;
     }
   }
   
-  // console.log(`[mealUtils] Final values - TotalCal: ${totalCalories}, Servings: ${servings}`);
+  // Added detailed logging
+  console.log(`[mealUtils] calculateCPS Input: totalStr="${totalCaloriesStr}", servStr="${servingsStr}"`);
+  console.log(`[mealUtils] calculateCPS Parsed: totalNum=${totalCalories}, servNum=${servings}`);
 
   if (totalCalories !== null && servings !== null && servings > 0) {
-    return Math.round(totalCalories / servings);
+    const result = Math.round(totalCalories / servings);
+    console.log(`[mealUtils] calculateCPS Result: ${result} (from ${totalCalories}/${servings})`);
+    return result;
   }
+  console.log(`[mealUtils] calculateCPS Result: null (condition not met for calculation)`);
   return null;
 };
