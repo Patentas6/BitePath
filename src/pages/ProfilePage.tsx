@@ -10,17 +10,19 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription as ShadcnCardDescription } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Switch } from "@/components/ui/switch"; // Added Switch
 import { useNavigate, Link } from "react-router-dom";
 import type { User } from "@supabase/supabase-js";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 import { Textarea } from "@/components/ui/textarea";
-import { LogOut } from "lucide-react"; // Import LogOut icon
+import { LogOut } from "lucide-react"; 
 
 const profileFormSchema = z.object({
   first_name: z.string().min(1, "First name is required.").max(50, "First name cannot exceed 50 characters."),
   last_name: z.string().min(1, "Last name is required.").max(50, "Last name cannot exceed 50 characters."),
   ai_preferences: z.string().optional(),
   preferred_unit_system: z.enum(["imperial", "metric"]).default("imperial"),
+  track_calories: z.boolean().default(false).optional(), // Added track_calories
 });
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
@@ -30,6 +32,7 @@ interface ProfileData {
   last_name: string | null;
   ai_preferences: string | null;
   preferred_unit_system: "imperial" | "metric" | null;
+  track_calories: boolean | null; // Added track_calories
 }
 
 const ProfilePage = () => {
@@ -57,14 +60,24 @@ const ProfilePage = () => {
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
-    defaultValues: { first_name: "", last_name: "", ai_preferences: "", preferred_unit_system: "imperial" },
+    defaultValues: { 
+      first_name: "", 
+      last_name: "", 
+      ai_preferences: "", 
+      preferred_unit_system: "imperial",
+      track_calories: false, // Added default
+    },
   });
 
   const { data: profile, isLoading: isLoadingProfile, error: profileError } = useQuery<ProfileData | null>({
     queryKey: ["userProfile", userId],
     queryFn: async () => {
       if (!userId) return null;
-      const { data, error } = await supabase.from("profiles").select("id, first_name, last_name, ai_preferences, preferred_unit_system").eq("id", userId).single();
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, first_name, last_name, ai_preferences, preferred_unit_system, track_calories") // Added track_calories
+        .eq("id", userId)
+        .single();
       if (error && error.code !== 'PGRST116') throw error;
       return data;
     },
@@ -78,16 +91,31 @@ const ProfilePage = () => {
         last_name: profile.last_name || "",
         ai_preferences: profile.ai_preferences || "",
         preferred_unit_system: profile.preferred_unit_system || "imperial",
+        track_calories: profile.track_calories || false, // Added track_calories
       });
     } else if (!isLoadingProfile && userId) {
-      form.reset({ first_name: "", last_name: "", ai_preferences: "", preferred_unit_system: "imperial" });
+      form.reset({ 
+        first_name: "", 
+        last_name: "", 
+        ai_preferences: "", 
+        preferred_unit_system: "imperial",
+        track_calories: false, // Added default
+      });
     }
   }, [profile, isLoadingProfile, userId, form]);
 
   const updateProfileMutation = useMutation({
     mutationFn: async (values: ProfileFormValues) => {
       if (!userId) throw new Error("User not authenticated.");
-      const { data, error } = await supabase.from("profiles").upsert({ id: userId, ...values }).select();
+      const updateData = {
+        id: userId,
+        first_name: values.first_name,
+        last_name: values.last_name,
+        ai_preferences: values.ai_preferences,
+        preferred_unit_system: values.preferred_unit_system,
+        track_calories: values.track_calories, // Added track_calories
+      };
+      const { data, error } = await supabase.from("profiles").upsert(updateData).select();
       if (error) throw error;
       return data;
     },
@@ -96,6 +124,8 @@ const ProfilePage = () => {
       queryClient.invalidateQueries({ queryKey: ["userProfile", userId] }); 
       queryClient.invalidateQueries({ queryKey: ["userProfileForGenerationLimits"] });
       queryClient.invalidateQueries({ queryKey: ["userProfileForAddMealLimits"] });
+      queryClient.invalidateQueries({ queryKey: ["userProfileForGrocery"] });
+      queryClient.invalidateQueries({ queryKey: ["userProfileDataForHeader"] });
       queryClient.invalidateQueries({ queryKey: ["groceryListSource"] });
       queryClient.invalidateQueries({ queryKey: ["todaysGroceryListSource"] });
       navigate("/dashboard"); 
@@ -111,6 +141,7 @@ const ProfilePage = () => {
       showError(`Logout failed: ${error.message}`);
     } else {
       showSuccess("Logged out successfully.");
+      // Navigation to /auth is handled by onAuthStateChange in AppHeader and ProtectedRoute
     }
   };
 
@@ -139,7 +170,7 @@ const ProfilePage = () => {
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle>Your Profile</CardTitle>
-            <ShadcnCardDescription>Update your display name, AI preferences, and unit system. Saving will take you to the home screen.</ShadcnCardDescription>
+            <ShadcnCardDescription>Update your display name, AI preferences, and other settings. Saving will take you to the home screen.</ShadcnCardDescription>
           </CardHeader>
           <CardContent>
             <Form {...form}>
@@ -225,6 +256,29 @@ const ProfilePage = () => {
                         </RadioGroup>
                       </FormControl>
                       <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="track_calories"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                      <div className="space-y-0.5">
+                        <FormLabel className="text-base">
+                          Track Calories
+                        </FormLabel>
+                        <FormDescription>
+                          Enable to have AI estimate calories for generated meals and display them in your plans.
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          disabled={updateProfileMutation.isPending || isLoadingProfile}
+                        />
+                      </FormControl>
                     </FormItem>
                   )}
                 />
