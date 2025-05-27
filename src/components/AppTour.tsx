@@ -49,14 +49,14 @@ interface AppTourProps {
 
 const AppTour: React.FC<AppTourProps> = ({ startTour, userId, onTourEnd }) => {
   const [run, setRun] = useState(false);
-  const [dontShowAgain, setDontShowAgain] = useState(false); // State for the checkbox
+  const [dontShowAgain, setDontShowAgain] = useState(false);
   const queryClient = useQueryClient();
 
   useEffect(() => {
     const timer = setTimeout(() => {
       setRun(startTour);
       if (startTour) {
-        setDontShowAgain(false); // Reset checkbox state when tour starts
+        setDontShowAgain(false); 
       }
     }, 500); 
     return () => clearTimeout(timer);
@@ -65,7 +65,7 @@ const AppTour: React.FC<AppTourProps> = ({ startTour, userId, onTourEnd }) => {
   const persistTourCompletionPreference = async () => {
     if (!userId) return;
 
-    if (dontShowAgain) { // Only update Supabase if checkbox was checked
+    if (dontShowAgain) { 
       try {
         const { error } = await supabase
           .from('profiles')
@@ -82,9 +82,6 @@ const AppTour: React.FC<AppTourProps> = ({ startTour, userId, onTourEnd }) => {
       }
     } else {
       console.log("Tour ended, 'Don't show again' was not selected. Profile 'has_completed_tour' not updated by tour end.");
-      // If the tour was showing, has_completed_tour was likely false. It remains false.
-      // We still might want to invalidate to ensure the dashboard re-evaluates if it should show the tour
-      // if other conditions change, though typically it won't re-show in the same session unless `run` is set true again.
       queryClient.invalidateQueries({ queryKey: ['userProfileForDashboardTour', userId] });
     }
     if (onTourEnd) onTourEnd();
@@ -100,13 +97,11 @@ const AppTour: React.FC<AppTourProps> = ({ startTour, userId, onTourEnd }) => {
     } else if (type === EVENTS.TARGET_NOT_FOUND) {
         console.warn(`Tour target not found: ${data.step.target}`);
     } else if (type === EVENTS.TOUR_END && (action === 'reset' || action === 'stop')) {
-        // This case might be redundant if FINISHED/SKIPPED/close cover all exits
         setRun(false);
         persistTourCompletionPreference();
     }
   };
 
-  // Custom Tooltip Component
   const CustomTooltipComponent = ({
     continuous,
     index,
@@ -121,25 +116,30 @@ const AppTour: React.FC<AppTourProps> = ({ startTour, userId, onTourEnd }) => {
     <div {...tooltipProps} className="bg-background p-4 rounded-lg shadow-xl w-72 text-foreground border border-border">
       {step.title && <h4 className="text-lg font-semibold mb-2 text-primary">{step.title}</h4>}
       <div className="text-sm mb-4">{step.content}</div>
-      <div className="mt-4">
-        <div className="flex items-center mb-3">
-          <Checkbox
-            id={`joyride-dont-show-again-${index}`} // Unique ID per step if needed, though state is global
-            checked={dontShowAgain}
-            onCheckedChange={(checked) => setDontShowAgain(checked as boolean)}
-            className="mr-2 border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
-          />
-          <Label htmlFor={`joyride-dont-show-again-${index}`} className="text-xs cursor-pointer">
-            Don't show this again
-          </Label>
-        </div>
-        <div className="flex items-center justify-end space-x-2">
+      
+      <div className="flex items-center mb-3">
+        <Checkbox
+          id={`joyride-dont-show-again-${index}`}
+          checked={dontShowAgain}
+          onCheckedChange={(checked) => setDontShowAgain(checked as boolean)}
+          className="mr-2 border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
+        />
+        <Label htmlFor={`joyride-dont-show-again-${index}`} className="text-xs cursor-pointer">
+          Don't show this again
+        </Label>
+      </div>
+
+      <div className="flex items-center justify-between mt-4">
+        <span className="text-xs text-muted-foreground">
+          Step {index + 1} of {size}
+        </span>
+        <div className="flex items-center space-x-2">
           {index > 0 && <Button {...backProps} variant="outline" size="sm">Back</Button>}
+          {/* Ensure Skip button is always rendered if skipProps exist */}
+          {skipProps && <Button {...skipProps} variant="ghost" size="sm">Skip Tour</Button>}
+          {/* Next/Finish button logic */}
           {continuous && !isLastStep && <Button {...primaryProps} size="sm">Next</Button>}
           {continuous && isLastStep && <Button {...primaryProps} size="sm">Finish</Button>}
-          {!continuous && skipProps && ( // Show skip if not continuous (though our tour is continuous)
-            <Button {...skipProps} variant="ghost" size="sm">Skip</Button>
-          )}
         </div>
       </div>
     </div>
@@ -153,15 +153,13 @@ const AppTour: React.FC<AppTourProps> = ({ startTour, userId, onTourEnd }) => {
       run={run}
       callback={handleJoyrideCallback}
       continuous
-      showProgress={false} // Progress bar might feel cluttered with custom tooltip
-      showSkipButton={true} // Still allow skipping the whole tour
-      tooltipComponent={CustomTooltipComponent} // Use custom tooltip
+      showProgress={false} 
+      showSkipButton={true} // This prop enables skipProps to be passed to tooltipComponent
+      tooltipComponent={CustomTooltipComponent}
       styles={{
         options: {
           zIndex: 10000,
-          // Primary color for buttons etc. will be handled by shadcn Button variants
         },
-        // No need for buttonNext, buttonBack, buttonSkip styles if using custom tooltip with shadcn buttons
       }}
     />
   );
