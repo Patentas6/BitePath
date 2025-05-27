@@ -378,7 +378,12 @@ The meal should still generally be a ${mealType || 'general'} type.`;
                     return new Response(JSON.stringify({ 
                         error: `You have reached your monthly image generation limit of ${IMAGE_GENERATION_LIMIT_PER_MONTH}.`,
                         // Include mealData if it was part of the original request and image failed
-                        ...(requestBody.mealData && { mealData: generatedMealData }) 
+                        ...(requestBody.mealData && { 
+                            mealData: {
+                                ...generatedMealData, // Spread existing generatedMealData
+                                image_url: generatedMealData?.image_url // Ensure image_url is explicitly what it was
+                            }
+                        }) 
                     }), {
                         status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
                     });
@@ -451,7 +456,12 @@ The meal should still generally be a ${mealType || 'general'} type.`;
     // Response logic
     if (requestBody.mealData) { // If the original request was specifically for an image for mealData
          return new Response(
-            JSON.stringify({ image_url: generatedMealData?.image_url }), 
+            JSON.stringify({ 
+                image_url: generatedMealData?.image_url,
+                // Also return the calorie and serving info that was part of the input mealData
+                estimated_calories: generatedMealData?.estimated_calories,
+                servings: generatedMealData?.servings
+            }), 
             { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
          );
     } else if (generatedMealData) { // If the original request was for recipe text (and then image)

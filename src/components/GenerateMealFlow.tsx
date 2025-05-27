@@ -154,7 +154,8 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
             queryClient.invalidateQueries({ queryKey: ['userProfileForMealEntryLimits', userId] });
             return null; 
         }
-        setGeneratedMeal({ ...data, image_url: generatedMeal?.image_url }); 
+        // Preserve existing image_url if refining, otherwise it will be set by image generation if successful
+        setGeneratedMeal({ ...data, image_url: params.isRefinement ? generatedMeal?.image_url : undefined }); 
         setRefinementPrompt(''); 
         showSuccess(params.isRefinement ? "Recipe refined!" : "Recipe generated!");
         queryClient.invalidateQueries({ queryKey: ['userProfileForMealEntryLimits', userId] });
@@ -182,6 +183,7 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
       setIsGeneratingImage(true);
       const loadingToastId = showLoading("Generating image...");
       try {
+        // Pass the full current generatedMeal state as mealData
         const { data, error: functionError } = await supabase.functions.invoke('generate-meal', {
           body: { mealData: mealToGetImageFor }, 
         });
@@ -197,12 +199,19 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
         }
         if (data?.error) { 
             showError(data.error); 
+            // If the function returns mealData (even with an error), update the state
             if (data.mealData) setGeneratedMeal(prev => ({...prev!, ...data.mealData}));
             queryClient.invalidateQueries({ queryKey: ['userProfileForMealEntryLimits', userId] });
             return null;
         }
-        if (data?.image_url) {
-          setGeneratedMeal(prev => prev ? { ...prev, image_url: data.image_url } : null);
+        // Expecting data to be { image_url, estimated_calories, servings }
+        if (data?.image_url !== undefined) { // Check if image_url is part of the response
+          setGeneratedMeal(prev => prev ? { 
+            ...prev, 
+            image_url: data.image_url,
+            estimated_calories: data.estimated_calories !== undefined ? data.estimated_calories : prev.estimated_calories,
+            servings: data.servings !== undefined ? data.servings : prev.servings,
+          } : null);
           showSuccess("Image generated!");
           setTimeout(() => { 
             recipeCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
