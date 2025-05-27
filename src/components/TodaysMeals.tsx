@@ -43,7 +43,7 @@ const exampleMealsData = [
     meal_type: 'Breakfast', 
     meals: { 
       name: 'Example: Yogurt & Granola', 
-      image_url: null, 
+      image_url: 'https://placehold.co/100x100/E0E7FF/4338CA?text=Breakfast', 
       estimated_calories: '350 kcal', 
       servings: '1' 
     } 
@@ -53,7 +53,7 @@ const exampleMealsData = [
     meal_type: 'Lunch', 
     meals: { 
       name: 'Example: Salad with Chicken', 
-      image_url: null,
+      image_url: 'https://placehold.co/100x100/D1FAE5/065F46?text=Lunch',
       estimated_calories: '500 kcal', 
       servings: '1' 
     } 
@@ -63,7 +63,7 @@ const exampleMealsData = [
     meal_type: 'Dinner', 
     meals: { 
       name: 'Example: Pasta Primavera', 
-      image_url: null,
+      image_url: 'https://placehold.co/100x100/FEF3C7/92400E?text=Dinner',
       estimated_calories: '600 kcal', 
       servings: '1' 
     } 
@@ -74,12 +74,10 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
   const today = startOfToday();
   const todayStr = format(today, 'yyyy-MM-dd');
   
-  // All useState hooks at the top
   const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
   const [isChangeMealDialogOpen, setIsChangeMealDialogOpen] = useState(false);
   const [mealToChange, setMealToChange] = useState<{ planDate: Date; mealType: PlanningMealType | string | null } | null>(null);
 
-  // All useQuery hooks
   const { data: userProfile, isLoading: isLoadingProfile } = useQuery<UserProfileData | null>({
     queryKey: ['userProfileForTodaysMeals', userId],
     queryFn: async () => {
@@ -113,7 +111,6 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
     enabled: !!userId,
   });
 
-  // All useMemo hooks
   const sortedMealPlans = useMemo(() => {
     if (!mealPlans) return [];
     return [...mealPlans].sort((a, b) => {
@@ -134,11 +131,7 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
     }, 0);
   }, [sortedMealPlans, userProfile]);
 
-  // Calculate isLoading *after* all data-fetching hooks
   const isLoading = isLoadingMealPlans || isLoadingProfile;
-  
-  // Calculate showExampleData *after* isLoading, error, and sortedMealPlans are determined
-  // This ensures sortedMealPlans is based on the latest mealPlans data before this check
   const showExampleData = !isLoading && !error && sortedMealPlans.length === 0;
 
   const exampleTotalCalories = useMemo(() => {
@@ -149,12 +142,9 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
     }, 0);
   }, [showExampleData, userProfile]);
 
-
-  // Early returns *after* all hooks have been called
   if (isLoading) return <Card className="hover:shadow-lg transition-shadow duration-200"><CardHeader><CardTitle>Today's Meals</CardTitle></CardHeader><CardContent><Skeleton className="h-32 w-full" /></CardContent></Card>;
   if (error) return <Card className="hover:shadow-lg transition-shadow duration-200"><CardHeader><CardTitle>Today's Meals</CardTitle></CardHeader><CardContent><p className="text-red-500 dark:text-red-400">Error loading today's meals.</p></CardContent></Card>;
 
-  // Remaining component logic
   const handleChangeMealClick = (planDate: Date, mealType: PlanningMealType | string | null) => {
     setMealToChange({ planDate, mealType });
     setIsChangeMealDialogOpen(true);
@@ -183,7 +173,7 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
           )}
         </CardHeader>
         <CardContent className="flex-grow">
-          {displayPlans.length === 0 && !showExampleData ? (
+          {displayPlans.length === 0 && !showExampleData ? ( 
             <div className="text-center py-6 text-muted-foreground">
               <UtensilsCrossed className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500 mb-4" />
               <p className="text-lg font-semibold mb-1">No Meals Planned</p>
@@ -204,7 +194,17 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
                           src={plannedMeal.meals.image_url}
                           alt={plannedMeal.meals.name || 'Meal image'}
                           className="h-full w-full object-cover"
-                          onError={(e) => (e.currentTarget.style.display = 'none')}
+                          onError={(e) => {
+                            const target = e.currentTarget as HTMLImageElement;
+                            target.style.display = 'none';
+                            const parent = target.parentElement;
+                            if (parent) {
+                              const iconContainer = document.createElement('div');
+                              iconContainer.className = "h-24 w-24 rounded-md flex-shrink-0 flex items-center justify-center bg-muted text-muted-foreground";
+                              iconContainer.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>'; // ImageIcon
+                              parent.appendChild(iconContainer);
+                            }
+                          }}
                         />
                       </div>
                      ) : (
