@@ -218,7 +218,7 @@ const GenerateMealPage = () => {
             } else {
                  showError(`Recipe generation failed: ${functionError.message}`);
             }
-            refetchUserProfile(); // Refetch profile to update counts if server changed them
+            refetchUserProfile(); 
             return null;
         }
         if (data?.error) { 
@@ -229,7 +229,7 @@ const GenerateMealPage = () => {
         setGeneratedMeal({ ...data, image_url: undefined }); 
         setRefinementPrompt(''); 
         showSuccess(params.isRefinement ? "Recipe refined!" : "Recipe generated!");
-        refetchUserProfile(); // Refetch profile to update counts
+        refetchUserProfile(); 
         return data;
       } catch (error: any) { 
         dismissToast(loadingToastId);
@@ -365,7 +365,6 @@ const GenerateMealPage = () => {
     if (recipeGenerationStatus.periodResetsToday && recipeGenerationStatus.generationsUsedThisPeriod === 0) {
       resetText = `New period started. Resets in ${RECIPE_GENERATION_PERIOD_DAYS} days.`;
     } else if (recipeGenerationStatus.daysRemainingInPeriod === RECIPE_GENERATION_PERIOD_DAYS && recipeGenerationStatus.generationsUsedThisPeriod > 0) {
-      // This case might happen if period just reset but a generation happened before UI update
       resetText = `Resets in ${recipeGenerationStatus.daysRemainingInPeriod} days.`;
     } 
     else {
@@ -463,23 +462,27 @@ const GenerateMealPage = () => {
         {generatedMeal && (
           <Card>
             <CardHeader>
-              {generatedMeal.image_url && (
-                <div
-                  className="cursor-pointer w-full h-48 flex items-center justify-center overflow-hidden rounded-t-md mb-4 bg-muted"
-                  onClick={() => setViewingImageUrl(generatedMeal.image_url || null)}
-                >
-                  <img
-                    src={generatedMeal.image_url}
-                    alt={`Image of ${generatedMeal.name}`}
-                    className="h-full object-contain"
-                    onError={(e) => (e.currentTarget.style.display = 'none')}
-                  />
+              <div className="flex justify-between items-start gap-4">
+                <div className="flex-grow">
+                  <CardTitle>{generatedMeal.name}</CardTitle>
+                  <CardDescription>
+                    {generatedMeal.image_url ? "Generated Recipe & Image" : "Generated Recipe Text"}
+                  </CardDescription>
                 </div>
-              )}
-              <CardTitle>{generatedMeal.name}</CardTitle>
-              <CardDescription>
-                {generatedMeal.image_url ? "Generated Recipe & Image" : "Generated Recipe Text"}
-              </CardDescription>
+                {generatedMeal.image_url && (
+                  <div
+                    className="cursor-pointer w-auto h-72 flex-shrink-0 rounded-md bg-muted" // Adjusted: w-auto, h-72
+                    onClick={() => setViewingImageUrl(generatedMeal.image_url || null)}
+                  >
+                    <img
+                      src={generatedMeal.image_url}
+                      alt={`Image of ${generatedMeal.name}`}
+                      className="h-full object-contain rounded-md" // Image fills height, width auto
+                      onError={(e) => (e.currentTarget.style.display = 'none')}
+                    />
+                  </div>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
