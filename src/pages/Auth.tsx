@@ -39,20 +39,21 @@ const Auth = () => {
   }, [location.search, form]);
 
   useEffect(() => {
+    // This handles users who are already logged in when they land on /auth
     const checkSessionAndRedirect = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('first_name')
+          .select('first_name') // Just need to know if profile exists broadly
           .eq('id', session.user.id)
           .single();
         
         if (profile && profile.first_name) {
-          console.log('[Auth.tsx] checkSessionAndRedirect: User already has profile, navigating to dashboard.');
+          console.log('[Auth.tsx] checkSessionAndRedirect: Session exists, profile seems complete. Navigating to dashboard.');
           navigate("/dashboard", { replace: true });
         } else {
-          console.log('[Auth.tsx] checkSessionAndRedirect: User session exists but no profile/first_name, navigating to profile.');
+          console.log('[Auth.tsx] checkSessionAndRedirect: Session exists, profile might be incomplete. Navigating to profile.');
           navigate("/profile", { replace: true });
         }
       } else {
@@ -61,31 +62,15 @@ const Auth = () => {
     };
     checkSessionAndRedirect();
 
+    // This handles the event of an active sign-in action on this page
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('[Auth.tsx] onAuthStateChange event:', event, 'session:', session);
+      console.log('[Auth.tsx] onAuthStateChange event:', event);
       if (event === "SIGNED_IN" && session) {
         showSuccess("Logged in successfully!");
-        console.log('[Auth.tsx] SIGNED_IN event. Preparing to navigate with tour state.');
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('first_name, last_name')
-          .eq('id', session.user.id)
-          .single();
-
-        if (profileError && profileError.code !== 'PGRST116') { 
-          console.error("[Auth.tsx] Error fetching profile after sign in:", profileError);
-          console.log('[Auth.tsx] Navigating to /dashboard (due to profile fetch error) with justLoggedInForTour: true');
-          navigate("/dashboard", { replace: true, state: { justLoggedInForTour: true } }); 
-          return;
-        }
-
-        if (profile && profile.first_name && profile.last_name) {
-          console.log('[Auth.tsx] Navigating to /dashboard with justLoggedInForTour: true');
-          navigate("/dashboard", { replace: true, state: { justLoggedInForTour: true } });
-        } else {
-          console.log('[Auth.tsx] Navigating to /profile with justLoggedInForTour: true');
-          navigate("/profile", { replace: true, state: { justLoggedInForTour: true } });
-        }
+        console.log('[Auth.tsx] SIGNED_IN event detected. Navigating to /dashboard with justLoggedInForTour: true state.');
+        // Directly navigate to dashboard with the tour state.
+        // Dashboard or Profile page can handle profile completeness checks if needed.
+        navigate("/dashboard", { replace: true, state: { justLoggedInForTour: true } });
       }
     });
     return () => {
