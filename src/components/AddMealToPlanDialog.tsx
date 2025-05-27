@@ -26,11 +26,13 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Search, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface Meal {
   id: string;
   name: string;
   meal_tags?: string[] | null;
+  image_url?: string | null; // Added image_url
 }
 
 interface AddMealToPlanDialogProps {
@@ -38,7 +40,7 @@ interface AddMealToPlanDialogProps {
   onOpenChange: (open: boolean) => void;
   planDate: Date | null;
   userId: string | null;
-  initialMealType?: PlanningMealType | string | null; // Allow string for flexibility from DB
+  initialMealType?: PlanningMealType | string | null; 
 }
 
 const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
@@ -55,12 +57,12 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
   const queryClient = useQueryClient();
 
   const { data: meals, isLoading: isLoadingMeals, error: mealsError } = useQuery<Meal[]>({
-    queryKey: ["userMealsWithTags", userId],
+    queryKey: ["userMealsWithTagsAndImages", userId], // Updated queryKey for clarity
     queryFn: async () => {
       if (!userId) throw new Error("User ID is required to fetch meals.");
       const { data, error } = await supabase
         .from("meals")
-        .select("id, name, meal_tags")
+        .select("id, name, meal_tags, image_url") // Added image_url to select
         .eq("user_id", userId);
       if (error) throw error;
       return data || [];
@@ -73,7 +75,6 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
       setSelectedTags([]);
       setSearchTerm("");
       setSelectedMealId(undefined);
-      // Ensure initialMealType is valid before setting
       const validInitialType = PLANNING_MEAL_TYPES.find(type => type === initialMealType);
       setSelectedMealType(validInitialType || undefined);
     }
@@ -162,20 +163,23 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
-           <div className="grid grid-cols-1 items-center gap-4">
-            <Label htmlFor="meal-type-select" className="text-sm font-medium">
+           <div className="grid grid-cols-1 items-center gap-2"> {/* Reduced gap */}
+            <Label htmlFor="meal-type-buttons" className="text-sm font-medium">
               Meal Type
             </Label>
-            <Select value={selectedMealType} onValueChange={(value) => setSelectedMealType(value as PlanningMealType)}>
-              <SelectTrigger id="meal-type-select" className="w-full">
-                <SelectValue placeholder="Select meal type (e.g., Breakfast, Dinner)" />
-              </SelectTrigger>
-              <SelectContent>
-                {PLANNING_MEAL_TYPES.map(type => (
-                  <SelectItem key={type} value={type}>{type}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div id="meal-type-buttons" className="flex flex-wrap gap-2">
+              {PLANNING_MEAL_TYPES.map(type => (
+                <Button
+                  key={type}
+                  variant={selectedMealType === type ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedMealType(type)}
+                  className="text-xs px-3 py-1.5 h-auto" // Adjusted padding & height
+                >
+                  {type}
+                </Button>
+              ))}
+            </div>
           </div>
 
           <div className="relative">
@@ -227,15 +231,28 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
                   {filteredMeals && filteredMeals.length > 0 ? (
                     filteredMeals.map((meal) => (
                       <SelectItem key={meal.id} value={meal.id}>
-                        <div className="flex flex-col">
-                          <span>{meal.name}</span>
-                          {meal.meal_tags && meal.meal_tags.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {meal.meal_tags.map(tag => (
-                                <Badge key={tag} variant="secondary" className="text-xs px-1 py-0">{tag}</Badge>
-                              ))}
-                            </div>
+                        <div className="flex items-center space-x-3">
+                          {meal.image_url && (
+                            <img 
+                              src={meal.image_url} 
+                              alt={meal.name} 
+                              className="h-10 w-10 object-cover rounded-sm flex-shrink-0"
+                              onError={(e) => (e.currentTarget.style.display = 'none')}
+                            />
                           )}
+                          {!meal.image_url && (
+                             <div className="h-10 w-10 bg-muted rounded-sm flex-shrink-0"></div> // Placeholder
+                          )}
+                          <div className="flex flex-col">
+                            <span className="font-medium">{meal.name}</span>
+                            {meal.meal_tags && meal.meal_tags.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {meal.meal_tags.map(tag => (
+                                  <Badge key={tag} variant="secondary" className="text-xs px-1 py-0">{tag}</Badge>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </SelectItem>
                     ))
