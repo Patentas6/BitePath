@@ -5,7 +5,7 @@
 @layer base {
   :root {
     /* --- User's Custom Liked Light Mode Palette --- */
-    --background: 68 14.6% 79.8%; /* New Light Grayish-Green (#D1D3C4) - Page background */
+    --background: 0 0% 89.8%; /* New Light Gray (#e5e5e5) - Page background */
     --foreground: 40 100% 1.4%;  /* Black (#070500) - Main text */
 
     --card: 0 0% 100%; /* White - For cards */
@@ -21,7 +21,7 @@
     --secondary: 210 40% 96.1%; /* Light Gray - For secondary buttons/elements */
     --secondary-foreground: 40 100% 1.4%; /* Black - Text on light gray secondary elements */
 
-    --muted: 68 12% 75%; /* Slightly darker/desaturated variant of new background */
+    --muted: 0 0% 85%; /* Slightly darker gray for muted backgrounds */
     --muted-foreground: 0 0% 30%;   /* Dark Gray - Muted text */
 
     --accent: 81.4 14.9% 18.4%; /* Dark Green/Brown (#313628) for headings */
@@ -30,7 +30,7 @@
     --destructive: 0 84.2% 60.2%; /* Standard Red */
     --destructive-foreground: 0 0% 100%; /* White */
 
-    --border: 68 12% 70%; /* Darker variant of new background - For borders */
+    --border: 0 0% 80%; /* Darker gray for borders */
     --input: 0 0% 100%; /* White - For input backgrounds */
     
     /* Ring Color - using primary orange for focus rings */
