@@ -2,9 +2,13 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
-import { LayoutDashboard, CalendarDays, BrainCircuit, ShoppingCart, ImagePlus, Info } from "lucide-react"; // Added ImagePlus for custom meal images, Info for About Us
+import { LayoutDashboard, CalendarDays, BrainCircuit, ShoppingCart, ImagePlus, Info } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+// Card components are not explicitly used in the final version of Index.tsx based on the last full render,
+// but keeping them in case any styling relies on their base classes or if they are intended for future use.
+// If not, they can be removed. For now, I'll keep them as they were in the previous version.
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
+
 
 const Index = () => {
   const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
@@ -45,7 +49,7 @@ const Index = () => {
       title: "Your Recipes, Beautifully Visualized",
       icon: ImagePlus,
       description: "Bring your family favorites and cherished recipes (like Grandma's secret sauce!) to BitePath. After adding them manually, you can generate a unique, appetizing AI image to make your personal cookbook shine.",
-      imageUrl: "/Add_Meal_With_Image.png", // Placeholder - you'll need to create this image
+      imageUrl: "/ADDMEAL.jpeg", // Updated image path
       imageAlt: "BitePath Add Meal with AI Image Generation Screenshot",
       textOrder: "md:order-2",
       imageOrder: "md:order-1",
@@ -57,7 +61,7 @@ const Index = () => {
       description: "Forget manual list-making. BitePath automatically compiles your shopping list from your meal plan. View items conveniently grouped by store category or see them meal-by-meal.",
       imageUrl: "/Grocery_List_by_Meal.png", 
       imageAlt: "BitePath Grocery List Screenshot",
-      textOrder: "md:order-1", // Adjusted order for variety
+      textOrder: "md:order-1", 
       imageOrder: "md:order-2",
     },
   ];
@@ -153,9 +157,9 @@ const Index = () => {
         </div>
       </section>
 
-      {/* About Us & Contact Section - New */}
+      {/* About Us & Contact Section - Updated */}
       <section id="about-us" className="w-full py-16 bg-background text-center">
-        <div className="container mx-auto px-4 max-w-3xl"> {/* Centered and max-width */}
+        <div className="container mx-auto px-4 max-w-3xl">
           <div className="flex justify-center items-center mb-4">
             <Info className="h-10 w-10 text-primary mr-3" />
             <h2 className="text-3xl font-bold">About Us & Contact</h2>
@@ -165,10 +169,9 @@ const Index = () => {
             giving you more time to enjoy delicious, home-cooked meals.
           </p>
           <p className="text-lg text-muted-foreground">
-            For feedback, support, or business inquiries, please [Your Contact Information/Method Will Go Here]. 
+            For feedback, support, or business inquiries, please contact Nikolas Panagiotou at <a href="mailto:thebitepath@gmail.com" className="text-primary hover:underline">thebitepath@gmail.com</a>.
             We'd love to hear from you!
           </p>
-          {/* You can add more details or a contact form component here later */}
         </div>
       </section>
 
