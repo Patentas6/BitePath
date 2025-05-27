@@ -273,7 +273,7 @@ Ensure the output is a *complete new recipe* in the specified JSON format, incor
 The meal should still generally be a ${mealType || 'general'} type.`;
             if (kinds && kinds.length > 0) prompt += ` It should still generally fit these kinds: ${kinds.join(', ')}.`;
             if (styles && styles.length > 0) prompt += ` The style should still generally be: ${styles.join(', ')}.`;
-            prompt += `\nIMPORTANT: If the refinement request involves changing the number of servings, ensure all ingredient quantities are scaled proportionally. For example, if changing from 2 servings to 4 servings, all ingredient quantities should be doubled. If changing from 4 servings to 2, quantities should be halved. Apply this scaling consistently to all ingredients. Do not invert the scaling for any ingredients.`;
+            prompt += `\nCRITICAL INSTRUCTION FOR SCALING SERVINGS: If the refinement request involves changing the number of servings (e.g., from '2 servings' to '4 servings', or vice-versa), you MUST adjust ALL ingredient quantities. Calculate the scaling factor (new servings / old servings). For EACH ingredient, multiply its original quantity by this scaling factor. For example, if changing from 2 to 4 servings, the factor is 2, so all quantities double. If changing from 4 to 2 servings, the factor is 0.5, so all quantities halve. This scaling MUST be applied consistently to every ingredient. Do not selectively scale or invert the scaling for any ingredients.`;
         } else {
             prompt += `\nThe meal should be a ${mealType || 'general'} type.`;
             if (kinds && kinds.length > 0) prompt += ` It should fit these kinds: ${kinds.join(', ')}.`;

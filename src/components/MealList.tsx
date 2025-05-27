@@ -23,7 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog"; 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; 
 import { cn } from "@/lib/utils"; 
-import { calculateCaloriesPerServing } from '@/utils/mealUtils'; // Import new util
+import { calculateCaloriesPerServing } from '@/utils/mealUtils'; 
 
 interface Meal extends MealForEditing {
   meal_tags?: string[] | null;
@@ -64,15 +64,17 @@ const MealList = () => {
     queryKey: ['userProfileForMealListDisplay', userId],
     queryFn: async () => {
       if (!userId) return null;
+      console.log("[MealList] Fetching profile for calorie display, userId:", userId);
       const { data, error } = await supabase
         .from('profiles')
         .select('track_calories')
         .eq('id', userId)
         .single();
       if (error && error.code !== 'PGRST116') {
-        console.error("Error fetching profile for meal list calorie display:", error);
+        console.error("[MealList] Error fetching profile for meal list calorie display:", error);
         return { track_calories: false }; 
       }
+      console.log("[MealList] Profile fetched:", data);
       return data || { track_calories: false };
     },
     enabled: !!userId,
@@ -85,7 +87,7 @@ const MealList = () => {
       if (!userId) return []; 
       const { data: { user } } = await supabase.auth.getUser(); 
       if (!user) throw new Error("User not logged in.");
-
+      console.log("[MealList] Fetching meals, userId:", userId);
       const { data, error } = await supabase
         .from("meals")
         .select("id, name, ingredients, instructions, user_id, meal_tags, image_url, estimated_calories, servings") 
@@ -93,6 +95,7 @@ const MealList = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
+      console.log("[MealList] Meals fetched:", data);
       return data || [];
     },
     enabled: !!userId, 
@@ -273,6 +276,7 @@ const MealList = () => {
             )}>
               {filteredMeals.map((meal) => {
                 const caloriesPerServing = calculateCaloriesPerServing(meal.estimated_calories, meal.servings);
+                // console.log(`[MealList] Meal: ${meal.name}, Total Cal: ${meal.estimated_calories}, Servings: ${meal.servings}, Profile Track Cal: ${userProfile?.track_calories}, Calculated Per Serving: ${caloriesPerServing}`);
                 return (
                   <div key={meal.id} className="border p-4 rounded-lg shadow-sm bg-card hover:shadow-md transition-shadow duration-150 space-y-2 flex flex-col">
                     <div className="flex items-start"> 
