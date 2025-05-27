@@ -48,19 +48,24 @@ const Auth = () => {
           .eq('id', session.user.id)
           .single();
         
-        // Navigate without the tour flag if session already exists
         if (profile && profile.first_name) {
+          console.log('[Auth.tsx] checkSessionAndRedirect: User already has profile, navigating to dashboard.');
           navigate("/dashboard", { replace: true });
         } else {
+          console.log('[Auth.tsx] checkSessionAndRedirect: User session exists but no profile/first_name, navigating to profile.');
           navigate("/profile", { replace: true });
         }
+      } else {
+        console.log('[Auth.tsx] checkSessionAndRedirect: No active session.');
       }
     };
     checkSessionAndRedirect();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('[Auth.tsx] onAuthStateChange event:', event, 'session:', session);
       if (event === "SIGNED_IN" && session) {
         showSuccess("Logged in successfully!");
+        console.log('[Auth.tsx] SIGNED_IN event. Preparing to navigate with tour state.');
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('first_name, last_name')
@@ -68,22 +73,25 @@ const Auth = () => {
           .single();
 
         if (profileError && profileError.code !== 'PGRST116') { 
-          console.error("Error fetching profile after sign in:", profileError);
-          // Navigate to dashboard with tour flag even if profile fetch fails, profile page will handle missing info
+          console.error("[Auth.tsx] Error fetching profile after sign in:", profileError);
+          console.log('[Auth.tsx] Navigating to /dashboard (due to profile fetch error) with justLoggedInForTour: true');
           navigate("/dashboard", { replace: true, state: { justLoggedInForTour: true } }); 
           return;
         }
 
         if (profile && profile.first_name && profile.last_name) {
+          console.log('[Auth.tsx] Navigating to /dashboard with justLoggedInForTour: true');
           navigate("/dashboard", { replace: true, state: { justLoggedInForTour: true } });
         } else {
-          // If profile is incomplete, navigate to profile page, also with the flag
-          // The tour might not be relevant there, but the flag passing mechanism is consistent
+          console.log('[Auth.tsx] Navigating to /profile with justLoggedInForTour: true');
           navigate("/profile", { replace: true, state: { justLoggedInForTour: true } });
         }
       }
     });
-    return () => authListener?.subscription.unsubscribe();
+    return () => {
+      console.log('[Auth.tsx] Unsubscribing auth listener.');
+      authListener?.subscription.unsubscribe();
+    };
   }, [navigate]);
 
   return (

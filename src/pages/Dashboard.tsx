@@ -4,41 +4,42 @@ import TodaysGroceryList from "@/components/TodaysGroceryList";
 import { supabase } from "@/lib/supabase";
 import { useEffect, useState, useMemo } from "react";
 import type { User } from "@supabase/supabase-js";
-import { useNavigate, useLocation } from "react-router-dom"; // Import useLocation
+import { useNavigate, useLocation } from "react-router-dom";
 import AppTour from "@/components/AppTour";
 import { useQuery } from '@tanstack/react-query';
 
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const navigate = useNavigate();
-  const location = useLocation(); // Get location object
+  const location = useLocation();
   const [isClient, setIsClient] = useState(false);
   const [justLoggedInForTour, setJustLoggedInForTour] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
-    // Check location state for the tour flag
+    console.log('[Dashboard] useEffect for location state, location object:', JSON.stringify(location, null, 2));
+    
     if (location.state?.justLoggedInForTour) {
-      console.log('[Dashboard] Reading location.state.justLoggedInForTour: true');
+      console.log('[Dashboard] Found justLoggedInForTour in location.state: true');
       setJustLoggedInForTour(true);
-      // Clear the state from location history
       navigate(location.pathname, { replace: true, state: {} });
       console.log('[Dashboard] Cleared justLoggedInForTour from location state.');
     } else {
-      console.log('[Dashboard] No justLoggedInForTour flag in location.state.');
+      console.log('[Dashboard] No justLoggedInForTour flag in location.state. Current location.state:', JSON.stringify(location.state, null, 2));
     }
 
     const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      console.log('[Dashboard] User session:', session);
+      console.log('[Dashboard] User session from getSession:', JSON.stringify(session, null, 2));
       if (session?.user) {
         setUser(session.user);
       } else {
+        console.log('[Dashboard] No user session from getSession, navigating to /auth');
         navigate("/auth");
       }
     };
     getSession();
-  }, [navigate, location]); // Add location to dependency array
+  }, [navigate, location]);
 
   const { data: profileTourStatus, isLoading: isLoadingTourStatus, error: profileTourError } = useQuery<{ has_completed_tour: boolean } | null>({
     queryKey: ['userProfileForDashboardTour', user?.id],
@@ -70,8 +71,8 @@ const Dashboard = () => {
   });
 
   console.log('[Dashboard] States before useMemo for shouldStartTour:', {
-    justLoggedInForTour, // This is now from local state, derived from location.state
-    profileTourStatus,
+    justLoggedInForTour,
+    profileTourStatus: profileTourStatus ? { has_completed_tour: profileTourStatus.has_completed_tour } : undefined,
     isLoadingTourStatus,
     profileTourError: profileTourError?.message
   });
@@ -88,7 +89,7 @@ const Dashboard = () => {
 
 
   if (!user && !isLoadingTourStatus) { 
-    console.log('[Dashboard] Render: Loading user session...');
+    console.log('[Dashboard] Render: Loading user session (initial check)...');
     return <div className="min-h-screen flex items-center justify-center">Loading user session...</div>;
   }
   
