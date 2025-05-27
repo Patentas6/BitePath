@@ -23,7 +23,7 @@ import { PlusCircle, Trash2, Brain, XCircle, Info, Link2, Zap, Users } from "luc
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { useState } from "react";
+import { useState, useEffect } from "react"; // Added useEffect
 
 export const UNITS = ['piece', 'g', 'kg', 'ml', 'l', 'tsp', 'tbsp', 'cup', 'oz', 'lb', 'pinch', 'dash', 'clove', 'can', 'bottle', 'package', 'slice', 'item', 'sprig', 'head', 'bunch'] as const;
 
@@ -44,6 +44,8 @@ const ingredientSchema = z.object({
 });
 
 
+export type MealFormValues = z.infer<typeof mealFormSchema>; // Export type
+
 const mealFormSchema = z.object({
   name: z.string().min(1, { message: "Meal name is required." }),
   ingredients: z.array(ingredientSchema).optional(),
@@ -54,7 +56,6 @@ const mealFormSchema = z.object({
   servings: z.string().optional(), 
 });
 
-type MealFormValues = z.infer<typeof mealFormSchema>;
 
 export interface GenerationStatusInfo {
   generationsUsedThisMonth: number;
@@ -66,9 +67,19 @@ interface MealFormProps {
   generationStatus?: GenerationStatusInfo;
   isLoadingProfile?: boolean;
   showCaloriesField?: boolean; 
+  initialData?: MealFormValues | null; // New prop
+  onInitialDataProcessed?: () => void; // New prop
+  onSaveSuccess?: () => void; // New prop
 }
 
-const MealForm: React.FC<MealFormProps> = ({ generationStatus, isLoadingProfile, showCaloriesField }) => {
+const MealForm: React.FC<MealFormProps> = ({ 
+  generationStatus, 
+  isLoadingProfile, 
+  showCaloriesField,
+  initialData,
+  onInitialDataProcessed,
+  onSaveSuccess,
+ }) => {
   const queryClient = useQueryClient();
   const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
   const [showImageUrlInput, setShowImageUrlInput] = useState(false);
@@ -85,6 +96,17 @@ const MealForm: React.FC<MealFormProps> = ({ generationStatus, isLoadingProfile,
       servings: "", 
     },
   });
+
+  useEffect(() => {
+    if (initialData) {
+      form.reset(initialData);
+      if (initialData.image_url) { // If initial data has an image, ensure input is hidden unless user wants to change
+        setShowImageUrlInput(false);
+      }
+      onInitialDataProcessed?.();
+    }
+  }, [initialData, form, onInitialDataProcessed]);
+
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
@@ -130,7 +152,7 @@ const MealForm: React.FC<MealFormProps> = ({ generationStatus, isLoadingProfile,
     },
     onSuccess: () => {
       showSuccess("Meal added successfully!");
-      form.reset({
+      form.reset({ // Reset to blank form
         name: "",
         ingredients: [{ name: "", quantity: "", unit: "", description: "" }],
         instructions: "",
@@ -143,6 +165,7 @@ const MealForm: React.FC<MealFormProps> = ({ generationStatus, isLoadingProfile,
       queryClient.invalidateQueries({ queryKey: ["meals"] });
       queryClient.invalidateQueries({ queryKey: ['userProfileForAddMealLimits'] });
       queryClient.invalidateQueries({ queryKey: ['userProfileForGenerationLimits'] });
+      onSaveSuccess?.(); // Notify parent on save
     },
     onError: (error) => {
       console.error("Error adding meal:", error);

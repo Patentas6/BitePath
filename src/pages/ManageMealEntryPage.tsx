@@ -5,25 +5,25 @@ import { format as formatDateFns } from "date-fns";
 import { IMAGE_GENERATION_LIMIT_PER_MONTH, RECIPE_GENERATION_LIMIT_PER_PERIOD, RECIPE_GENERATION_PERIOD_DAYS } from '@/lib/constants';
 
 import AppHeader from "@/components/AppHeader";
-import MealForm, { GenerationStatusInfo as MealFormGenerationStatus } from "@/components/MealForm";
-import GenerateMealFlow from "@/components/GenerateMealFlow"; // We'll create this next
+import MealForm, { GenerationStatusInfo as MealFormGenerationStatus, MealFormValues } from "@/components/MealForm"; // Import MealFormValues
+import GenerateMealFlow, { GeneratedMeal } from "@/components/GenerateMealFlow"; 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'; // For consistent styling
-import { PlusCircle, Brain } from 'lucide-react'; // Added Brain for Generate tab
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'; 
+import { PlusCircle, Brain } from 'lucide-react'; 
 
 interface UserProfileDataForLimits {
   is_admin: boolean;
   image_generation_count: number;
-  last_image_generation_reset: string | null; // YYYY-MM for image
+  last_image_generation_reset: string | null; 
   recipe_generation_count: number | null;
-  last_recipe_generation_reset: string | null; // YYYY-MM-DD for recipe
+  last_recipe_generation_reset: string | null; 
   track_calories?: boolean;
+  ai_preferences?: string | null; // Added for passing to GenerateMealFlow
 }
 
-// This combines the needs of both MealForm and GenerateMealFlow for generation limits
 export interface CombinedGenerationLimits {
-  image: MealFormGenerationStatus; // For MealForm's image part
-  recipe: { // For GenerateMealFlow's recipe part
+  image: MealFormGenerationStatus; 
+  recipe: { 
     generationsUsedThisPeriod: number;
     limitReached: boolean;
     daysRemainingInPeriod: number;
@@ -36,7 +36,8 @@ export interface CombinedGenerationLimits {
 
 const ManageMealEntryPage = () => {
   const [userId, setUserId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'generate' | 'add'>('generate'); // Default to 'generate'
+  const [activeTab, setActiveTab] = useState<'generate' | 'add'>('generate');
+  const [mealDataForManualForm, setMealDataForManualForm] = useState<GeneratedMeal | null>(null);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -52,11 +53,10 @@ const ManageMealEntryPage = () => {
       if (!userId) return null;
       const { data, error } = await supabase
         .from('profiles')
-        .select('is_admin, image_generation_count, last_image_generation_reset, recipe_generation_count, last_recipe_generation_reset, track_calories')
+        .select('is_admin, image_generation_count, last_image_generation_reset, recipe_generation_count, last_recipe_generation_reset, track_calories, ai_preferences')
         .eq('id', userId)
         .single();
       if (error && error.code !== 'PGRST116') {
-        console.error("Error fetching profile for meal entry page:", error);
         throw error;
       }
       return data;
@@ -82,10 +82,7 @@ const ManageMealEntryPage = () => {
         isLoadingProfile: isLoadingProfile 
       };
     }
-
     const isAdmin = userProfile.is_admin || false;
-    
-    // Image Generation Status (for MealForm)
     const currentMonthYear = formatDateFns(new Date(), "yyyy-MM");
     let imgGenerationsUsed = userProfile.image_generation_count || 0;
     if (userProfile.last_image_generation_reset !== currentMonthYear) {
@@ -96,18 +93,14 @@ const ManageMealEntryPage = () => {
       limitReached: !isAdmin && (imgGenerationsUsed >= IMAGE_GENERATION_LIMIT_PER_MONTH),
       isAdmin: isAdmin
     };
-
-    // Recipe Generation Status (for GenerateMealFlow)
     const today = new Date();
     let recipeGenerationsUsed = userProfile.recipe_generation_count || 0;
     let daysRemaining = RECIPE_GENERATION_PERIOD_DAYS;
     let recipePeriodResetsToday = false;
-
     if (userProfile.last_recipe_generation_reset) {
       try {
         const lastResetDate = formatDateFns(new Date(userProfile.last_recipe_generation_reset), "yyyy-MM-dd");
         const diffInDays = Math.floor((today.getTime() - new Date(lastResetDate).getTime()) / (1000 * 3600 * 24));
-
         if (diffInDays >= RECIPE_GENERATION_PERIOD_DAYS) {
           recipeGenerationsUsed = 0;
           recipePeriodResetsToday = true;
@@ -115,7 +108,6 @@ const ManageMealEntryPage = () => {
           daysRemaining = RECIPE_GENERATION_PERIOD_DAYS - diffInDays;
         }
       } catch (e) {
-        console.warn("Could not parse last_recipe_generation_reset date:", userProfile.last_recipe_generation_reset);
         recipeGenerationsUsed = 0;
         recipePeriodResetsToday = true;
       }
@@ -130,7 +122,6 @@ const ManageMealEntryPage = () => {
       periodResetsToday: recipePeriodResetsToday,
       isAdmin: isAdmin
     };
-    
     return {
       image: imageStatus,
       recipe: recipeStatus,
@@ -138,6 +129,39 @@ const ManageMealEntryPage = () => {
       isLoadingProfile: isLoadingProfile
     };
   }, [userProfile, isLoadingProfile]);
+
+  const handleEditGeneratedMeal = (meal: GeneratedMeal) => {
+    setMealDataForManualForm(meal);
+    setActiveTab('add'); 
+  };
+
+  const mealFormInitialData = useMemo((): MealFormValues | null => {
+    if (!mealDataForManualForm) return null;
+    return {
+      name: mealDataForManualForm.name || "",
+      ingredients: mealDataForManualForm.ingredients?.map(ing => ({
+        name: ing.name || "",
+        quantity: ing.quantity !== undefined && ing.quantity !== null ? String(ing.quantity) : "",
+        unit: ing.unit || "",
+        description: ing.description || "",
+      })) || [{ name: "", quantity: "", unit: "", description: "" }],
+      instructions: mealDataForManualForm.instructions || "",
+      meal_tags: mealDataForManualForm.meal_tags || [],
+      image_url: mealDataForManualForm.image_url || "",
+      estimated_calories: mealDataForManualForm.estimated_calories || "",
+      servings: mealDataForManualForm.servings || "",
+    };
+  }, [mealDataForManualForm]);
+
+  const handleMealFormInitialDataProcessed = () => {
+    setMealDataForManualForm(null); // Clear data after MealForm has used it
+  };
+  
+  const handleMealFormSaveSuccess = () => {
+    setMealDataForManualForm(null); // Clear data if save was from pre-filled data
+    // Optionally, could switch tab back to 'generate' or stay on 'add'
+    // setActiveTab('generate'); 
+  };
 
 
   return (
@@ -161,15 +185,21 @@ const ManageMealEntryPage = () => {
               generationStatus={combinedGenerationLimits.image} 
               isLoadingProfile={combinedGenerationLimits.isLoadingProfile}
               showCaloriesField={combinedGenerationLimits.showCaloriesField}
+              initialData={mealFormInitialData}
+              onInitialDataProcessed={handleMealFormInitialDataProcessed}
+              onSaveSuccess={handleMealFormSaveSuccess}
             />
           </TabsContent>
           <TabsContent value="generate" className="mt-4">
-            {/* GenerateMealFlow will take recipeGenerationStatus and other necessary props */}
             <GenerateMealFlow 
               recipeGenerationStatus={combinedGenerationLimits.recipe}
-              imageGenerationStatus={combinedGenerationLimits.image} // Image generation might also be part of AI flow
+              imageGenerationStatus={combinedGenerationLimits.image}
               isLoadingProfile={combinedGenerationLimits.isLoadingProfile}
-              userProfile={userProfile} // Pass the raw profile for AI preferences
+              userProfile={userProfile ? { 
+                ai_preferences: userProfile.ai_preferences, 
+                track_calories: userProfile.track_calories 
+              } : null}
+              onEditGeneratedMeal={handleEditGeneratedMeal}
             />
           </TabsContent>
         </Tabs>

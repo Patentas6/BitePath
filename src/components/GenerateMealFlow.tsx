@@ -22,7 +22,7 @@ interface GeneratedIngredient {
   description?: string;
 }
 
-interface GeneratedMeal {
+export interface GeneratedMeal { // Exporting for use in parent
   name: string;
   ingredients: GeneratedIngredient[];
   instructions: string;
@@ -32,17 +32,17 @@ interface GeneratedMeal {
   servings?: string; 
 }
 
-interface UserProfileDataForAI { // Subset of profile needed by AI generation
+interface UserProfileDataForAI { 
   ai_preferences?: string | null;
   track_calories?: boolean;
-  // is_admin, counts, and resets are handled by the parent via CombinedGenerationLimits
 }
 
 interface GenerateMealFlowProps {
   recipeGenerationStatus: CombinedGenerationLimits['recipe'];
   imageGenerationStatus: CombinedGenerationLimits['image'];
   isLoadingProfile: boolean;
-  userProfile: UserProfileDataForAI | null; // Pass relevant parts of profile
+  userProfile: UserProfileDataForAI | null;
+  onEditGeneratedMeal: (meal: GeneratedMeal) => void; // New prop
 }
 
 const mealTypes = ["Breakfast", "Lunch", "Dinner", "Snack"];
@@ -56,7 +56,8 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
   recipeGenerationStatus,
   imageGenerationStatus,
   isLoadingProfile,
-  userProfile
+  userProfile,
+  onEditGeneratedMeal, // Destructure new prop
 }) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -84,13 +85,11 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
   }, []);
   
   useEffect(() => {
-    // If user profile has AI preferences, pre-fill, but allow override
     if (userProfile?.ai_preferences && !ingredientPreferences) {
       setIngredientPreferences(userProfile.ai_preferences.substring(0, PREFERENCES_MAX_LENGTH));
     }
-  }, [userProfile?.ai_preferences, ingredientPreferences]); // Added ingredientPreferences to dependency array
+  }, [userProfile?.ai_preferences, ingredientPreferences]); 
 
-  // Log userProfile whenever it changes
   useEffect(() => {
     console.log("[GenerateMealFlow] UserProfile Prop:", userProfile);
   }, [userProfile]);
@@ -138,8 +137,6 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
         const { data, error: functionError } = await supabase.functions.invoke('generate-meal', { body: bodyPayload });
         dismissToast(loadingToastId);
 
-        console.log("[GenerateMealFlow] AI Recipe Response Data:", data); // Log AI response
-
         if (functionError) {
             if (functionError.message.includes("Functions_Relay_Error") && functionError.message.includes("429")) {
                  showError(`You've reached your recipe generation limit for the current period. Please try again later.`);
@@ -154,7 +151,6 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
             queryClient.invalidateQueries({ queryKey: ['userProfileForMealEntryLimits', userId] });
             return null; 
         }
-        // Preserve existing image_url if refining, otherwise it will be set by image generation if successful
         setGeneratedMeal({ ...data, image_url: params.isRefinement ? generatedMeal?.image_url : undefined }); 
         setRefinementPrompt(''); 
         showSuccess(params.isRefinement ? "Recipe refined!" : "Recipe generated!");
@@ -162,7 +158,6 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
         return data;
       } catch (error: any) { 
         dismissToast(loadingToastId);
-        console.error('Error in recipe generation/refinement:', error);
         showError(`Failed to ${params.isRefinement ? 'refine' : 'generate'} recipe: ${error.message || 'Please try again.'}`);
         throw error;
       } finally {
@@ -183,7 +178,6 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
       setIsGeneratingImage(true);
       const loadingToastId = showLoading("Generating image...");
       try {
-        // Pass the full current generatedMeal state as mealData
         const { data, error: functionError } = await supabase.functions.invoke('generate-meal', {
           body: { mealData: mealToGetImageFor }, 
         });
@@ -199,13 +193,11 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
         }
         if (data?.error) { 
             showError(data.error); 
-            // If the function returns mealData (even with an error), update the state
             if (data.mealData) setGeneratedMeal(prev => ({...prev!, ...data.mealData}));
             queryClient.invalidateQueries({ queryKey: ['userProfileForMealEntryLimits', userId] });
             return null;
         }
-        // Expecting data to be { image_url, estimated_calories, servings }
-        if (data?.image_url !== undefined) { // Check if image_url is part of the response
+        if (data?.image_url !== undefined) { 
           setGeneratedMeal(prev => prev ? { 
             ...prev, 
             image_url: data.image_url,
@@ -223,7 +215,6 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
         return data;
       } catch (error: any) {
         dismissToast(loadingToastId);
-        console.error('Error generating image:', error);
         showError(`Failed to generate image: ${error.message || 'Please try again.'}`);
         throw error;
       } finally {
@@ -259,7 +250,6 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
       setRefinementPrompt('');
     },
     onError: (error: any, vars) => {
-      console.error("Error saving meal:", error);
       showError(`Failed to save meal "${vars.name}": ${error.message || 'Please try again.'}`);
     },
     onSettled: () => {
@@ -317,9 +307,7 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
 
   const caloriesPerServing = useMemo(() => {
     if (generatedMeal) {
-      const cps = calculateCaloriesPerServing(generatedMeal.estimated_calories, generatedMeal.servings);
-      console.log(`[GenerateMealFlow] GeneratedMeal EstCal: "${generatedMeal.estimated_calories}", Serv: "${generatedMeal.servings}", Calculated CPS: ${cps}`);
-      return cps;
+      return calculateCaloriesPerServing(generatedMeal.estimated_calories, generatedMeal.servings);
     }
     return null;
   }, [generatedMeal]);
@@ -521,20 +509,29 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
               )}
             </div>
 
-            <div className="flex space-x-4 mt-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-6">
               <Button
                 onClick={handleSaveMeal}
                 disabled={isSaving || saveMealMutation.isPending}
-                className="flex-grow"
+                className="w-full" // sm:col-span-1
               >
                 <Save className="mr-2 h-4 w-4" />
                 {isSaving || saveMealMutation.isPending ? 'Saving...' : 'Save to My Meals'}
               </Button>
               <Button
+                onClick={() => onEditGeneratedMeal(generatedMeal)}
+                variant="outline"
+                className="w-full" // sm:col-span-1
+                disabled={isSaving || saveMealMutation.isPending || isGeneratingRecipe || recipeGenerationMutation.isPending || isGeneratingImage || generateImageMutation.isPending}
+              >
+                <Edit2 className="mr-2 h-4 w-4" />
+                Edit Before Saving
+              </Button>
+              <Button
                 onClick={handleGenerateNewRecipeRequest}
                 variant="outline"
                 disabled={isGeneratingRecipe || recipeGenerationMutation.isPending || isSaving || saveMealMutation.isPending || isGeneratingImage || generateImageMutation.isPending}
-                className="flex-grow"
+                className="w-full" // sm:col-span-1
               >
                 <RefreshCw className="mr-2 h-4 w-4" />
                 Generate New Recipe
