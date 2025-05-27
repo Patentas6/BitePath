@@ -4,42 +4,37 @@
 
 @layer base {
   :root {
-    /* --- New Custom Color Scheme --- */
-    --background: 43 67% 94.1%; /* Beige (#F8F4E8) - Page background (Unchanged) */
-    --foreground: 207 46% 12%;  /* New: Very Dark Blue/Near Black (#11222C) - General text */
+    --background: 43 67% 94.1%; /* Beige (#F8F4E8) - Page background */
+    --foreground: 40 100% 1.4%;  /* Black (#070500) - Small/general text */
 
-    --card: 0 0% 100%; /* White - For cards (Unchanged) */
-    --card-foreground: 207 46% 12%; /* New: Very Dark Blue/Near Black (#11222C) - Text in cards */
+    --card: 0 0% 100%; /* White - For cards */
+    --card-foreground: 40 100% 1.4%; /* Black - Text in cards */
 
-    --popover: 0 0% 100%; /* White (Unchanged) */
-    --popover-foreground: 207 46% 12%; /* New: Very Dark Blue/Near Black (#11222C) - Text in popovers */
+    --popover: 0 0% 100%; /* White */
+    --popover-foreground: 40 100% 1.4%; /* Black */
 
-    /* Primary Orange */
-    --primary: 35 100% 48%; /* New: Orange (#F69000) */
-    --primary-foreground: 40 100% 1.4%; /* Black - Text on Orange buttons (Unchanged) */
+    /* Primary Orange-Yellow */
+    --primary: 39 98% 52%; /* Orange-Yellow (#FCA311) */
+    --primary-foreground: 40 100% 1.4%; /* Black - Text on Orange-Yellow buttons */
 
-    /* Secondary Medium Teal/Cyan */
-    --secondary: 180 40% 51%; /* New: Medium Teal/Cyan (#53B1B1) */
-    --secondary-foreground: 40 100% 1.4%; /* Black - Text on Teal buttons */
+    --secondary: 210 40% 96.1%; /* Light Gray (#F2F5F9) - For secondary buttons/elements */
+    --secondary-foreground: 40 100% 1.4%; /* Black - Text on light gray secondary elements */
 
-    --muted: 43 40% 90%; /* Lighter/Darker Beige variant for muted backgrounds (Unchanged) */
-    --muted-foreground: 0 0% 30%;   /* Dark Gray - Muted text (Unchanged) */
+    --muted: 43 40% 90%; /* Lighter/Darker Beige variant for muted backgrounds */
+    --muted-foreground: 0 0% 30%;   /* Dark Gray - Muted text */
 
-    /* Accent Dark Teal */
-    --accent: 180 53% 22%; /* New: Dark Teal (#1C5858) - For headings/titles */
-    --accent-foreground: 43 67% 94.1%; /* Beige - Text on Dark Teal backgrounds (Unchanged) */
+    /* Accent Desaturated Cyan/Blue-Gray */
+    --accent: 185 13% 43%; /* Desaturated Cyan/Blue-Gray (#607B7D) - For headings/titles */
+    --accent-foreground: 43 67% 94.1%; /* Beige - Text on Blue accent backgrounds */
 
-    --destructive: 0 84.2% 60.2%; /* Standard Red (Unchanged) */
-    --destructive-foreground: 0 0% 100%; /* White (Unchanged) */
+    --destructive: 0 84.2% 60.2%; /* Standard Red */
+    --destructive-foreground: 0 0% 100%; /* White */
 
-    /* Border Yellow */
-    --border: 46 92% 55%; /* New: Yellow (#F6C624) - For borders */
-    --input: 0 0% 100%; /* White - For input backgrounds (Unchanged) */
+    --border: 43 50% 88%; /* Slightly darker Beige - For borders */
+    --input: 0 0% 100%; /* White - For input backgrounds */
     
-    /* Ring Color - will follow primary (Orange) */
     --ring: hsl(var(--primary)); 
-    /* --- End New Custom Color Scheme --- */
-
+    
     --radius: 0.5rem;
 
     /* Sidebar specific colors - these are part of the original theme, kept for consistency if sidebar is used */
@@ -54,35 +49,26 @@
   }
 
   .dark {
-    /* Dark mode colors remain completely unchanged as per previous setup */
+    /* Default dark mode from initial setup, assuming rebuild reverted to this */
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
-
     --card: 222.2 84% 4.9%;
     --card-foreground: 210 40% 98%;
-
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
-
     --primary: 210 40% 98%;
     --primary-foreground: 222.2 47.4% 11.2%;
-
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
-
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
-
     --accent: 217.2 32.6% 17.5%;
     --accent-foreground: 210 40% 98%;
-
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
-
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
-    
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
