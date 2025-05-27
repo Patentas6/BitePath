@@ -43,7 +43,7 @@ const exampleMealsData = [
     meal_type: 'Breakfast', 
     meals: { 
       name: 'Example: Yogurt & Granola', 
-      image_url: 'https://placehold.co/100x100/E0E7FF/4338CA?text=Breakfast', 
+      image_url: '/Breakfasttest.png', 
       estimated_calories: '350 kcal', 
       servings: '1' 
     } 
@@ -53,7 +53,7 @@ const exampleMealsData = [
     meal_type: 'Lunch', 
     meals: { 
       name: 'Example: Salad with Chicken', 
-      image_url: 'https://placehold.co/100x100/D1FAE5/065F46?text=Lunch',
+      image_url: '/lunchtest.png',
       estimated_calories: '500 kcal', 
       servings: '1' 
     } 
@@ -63,8 +63,8 @@ const exampleMealsData = [
     meal_type: 'Dinner', 
     meals: { 
       name: 'Example: Spaghetti Carbonara', 
-      image_url: 'https://placehold.co/100x100/FEF3C7/92400E?text=Dinner', // Updated placeholder text
-      estimated_calories: '650 kcal', // Adjusted calories for Carbonara
+      image_url: '/dinnertest.png', 
+      estimated_calories: '650 kcal',
       servings: '1' 
     } 
   },
