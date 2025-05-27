@@ -67,7 +67,7 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
   const [selectedMealType, setSelectedMealType] = useState<string | undefined>(undefined);
   const [selectedKinds, setSelectedKinds] = useState<string[]>([]);
   const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
-  const [ingredientPreferences, setIngredientPreferences] = useState('');
+  const [ingredientPreferences, setIngredientPreferences] = useState(''); // Will start empty
   const [refinementPrompt, setRefinementPrompt] = useState('');
 
   const [generatedMeal, setGeneratedMeal] = useState<GeneratedMeal | null>(null);
@@ -84,11 +84,8 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
     fetchUser();
   }, []);
   
-  useEffect(() => {
-    if (userProfile?.ai_preferences && !ingredientPreferences) {
-      setIngredientPreferences(userProfile.ai_preferences.substring(0, PREFERENCES_MAX_LENGTH));
-    }
-  }, [userProfile?.ai_preferences, ingredientPreferences]); 
+  // Removed useEffect that pre-filled ingredientPreferences from userProfile.
+  // The Edge Function will fetch profile preferences independently.
 
   useEffect(() => {
     console.log("[GenerateMealFlow] UserProfile Prop:", userProfile);
@@ -121,6 +118,8 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
       setIsGeneratingRecipe(true);
       const loadingToastId = showLoading(params.isRefinement ? "Refining recipe..." : "Generating recipe...");
       
+      // `ingredientPreferences` now only contains what the user typed in the box for this specific request.
+      // Profile preferences will be fetched and used by the Edge Function.
       const bodyPayload: any = {
         mealType: selectedMealType,
         kinds: selectedKinds,
@@ -377,7 +376,7 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
               <div className="text-xs text-muted-foreground mt-2 p-2 bg-muted/50 rounded-md space-y-1">
                 <div className="flex items-start">
                   <Info size={14} className="inline mr-1.5 relative -top-px flex-shrink-0 mt-0.5" />
-                  <span>Your general AI preferences from your profile are automatically included. Add more specific requests here for this meal.</span>
+                  <span>Your general AI preferences from your profile are automatically included by the AI. Add more specific requests here for this meal.</span>
                 </div>
                 <div>
                   <strong className="block mt-1">Pro Tips:</strong>
