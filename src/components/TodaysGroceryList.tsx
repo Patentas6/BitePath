@@ -49,9 +49,9 @@ const SPICE_MEASUREMENT_UNITS: ReadonlyArray<string> = ['tsp', 'teaspoon', 'teas
 
 const categoriesMap = {
   Produce: ['apple', 'banana', 'orange', 'pear', 'grape', 'berry', 'berries', 'strawberry', 'blueberry', 'raspberry', 'avocado', 'tomato', 'potato', 'onion', 'garlic', 'carrot', 'broccoli', 'spinach', 'lettuce', 'salad greens', 'celery', 'cucumber', 'bell pepper', 'pepper', 'zucchini', 'mushroom', 'lemon', 'lime', 'cabbage', 'kale', 'asparagus', 'eggplant', 'corn', 'sweet potato', 'ginger', 'parsley', 'cilantro', 'basil', 'mint', 'rosemary', 'thyme', 'dill', 'leek', 'scallion', 'green bean', 'pea', 'artichoke', 'beet', 'radish', 'squash'],
-  'Meat & Poultry': ['chicken', 'beef', 'pork', 'turkey', 'lamb', 'sausage', 'bacon', 'ham', 'steak', 'mince', 'ground meat', 'veal', 'duck', 'fish', 'salmon', 'tuna', 'shrimp', 'cod', 'tilapia', 'trout', 'sardines', 'halibut', 'catfish', 'crab', 'lobster', 'scallop', 'mussel', 'clam'],
+  'Meat & Poultry': ['chicken', 'beef', 'pork', 'turkey', 'lamb', 'sausage', 'bacon', 'ham', 'steak', 'mince', 'ground meat', 'veal', 'duck', 'fish', 'salmon', 'tuna', 'shrimp', 'cod', 'tilapia', 'trout', 'sardines', 'halibut', 'catfish', 'crab', 'lobster', 'scallop', 'mussel', 'clam', 'pancetta'],
   'Dairy & Eggs': ['milk', 'cheese', 'cheddar', 'mozzarella', 'parmesan', 'feta', 'goat cheese', 'yogurt', 'butter', 'cream', 'egg', 'sour cream', 'cottage cheese', 'cream cheese', 'half-and-half', 'ghee'],
-  Pantry: ['flour', 'sugar', 'salt', 'black pepper', 'spice', 'herb', 'olive oil', 'vegetable oil', 'coconut oil', 'vinegar', 'rice', 'pasta', 'noodle', 'bread', 'cereal', 'oats', 'oatmeal', 'beans', 'lentils', 'chickpeas', 'nuts', 'almonds', 'walnuts', 'peanuts', 'seeds', 'chia seeds', 'flax seeds', 'canned tomatoes', 'canned beans', 'canned corn', 'soup', 'broth', 'stock', 'bouillon', 'soy sauce', 'worcestershire', 'hot sauce', 'bbq sauce', 'condiment', 'ketchup', 'mustard', 'mayonnaise', 'relish', 'jam', 'jelly', 'honey', 'maple syrup', 'baking soda', 'baking powder', 'yeast', 'vanilla extract', 'chocolate', 'cocoa powder', 'coffee', 'tea', 'crackers', 'pretzels', 'chips', 'popcorn', 'dried fruit', 'protein powder', 'breadcrumbs', 'tortillas', 'tahini', 'peanut butter', 'almond butter'],
+  Pantry: ['flour', 'sugar', 'salt', 'black pepper', 'spice', 'herb', 'olive oil', 'vegetable oil', 'coconut oil', 'vinegar', 'rice', 'pasta', 'noodle', 'bread', 'cereal', 'oats', 'oatmeal', 'beans', 'lentils', 'chickpeas', 'nuts', 'almonds', 'walnuts', 'peanuts', 'seeds', 'chia seeds', 'flax seeds', 'canned tomatoes', 'canned beans', 'canned corn', 'soup', 'broth', 'stock', 'bouillon', 'soy sauce', 'worcestershire', 'hot sauce', 'bbq sauce', 'condiment', 'ketchup', 'mustard', 'mayonnaise', 'relish', 'jam', 'jelly', 'honey', 'maple syrup', 'baking soda', 'baking powder', 'yeast', 'vanilla extract', 'chocolate', 'cocoa powder', 'coffee', 'tea', 'crackers', 'pretzels', 'chips', 'popcorn', 'dried fruit', 'protein powder', 'breadcrumbs', 'tortillas', 'tahini', 'peanut butter', 'almond butter', 'spaghetti', 'salad dressing', 'granola'],
   Frozen: ['ice cream', 'sorbet', 'frozen vegetables', 'frozen fruit', 'frozen meal', 'frozen pizza', 'frozen fries', 'frozen peas', 'frozen corn', 'frozen spinach'],
   Beverages: ['water', 'sparkling water', 'juice', 'soda', 'cola', 'wine', 'beer', 'spirits', 'kombucha', 'coconut water', 'sports drink', 'energy drink'],
   Other: [],
@@ -78,24 +78,51 @@ interface CategorizedDisplayListItem {
 
 interface MealWiseDisplayItem {
   mealName: string;
-  planDate: string;
+  planDate: string; // For actual data
   ingredients: CategorizedDisplayListItem[];
 }
 
-const exampleGroceryData: Record<Category, CategorizedDisplayListItem[]> = {
-  Produce: [
-    { itemName: 'Example: Banana', itemNameClass: "text-foreground", detailsPart: '2 pieces', detailsClass: "text-foreground", uniqueKey: 'ex-banana', originalItemsTooltip: 'Example item for your list' },
-    { itemName: 'Example: Spinach', itemNameClass: "text-foreground", detailsPart: '1 bag (150g)', detailsClass: "text-foreground", uniqueKey: 'ex-spinach-bag', originalItemsTooltip: 'Example item for your list' },
-  ],
-  Pantry: [
-    { itemName: 'Example: Oats', itemNameClass: "text-foreground", detailsPart: '500g', detailsClass: "text-foreground", uniqueKey: 'ex-oats', originalItemsTooltip: 'Example item for your list' },
-  ],
-  'Meat & Poultry': [],
-  'Dairy & Eggs': [],
-  Frozen: [],
-  Beverages: [],
-  Other: []
-};
+// New structure for example data (meal-wise)
+interface ExampleMealIngredientItem {
+  itemName: string;
+  detailsPart: string;
+  uniqueKey: string;
+}
+interface ExampleMealDisplayItem {
+  mealName: string;
+  ingredients: ExampleMealIngredientItem[];
+}
+
+const exampleMealWiseGroceryData: ExampleMealDisplayItem[] = [
+  {
+    mealName: "Example: Yogurt & Granola (Breakfast)",
+    ingredients: [
+      { itemName: "Yogurt", detailsPart: "1 cup", uniqueKey: "ex-yogurt" },
+      { itemName: "Granola", detailsPart: "1/2 cup", uniqueKey: "ex-granola" },
+      { itemName: "Berries", detailsPart: "1/4 cup (e.g., blueberries)", uniqueKey: "ex-berries" },
+    ],
+  },
+  {
+    mealName: "Example: Salad with Chicken (Lunch)",
+    ingredients: [
+      { itemName: "Chicken Breast", detailsPart: "1 piece", uniqueKey: "ex-chicken" },
+      { itemName: "Lettuce", detailsPart: "1 head", uniqueKey: "ex-lettuce" },
+      { itemName: "Tomatoes", detailsPart: "2 medium", uniqueKey: "ex-tomatoes" },
+      { itemName: "Cucumber", detailsPart: "1/2 medium", uniqueKey: "ex-cucumber" },
+      { itemName: "Salad Dressing", detailsPart: "2 tbsp", uniqueKey: "ex-dressing" },
+    ],
+  },
+  {
+    mealName: "Example: Spaghetti Carbonara (Dinner)",
+    ingredients: [
+      { itemName: "Spaghetti", detailsPart: "200g", uniqueKey: "ex-spaghetti" },
+      { itemName: "Pancetta (or Bacon)", detailsPart: "100g", uniqueKey: "ex-pancetta" },
+      { itemName: "Eggs", detailsPart: "2 large", uniqueKey: "ex-eggs" },
+      { itemName: "Parmesan Cheese", detailsPart: "50g (grated)", uniqueKey: "ex-parmesan" },
+      { itemName: "Black Pepper", detailsPart: "to taste", uniqueKey: "ex-pepper" },
+    ],
+  },
+];
 
 
 interface TodaysGroceryListProps {
@@ -404,9 +431,12 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
     }));
   };
 
-  const actualIsEmptyList = viewMode === 'category' 
-    ? Object.values(categorizedDisplayList).every(list => list.length === 0)
-    : mealWiseDisplayList.length === 0;
+  const actualIsEmptyList = useMemo(() => {
+    // Check based on actual data, not example data
+    return viewMode === 'category' 
+      ? Object.values(categorizedDisplayList).every(list => list.length === 0)
+      : mealWiseDisplayList.length === 0;
+  }, [categorizedDisplayList, mealWiseDisplayList, viewMode]);
   
   const showExampleData = actualIsEmptyList && !isLoading && !error;
 
@@ -422,6 +452,7 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
             size="sm"
             onClick={() => setViewMode(prev => prev === 'category' ? 'meal' : 'category')}
             className="ml-auto h-8 text-xs px-2"
+            disabled={showExampleData} // Disable toggle when showing examples, as examples are meal-wise
         >
             {viewMode === 'category' ? <Utensils className="mr-1 h-3 w-3" /> : <LayoutGrid className="mr-1 h-3 w-3" />}
             {viewMode === 'category' ? 'By Meal' : 'By Category'}
@@ -430,37 +461,30 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
       <CardContent className="flex-grow">
         {showExampleData && (
           <p className="text-sm text-muted-foreground mb-3">
-            Plan meals to see their ingredients here. Here's an example of what your list might look like:
+            Plan meals to see their ingredients here. Here's an example of what your list might look like (ingredients by meal):
           </p>
         )}
 
         {showExampleData ? (
           <div className="space-y-4">
-            {categoryOrder.map(category => {
-              const itemsInCategory = exampleGroceryData[category];
-              if (itemsInCategory && itemsInCategory.length > 0) {
-                return (
-                  <div key={category} className="opacity-80 border-dashed border rounded-md p-3">
-                    <h3 className="text-md font-semibold text-gray-700 dark:text-gray-300 border-b border-dashed pb-1 mb-2">
-                      {category}
-                    </h3>
-                    <ul className="space-y-1 text-sm">
-                      {itemsInCategory.map((item) => (
-                        <li
-                          key={item.uniqueKey}
-                          className="p-1 rounded"
-                          title={item.originalItemsTooltip}
-                        >
-                          <span className={item.itemNameClass}>{item.itemName}: </span>
-                          {item.detailsPart && <span className={item.detailsClass}>{item.detailsPart}</span>}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                );
-              }
-              return null;
-            })}
+            {exampleMealWiseGroceryData.map(mealItem => (
+              <div key={mealItem.mealName} className="opacity-80 border-dashed border rounded-md p-3">
+                <h3 className="text-md font-semibold text-gray-700 dark:text-gray-300 border-b border-dashed pb-1 mb-2">
+                  {mealItem.mealName}
+                </h3>
+                <ul className="space-y-1 text-sm pl-2">
+                  {mealItem.ingredients.map((item) => (
+                    <li
+                      key={item.uniqueKey}
+                      className="p-1 rounded"
+                    >
+                      <span className="text-foreground">{item.itemName}: </span>
+                      {item.detailsPart && <span className="text-foreground">{item.detailsPart}</span>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </div>
         ) : actualIsEmptyList ? (
           <div className="text-center py-6 text-muted-foreground">
@@ -503,7 +527,7 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
               return null;
             })}
           </div>
-        ) : ( 
+        ) : ( // Actual data, meal-wise view
           mealWiseDisplayList.map(mealItem => (
             <div key={`${mealItem.planDate}-${mealItem.mealName}`} className="mb-4">
               <h3 className="text-md font-semibold text-gray-800 dark:text-gray-200 border-b pb-1 mb-2">
