@@ -150,7 +150,7 @@ serve(async (req) => {
 
     const { data: profile, error: profileErrorDb } = await serviceSupabaseClient
       .from('profiles')
-      .select('ai_preferences, is_admin, image_generation_count, last_image_generation_reset, recipe_generation_count, last_recipe_generation_reset, track_calories')
+      .select('ai_preferences, is_admin, image_generation_count, last_image_generation_reset, recipe_generation_count, last_recipe_generation_reset, track_calories, preferred_unit_system')
       .eq('id', user.id)
       .single();
 
@@ -164,6 +164,7 @@ serve(async (req) => {
     const userIsAdmin = profile?.is_admin || false;
     let userAiPreferences = profile?.ai_preferences || '';
     const userTracksCalories = profile?.track_calories || false; 
+    const userPreferredUnitSystem = profile?.preferred_unit_system || 'imperial';
     
     let userImageGenerationCount = profile?.image_generation_count || 0;
     let userLastImageGenerationReset = profile?.last_image_generation_reset || '';
@@ -171,7 +172,7 @@ serve(async (req) => {
     let userRecipeGenerationCount = profile?.recipe_generation_count || 0;
     let userLastRecipeGenerationResetDateStr = profile?.last_recipe_generation_reset || '';
 
-    console.log(`User profile for ${user.id}: admin=${userIsAdmin}, track_calories=${userTracksCalories}, img_count=${userImageGenerationCount}, img_reset='${userLastImageGenerationReset}', recipe_count=${userRecipeGenerationCount}, recipe_reset='${userLastRecipeGenerationResetDateStr}'`);
+    console.log(`User profile for ${user.id}: admin=${userIsAdmin}, track_calories=${userTracksCalories}, preferred_unit_system=${userPreferredUnitSystem}, img_count=${userImageGenerationCount}, img_reset='${userLastImageGenerationReset}', recipe_count=${userRecipeGenerationCount}, recipe_reset='${userLastRecipeGenerationResetDateStr}'`);
 
     const requestBody = await req.json();
     const { mealType, kinds, styles, preferences, mealData, existingRecipeText, refinementInstructions } = requestBody;
@@ -259,6 +260,11 @@ serve(async (req) => {
         - If calorie tracking is enabled for the user (indicated in the prompt), the "estimated_calories" field MUST contain the total calorie count for the entire recipe (e.g., "2000 kcal total", "550 kcal"). Do NOT put per-serving calories here.
         - Do NOT embed serving information within the "estimated_calories" string. Keep them separate. For example, "estimated_calories": "2000 kcal", "servings": "4". NOT "estimated_calories": "500 kcal per serving (serves 4)".`;
 
+        if (userPreferredUnitSystem === 'metric') {
+            prompt += `\nUNIT SYSTEM: The user's preferred unit system is METRIC. Please provide all ingredient quantities primarily in grams (g), kilograms (kg), milliliters (ml), or liters (L). For common small measurements like spices, you can use teaspoons (tsp) or tablespoons (tbsp). For items counted as whole units, use 'piece' or similar. Avoid imperial units like ounces, pounds, fluid ounces, and especially cups for bulk ingredients like flour/sugar (these should be in grams or ml).`;
+        } else {
+            prompt += `\nUNIT SYSTEM: The user's preferred unit system is IMPERIAL. Please provide ingredient quantities in common imperial units (e.g., cups, oz, lbs, tsp, tbsp, fl oz).`;
+        }
 
         if (existingRecipeText && refinementInstructions) {
             prompt += `\n\nYou previously generated the following recipe:
