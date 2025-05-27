@@ -67,11 +67,12 @@ const Index = () => {
                 Start your day with a clear view. Your dashboard shows all your planned meals for today and the exact ingredients you'll need, making meal prep a breeze.
               </p>
             </div>
-            <div className="md:w-1/2 order-1 md:order-2 bg-muted rounded-lg p-6 shadow-lg">
-              {/* Replace this div with your actual image tag */}
-              <div className="aspect-video bg-gray-300 dark:bg-gray-700 rounded flex items-center justify-center">
-                <p className="text-gray-500 dark:text-gray-400">Screenshot of Dashboard</p>
-              </div>
+            <div className="md:w-1/2 order-1 md:order-2 bg-muted rounded-lg p-6 shadow-lg flex items-center justify-center">
+              <img 
+                src="/Dashboard.png" 
+                alt="BitePath Dashboard" 
+                className="rounded-lg shadow-xl max-w-full h-auto"
+              />
             </div>
           </div>
 
@@ -86,8 +87,8 @@ const Index = () => {
                 Map out your meals for the entire week with our intuitive planner. Assign dishes to breakfast, lunch, dinner, and snacks for each day with ease.
               </p>
             </div>
-            <div className="md:w-1/2 bg-muted rounded-lg p-6 shadow-lg">
-              {/* Replace this div with your actual image tag */}
+            <div className="md:w-1/2 bg-muted rounded-lg p-6 shadow-lg flex items-center justify-center">
+              {/* Replace this div with your actual image tag for Weekly Planner */}
               <div className="aspect-video bg-gray-300 dark:bg-gray-700 rounded flex items-center justify-center">
                 <p className="text-gray-500 dark:text-gray-400">Screenshot of Weekly Planner</p>
               </div>
@@ -105,8 +106,8 @@ const Index = () => {
                 Never run out of ideas! Describe what you're in the mood for—type, style, ingredients—and let our AI generate a complete meal concept, including a recipe and a unique image.
               </p>
             </div>
-            <div className="md:w-1/2 order-1 md:order-2 bg-muted rounded-lg p-6 shadow-lg">
-              {/* Replace this div with your actual image tag */}
+            <div className="md:w-1/2 order-1 md:order-2 bg-muted rounded-lg p-6 shadow-lg flex items-center justify-center">
+              {/* Replace this div with your actual image tag for AI Meal Generator */}
               <div className="aspect-video bg-gray-300 dark:bg-gray-700 rounded flex items-center justify-center">
                 <p className="text-gray-500 dark:text-gray-400">Screenshot of AI Meal Generator</p>
               </div>
@@ -124,8 +125,8 @@ const Index = () => {
                 Forget manual list-making. BitePath automatically compiles your shopping list from your meal plan. View items conveniently grouped by store category or see them meal-by-meal.
               </p>
             </div>
-            <div className="md:w-1/2 bg-muted rounded-lg p-6 shadow-lg">
-              {/* Replace this div with your actual image tag */}
+            <div className="md:w-1/2 bg-muted rounded-lg p-6 shadow-lg flex items-center justify-center">
+              {/* Replace this div with your actual image tag for Grocery List */}
               <div className="aspect-video bg-gray-300 dark:bg-gray-700 rounded flex items-center justify-center">
                 <p className="text-gray-500 dark:text-gray-400">Screenshot of Grocery List</p>
               </div>
