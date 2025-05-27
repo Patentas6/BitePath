@@ -243,7 +243,7 @@ serve(async (req) => {
         const geminiModelId = "gemini-2.5-flash-preview-05-20";
         const geminiEndpoint = `https://${regionGemini}-aiplatform.googleapis.com/v1/projects/${projectIdGemini}/locations/${regionGemini}/publishers/google/models/${geminiModelId}:generateContent`;
         
-        let prompt = `Generate a detailed meal recipe in JSON format. The JSON object should have the following structure:
+        let prompt = `Generate a detailed meal recipe in JSON format. The JSON object must have the following structure:
         {
           "name": "Meal Name (string, e.g., Spicy Chicken Stir-fry)",
           "ingredients": [
@@ -251,12 +251,16 @@ serve(async (req) => {
           ],
           "instructions": "Detailed cooking instructions (string, newline separated steps).",
           "meal_tags": ["Tag1 (string)", "Tag2 (string)"],
-          "servings": "Estimated number of servings this recipe makes (string, e.g., '4 servings' or '2-3 servings')"`;
+          "servings": "Estimated number of servings this recipe makes (string, e.g., '4' or '2-3 servings'). THIS FIELD IS MANDATORY."`;
         
         if (userTracksCalories) {
-            prompt += `,\n          "estimated_calories": "Estimated total calories for the meal (string, e.g., '550 kcal' or '500-600 kcal')"`;
+            prompt += `,\n          "estimated_calories": "Estimated total calories for the ENTIRE recipe (all servings) (string, e.g., '2200 kcal' or '500-600 kcal total'). THIS FIELD IS MANDATORY if calorie tracking is enabled for the user."`;
         }
-        prompt += `\n        }`;
+        prompt += `\n        }
+        IMPORTANT: 
+        - The "servings" field MUST contain the number of servings (e.g., "4", "2 servings").
+        - If calorie tracking is enabled for the user (indicated in the prompt), the "estimated_calories" field MUST contain the total calorie count for the entire recipe (e.g., "2000 kcal total", "550 kcal"). Do NOT put per-serving calories here.
+        - Do NOT embed serving information within the "estimated_calories" string. Keep them separate. For example, "estimated_calories": "2000 kcal", "servings": "4". NOT "estimated_calories": "500 kcal per serving (serves 4)".`;
 
 
         if (existingRecipeText && refinementInstructions) {
@@ -273,7 +277,7 @@ Ensure the output is a *complete new recipe* in the specified JSON format, incor
 The meal should still generally be a ${mealType || 'general'} type.`;
             if (kinds && kinds.length > 0) prompt += ` It should still generally fit these kinds: ${kinds.join(', ')}.`;
             if (styles && styles.length > 0) prompt += ` The style should still generally be: ${styles.join(', ')}.`;
-            prompt += `\nCRITICAL INSTRUCTION FOR SCALING SERVINGS: If the refinement request involves changing the number of servings (e.g., from '2 servings' to '4 servings', or vice-versa), you MUST adjust ALL ingredient quantities. Calculate the scaling factor (new servings / old servings). For EACH ingredient, multiply its original quantity by this scaling factor. For example, if changing from 2 to 4 servings, the factor is 2, so all quantities double. If changing from 4 to 2 servings, the factor is 0.5, so all quantities halve. This scaling MUST be applied consistently to every ingredient. Do not selectively scale or invert the scaling for any ingredients.`;
+            prompt += `\nCRITICAL INSTRUCTION FOR SCALING SERVINGS: If the refinement request involves changing the number of servings (e.g., from '2 servings' to '4 servings', or vice-versa), you MUST adjust ALL ingredient quantities. Calculate the scaling factor (new servings / old servings). For EACH ingredient, multiply its original quantity by this scaling factor. For example, if changing from 2 to 4 servings, the factor is 2, so all quantities double. If changing from 4 to 2 servings, the factor is 0.5, so all quantities halve. This scaling MUST be applied consistently to every ingredient. Do not selectively scale or invert the scaling for any ingredients. Update the 'servings' field to the new number of servings. If calorie tracking is enabled, also update the 'estimated_calories' field by multiplying the original total calories by the same scaling factor.`;
         } else {
             prompt += `\nThe meal should be a ${mealType || 'general'} type.`;
             if (kinds && kinds.length > 0) prompt += ` It should fit these kinds: ${kinds.join(', ')}.`;
@@ -285,9 +289,10 @@ The meal should still generally be a ${mealType || 'general'} type.`;
              prompt += ` Also consider these specific request preferences: ${preferences}.`;
         }
         if (userTracksCalories) {
-            prompt += `\nRemember to include the "estimated_calories" field in your JSON response.`;
+            prompt += `\nUser has calorie tracking enabled. Ensure "estimated_calories" (total for recipe) and "servings" are provided.`;
+        } else {
+            prompt += `\nUser does NOT have calorie tracking enabled. You can omit "estimated_calories", but "servings" is still required.`;
         }
-        prompt += `\nAlso remember to include the "servings" field.`;
         prompt += `\nEnsure the response is ONLY the JSON object, nothing else. Do not wrap it in markdown backticks.`;
 
         const geminiPayload = {

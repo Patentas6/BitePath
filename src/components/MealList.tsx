@@ -308,16 +308,7 @@ const MealList = () => {
                             Servings: {meal.servings}
                           </div>
                         )}
-                        {/* ---- START AGGRESSIVE DEBUG ---- */}
-                        <div className="mt-1.5 text-xs text-red-500 border border-red-500 p-1">
-                          DEBUG: TrackCal: {userProfile?.track_calories ? "Yes" : "No"},
-                          EstCal: {meal.estimated_calories || "N/A"},
-                          Serv: {meal.servings || "N/A"},
-                          CPS: {caloriesPerServing !== null ? caloriesPerServing : "NULL"},
-                          ShowCond: {shouldShowCalories ? "TRUE" : "FALSE"}
-                        </div>
-                        {/* ---- END AGGRESSIVE DEBUG ---- */}
-                         {shouldShowCalories && ( // Original condition
+                         {shouldShowCalories && (
                           <div className="mt-1.5 text-xs text-primary flex items-center">
                             <Zap size={12} className="mr-1" />
                             Est. {caloriesPerServing} kcal per serving
