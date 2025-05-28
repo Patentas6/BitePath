@@ -14,7 +14,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'; 
 import { Button } from '@/components/ui/button'; 
 import { PlusCircle, Brain, X, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'; 
-// Removed ThemeToggleButton import
 
 interface UserProfileDataForLimits {
   is_admin: boolean;
@@ -189,9 +188,8 @@ const ManageMealEntryPage = () => {
     return (
       <div className={cn("min-h-screen bg-background text-foreground", isMobile ? "pt-4 pb-20 px-2" : "p-4")}>
         <AppHeader />
-        {/* Removed ThemeToggleButton from here for mobile, as it's now page-specific */}
         <div className="container mx-auto space-y-6">
-          {!isMobile && <AppHeader />}
+          {/* Desktop header is now handled by the single AppHeader above */}
           <div className="relative p-4 border rounded-lg shadow-lg bg-card">
             <Button 
               variant="ghost" 
@@ -228,14 +226,13 @@ const ManageMealEntryPage = () => {
     <div className={cn("min-h-screen bg-background text-foreground", isMobile ? "pt-4 pb-20 px-2" : "p-4")}>
       <AppHeader />
       <div className={cn("space-y-6", !isMobile && "container mx-auto")}>
-        {!isMobile && <AppHeader />}
+        {/* Desktop header is now handled by the single AppHeader above */}
         
         <div className="flex justify-between items-center mb-0">
             <h1 className="text-xl sm:text-3xl font-bold flex items-center">
               {activeTab === 'generate' ? <Brain className="mr-2 h-6 w-6" /> : <PlusCircle className="mr-2 h-6 w-6" />}
               {activeTab === 'add' ? 'Add Your Own Meal' : 'Generate Meal with AI'}
             </h1>
-            {/* ThemeToggleButton removed from here for mobile */}
         </div>
         
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'generate' | 'add')} className="w-full">

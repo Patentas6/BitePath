@@ -10,8 +10,8 @@ const MealsPage = () => {
     <div className={cn("min-h-screen bg-background text-foreground", isMobile ? "pt-4 pb-20 px-2" : "p-4")}>
       <AppHeader /> 
       <div className={cn("space-y-6", !isMobile && "container mx-auto")}>
-        {!isMobile && <AppHeader />} {/* Desktop header */}
-
+        {/* Desktop header is now handled by the single AppHeader above */}
+        
         {/* Title - hidden on mobile */}
         <div className={cn("flex justify-center items-center mb-0", isMobile && "hidden")}>
             <h1 className="text-xl sm:text-3xl font-bold">My Meals</h1>
