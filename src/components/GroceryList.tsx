@@ -99,9 +99,7 @@ interface MealWiseDisplayItem {
 
 interface GroceryListProps {
   userId: string;
-  // currentWeekStart is no longer used for date range calculation here,
-  // but kept if other parts of PlanningPage rely on it being passed (though unlikely for this component's core logic)
-  currentWeekStart?: Date; // Make it optional or remove if truly unused by parent for this specific component instance
+  currentWeekStart?: Date; 
 }
 
 const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
@@ -159,15 +157,14 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
     }
   }, [userProfile]);
 
-  const today = useMemo(() => startOfToday(), []); // Memoize today's date
+  const today = useMemo(() => startOfToday(), []); 
   const queryStartDate = today;
   const queryEndDate = useMemo(() => addDays(today, parseInt(selectedDays) - 1), [today, selectedDays]);
   
-  // Use today's date string and selectedDays for the query key part
   const dateRangeQueryKeyPart = `${format(today, 'yyyy-MM-dd')}_${selectedDays}`;
 
   const { data: plannedMealsData, isLoading, error: plannedMealsError, refetch } = useQuery<PlannedMealWithIngredients[]>({
-    queryKey: ["groceryListSource", userId, dateRangeQueryKeyPart], // Updated queryKey
+    queryKey: ["groceryListSource", userId, dateRangeQueryKeyPart], 
     queryFn: async () => {
       if (!userId) return [];
       const startDateStr = format(queryStartDate, 'yyyy-MM-dd');
@@ -209,16 +206,25 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
             }
 
             existingAggItem.originalItems.push(processedItem);
-            let existingUnitQuantity = existingAggItem.unitQuantities.find(uq => uq.unit.toLowerCase() === unitLower);
-
-            if (existingUnitQuantity) {
-              if (SUMMABLE_UNITS.includes(unitLower)) {
-                existingUnitQuantity.totalQuantity += processedItem.quantity;
+            
+            // Special handling for "to taste"
+            if (processedItem.quantity === 0 && unitLower === "to taste") {
+              const hasToTasteEntry = existingAggItem.unitQuantities.some(uq => uq.unit.toLowerCase() === "to taste");
+              if (!hasToTasteEntry) {
+                existingAggItem.unitQuantities.push({ unit: "to taste", totalQuantity: 0 });
+              }
+            } else {
+              let existingUnitQuantity = existingAggItem.unitQuantities.find(uq => uq.unit.toLowerCase() === unitLower);
+              if (existingUnitQuantity) {
+                if (SUMMABLE_UNITS.includes(unitLower)) {
+                  existingUnitQuantity.totalQuantity += processedItem.quantity;
+                } else {
+                  // If units are not directly summable (e.g., "1 can" + "200g"), add as a new unit entry
+                  existingAggItem.unitQuantities.push({ unit: processedItem.unit, totalQuantity: processedItem.quantity });
+                }
               } else {
                 existingAggItem.unitQuantities.push({ unit: processedItem.unit, totalQuantity: processedItem.quantity });
               }
-            } else {
-              existingAggItem.unitQuantities.push({ unit: processedItem.unit, totalQuantity: processedItem.quantity });
             }
           });
         }
@@ -245,6 +251,10 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
     
     if (SPICE_MEASUREMENT_UNITS.includes(currentUnit.toLowerCase())) {
         detailsClass = "text-gray-500 dark:text-gray-400";
+    }
+    
+    if (currentQuantityNum === 0 && currentUnit.toLowerCase() === "to taste") {
+        return { quantity: 0, unit: "to taste", detailsClass };
     }
 
     const roundedDisplayQty = (currentQuantityNum % 1 === 0) ? Math.round(currentQuantityNum) : parseFloat(currentQuantityNum.toFixed(1));
@@ -273,25 +283,26 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
       }
       
       const detailsParts: string[] = [];
-      let combinedDetailsClass = "text-foreground"; // Default
+      let combinedDetailsClass = "text-foreground"; 
 
       aggItem.unitQuantities.forEach(uq => {
           const formatted = formatQuantityAndUnitForDisplay(uq.totalQuantity, uq.unit);
-          if (PIECE_UNITS.includes(formatted.unit.toLowerCase()) && formatted.quantity > 0) {
+          if (formatted.unit.toLowerCase() === "to taste") {
+            detailsParts.push("to taste");
+          } else if (PIECE_UNITS.includes(formatted.unit.toLowerCase()) && formatted.quantity > 0) {
             detailsParts.push(`${formatted.quantity}`);
           } else if (formatted.quantity > 0 && formatted.unit) {
             detailsParts.push(`${formatted.quantity} ${formatted.unit}`);
-          } else if (formatted.unit) { // Only unit, no quantity
+          } else if (formatted.unit) { 
             detailsParts.push(formatted.unit);
           }
-          // If any part is a spice, the whole detail might be styled as such, or handle per part
-          if (SPICE_MEASUREMENT_UNITS.includes(uq.unit.toLowerCase())) {
-            combinedDetailsClass = "text-gray-500 dark:text-gray-400"; // Example: make all gray if one spice unit
+          if (SPICE_MEASUREMENT_UNITS.includes(uq.unit.toLowerCase()) || uq.unit.toLowerCase() === "to taste") {
+            combinedDetailsClass = "text-gray-500 dark:text-gray-400"; 
           }
       });
       const detailsPartStr = detailsParts.join(' + ');
 
-      const uniqueKey = `agg:${aggItem.name.trim().toLowerCase()}-${foundCategory.toLowerCase()}`; // Key for the whole item
+      const uniqueKey = `agg:${aggItem.name.trim().toLowerCase()}-${foundCategory.toLowerCase()}`; 
       const originalItemsTooltip = aggItem.originalItems
         .map(oi => `${oi.quantity} ${oi.unit} ${oi.name} (from: ${oi.mealName})${oi.description ? ` (${oi.description})` : ''}`)
         .join('\n');
@@ -314,7 +325,9 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
         manualItem.unit
       );
       let detailsPartStr = "";
-      if (PIECE_UNITS.includes(formatted.unit.toLowerCase()) && formatted.quantity > 0) {
+      if (formatted.unit.toLowerCase() === "to taste") {
+        detailsPartStr = "to taste";
+      } else if (PIECE_UNITS.includes(formatted.unit.toLowerCase()) && formatted.quantity > 0) {
         detailsPartStr = `${formatted.quantity}`;
       } else if (formatted.quantity > 0 && formatted.unit) {
         detailsPartStr = `${formatted.quantity} ${formatted.unit}`;
@@ -359,7 +372,9 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
 
             const formatted = formatQuantityAndUnitForDisplay(quantityNum, ing.unit);
             let detailsPartStr = "";
-            if (PIECE_UNITS.includes(formatted.unit.toLowerCase()) && formatted.quantity > 0) {
+            if (formatted.unit.toLowerCase() === "to taste") {
+                detailsPartStr = "to taste";
+            } else if (PIECE_UNITS.includes(formatted.unit.toLowerCase()) && formatted.quantity > 0) {
                 detailsPartStr = `${formatted.quantity}`;
             } else if (formatted.quantity > 0 && formatted.unit) {
                 detailsPartStr = `${formatted.quantity} ${formatted.unit}`;
@@ -587,7 +602,9 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
                         item.unit
                     );
                     let detailsPartStr = "";
-                    if (PIECE_UNITS.includes(formatted.unit.toLowerCase()) && formatted.quantity > 0) {
+                    if (formatted.unit.toLowerCase() === "to taste") {
+                        detailsPartStr = "to taste";
+                    } else if (PIECE_UNITS.includes(formatted.unit.toLowerCase()) && formatted.quantity > 0) {
                         detailsPartStr = `${formatted.quantity}`;
                     } else if (formatted.quantity > 0 && formatted.unit) {
                         detailsPartStr = `${formatted.quantity} ${formatted.unit}`;
