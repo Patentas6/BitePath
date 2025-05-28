@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { format as formatDateFns, startOfWeek, addDays } from "date-fns";
 import { IMAGE_GENERATION_LIMIT_PER_MONTH, RECIPE_GENERATION_LIMIT_PER_PERIOD, RECIPE_GENERATION_PERIOD_DAYS } from '@/lib/constants';
-import { useIsMobile } from "@/hooks/use-isMobile";
+import { useIsMobile } from "@/hooks/use-mobile"; // Corrected import path
 import { cn } from "@/lib/utils";
 
 import AppHeader from "@/components/AppHeader";
