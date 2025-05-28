@@ -4,7 +4,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import type { User } from "@supabase/supabase-js";
-import { UserCircle, BookOpenText, Brain, SquarePen, CalendarDays, Home, PlusCircle } from "lucide-react"; // Added PlusCircle
+import { UserCircle, BookOpenText, Brain, SquarePen, CalendarDays, Home, PlusCircle } from "lucide-react";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 
 interface UserProfile {
@@ -85,30 +85,44 @@ const AppHeader = () => {
 
   return (
     <header className="flex justify-between items-center">
-      <div className="flex items-center space-x-3">
+      <div className="flex items-center space-x-1 sm:space-x-3">
         <Link to="/dashboard" className="text-2xl font-bold group" data-tourid="tour-logo">
           <span className="text-accent dark:text-foreground transition-opacity duration-150 ease-in-out group-hover:opacity-80">Bite</span>
           <span className="text-primary dark:text-primary transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
         </Link>
         <ThemeToggleButton />
-        <Button variant="default" size="sm" asChild data-tourid="tour-home-button">
-          <Link to="/dashboard"><Home className="mr-2 h-4 w-4" /> Home</Link>
+        <Button variant="default" size="sm" asChild data-tourid="tour-home-button" className="px-2 sm:px-3">
+          <Link to="/dashboard">
+            <Home className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Home</span>
+          </Link>
         </Button>
         <span className="text-base hidden md:inline font-medium">{getWelcomeMessage()}</span>
       </div>
-      <div className="flex items-center space-x-2">
-        <Button variant="default" size="sm" asChild data-tourid="tour-my-meals-button">
-          <Link to="/meals"><BookOpenText className="mr-2 h-4 w-4" /> My Meals</Link>
+      <div className="flex items-center space-x-1 sm:space-x-2">
+        <Button variant="default" size="sm" asChild data-tourid="tour-my-meals-button" className="px-2 sm:px-3">
+          <Link to="/meals">
+            <BookOpenText className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">My Meals</span>
+          </Link>
         </Button>
-        {/* Combined "Add/Generate Meal" button will replace the next two */}
-        <Button variant="default" size="sm" asChild data-tourid="tour-new-meal-button">
-          <Link to="/manage-meal-entry"><PlusCircle className="mr-2 h-4 w-4" /> New Meal</Link>
+        <Button variant="default" size="sm" asChild data-tourid="tour-new-meal-button" className="px-2 sm:px-3">
+          <Link to="/manage-meal-entry">
+            <PlusCircle className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">New Meal</span>
+          </Link>
         </Button>
-        <Button variant="default" size="sm" asChild data-tourid="tour-planning-button">
-          <Link to="/planning"><CalendarDays className="mr-2 h-4 w-4" /> Plan & Shop</Link>
+        <Button variant="default" size="sm" asChild data-tourid="tour-planning-button" className="px-2 sm:px-3">
+          <Link to="/planning">
+            <CalendarDays className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Plan & Shop</span>
+          </Link>
         </Button>
-        <Button variant="default" size="sm" asChild data-tourid="tour-profile-button">
-          <Link to="/profile"><UserCircle className="mr-2 h-4 w-4" /> Profile</Link>
+        <Button variant="default" size="sm" asChild data-tourid="tour-profile-button" className="px-2 sm:px-3">
+          <Link to="/profile">
+            <UserCircle className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Profile</span>
+          </Link>
         </Button>
       </div>
     </header>

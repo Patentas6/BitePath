@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">BitePath</string>
+    <string name="title_activity_main">BitePath</string>
+    <string name="package_name">com.thebitepath.app</string>
+    <string name="custom_url_scheme">com.thebitepath.app</string>
+</resources>
