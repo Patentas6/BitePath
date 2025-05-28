@@ -277,6 +277,7 @@ const ProfilePage = () => {
                           checked={field.value}
                           onCheckedChange={field.onChange}
                           disabled={updateProfileMutation.isPending || isLoadingProfile}
+                          className="data-[state=unchecked]:border-slate-400 dark:data-[state=unchecked]:border-slate-500"
                         />
                       </FormControl>
                     </FormItem>
