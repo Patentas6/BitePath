@@ -1,13 +1,19 @@
 import MealList from "@/components/MealList";
-import AppHeader from "@/components/AppHeader"; // Import AppHeader
-// Removed Link, ArrowLeft, ThemeToggleButton as they are in AppHeader
+import AppHeader from "@/components/AppHeader"; 
+import { useIsMobile } from "@/hooks/use-mobile"; // Import useIsMobile
+import { cn } from "@/lib/utils"; // Import cn
 
 const MealsPage = () => {
+  const isMobile = useIsMobile(); // Initialize useIsMobile
+
   return (
-    <div className="min-h-screen bg-background text-foreground p-4">
-      <div className="container mx-auto space-y-6">
-        <AppHeader /> {/* Use AppHeader */}
-        <div className="flex justify-center items-center mb-0"> {/* Adjusted mb from 6 to 0 or remove if not needed */}
+    <div className={cn("min-h-screen bg-background text-foreground", isMobile ? "pt-4 pb-20 px-2" : "p-4")}>
+      <AppHeader /> 
+      <div className={cn("space-y-6", !isMobile && "container mx-auto")}>
+        {!isMobile && <AppHeader />} {/* Desktop header */}
+
+        {/* Title - hidden on mobile */}
+        <div className={cn("flex justify-center items-center mb-0", isMobile && "hidden")}>
             <h1 className="text-xl sm:text-3xl font-bold">My Meals</h1>
         </div>
         <div className="space-y-6">
