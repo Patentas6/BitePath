@@ -10,12 +10,12 @@ import { ListChecks, ShoppingCart, Utensils, LayoutGrid, PlusCircle } from "luci
 import { convertToPreferredSystem } from "@/utils/conversionUtils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import ManualAddItemForm from "./ManualAddItemForm"; // Import the new form
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import ManualAddItemForm from "./ManualAddItemForm";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 
 const SHARED_LOCAL_STORAGE_KEY = 'bitepath-struckSharedGroceryItems';
 const GROCERY_VIEW_MODE_KEY = 'bitepath-groceryViewMode';
-const MANUAL_ITEMS_LOCAL_STORAGE_KEY = 'bitepath-manualGroceryItems'; // Key for manual items
+const MANUAL_ITEMS_LOCAL_STORAGE_KEY = 'bitepath-manualGroceryItems';
 
 interface PlannedMealWithIngredients {
   plan_date: string;
@@ -33,12 +33,11 @@ interface ParsedIngredientItem {
   mealName?: string;
 }
 
-// Interface for manually added items
 interface ManualGroceryItem {
   id: string;
   name: string;
-  quantity: string; // Keep as string for flexible input
-  unit: string;     // Keep as string
+  quantity: string;
+  unit: string;
 }
 
 const NON_SUMMABLE_DISPLAY_UNITS: ReadonlyArray<string> = [
@@ -66,10 +65,10 @@ const categoriesMap = {
   Frozen: ['ice cream', 'sorbet', 'frozen vegetables', 'frozen fruit', 'frozen meal', 'frozen pizza', 'frozen fries', 'frozen peas', 'frozen corn', 'frozen spinach'],
   Beverages: ['water', 'sparkling water', 'juice', 'soda', 'cola', 'wine', 'beer', 'spirits', 'kombucha', 'coconut water', 'sports drink', 'energy drink'],
   Other: [],
-  "Manually Added": [], // New category for manual items
+  "Manually Added": [],
 };
 type Category = keyof typeof categoriesMap;
-const categoryOrder: Category[] = ['Produce', 'Meat & Poultry', 'Dairy & Eggs', 'Pantry', 'Frozen', 'Beverages', 'Other', "Manually Added"]; // Add new category to order
+const categoryOrder: Category[] = ['Produce', 'Meat & Poultry', 'Dairy & Eggs', 'Pantry', 'Frozen', 'Beverages', 'Other', "Manually Added"];
 
 interface GroceryListItem {
   name: string;
@@ -102,7 +101,7 @@ interface GroceryListProps {
 const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) => {
   const [displaySystem, setDisplaySystem] = useState<'imperial' | 'metric'>('imperial');
   const [selectedDays, setSelectedDays] = useState<string>('7');
-  const [showManualAddForm, setShowManualAddForm] = useState(false);
+  const [isManualAddDialogOpen, setIsManualAddDialogOpen] = useState(false);
 
   const [manualItems, setManualItems] = useState<ManualGroceryItem[]>(() => {
     const saved = localStorage.getItem(MANUAL_ITEMS_LOCAL_STORAGE_KEY);
@@ -119,9 +118,8 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
       ...item,
     };
     setManualItems(prev => [...prev, newItem]);
-    setShowManualAddForm(false);
+    setIsManualAddDialogOpen(false);
   };
-
 
   const [viewMode, setViewMode] = useState<'category' | 'meal'>(() => {
     const savedViewMode = localStorage.getItem(GROCERY_VIEW_MODE_KEY);
@@ -154,7 +152,6 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
       setDisplaySystem(userProfile.preferred_unit_system);
     }
   }, [userProfile]);
-
 
   const queryStartDate = currentWeekStart;
   const queryEndDate = addDays(queryStartDate, parseInt(selectedDays) - 1);
@@ -247,7 +244,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
         detailsClass = "text-gray-500 dark:text-gray-400";
     }
     
-    if (quantity && unit && currentQuantityNum > 0) { // Check if quantity and unit are provided
+    if (quantity && unit && currentQuantityNum > 0) {
         const roundedDisplayQty = (currentQuantityNum % 1 === 0) ? Math.round(currentQuantityNum) : parseFloat(currentQuantityNum.toFixed(1));
         if (PIECE_UNITS.includes(currentUnit.toLowerCase())) {
             detailsPart = `${roundedDisplayQty}`;
@@ -260,12 +257,11 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
             }
             detailsPart = `${roundedDisplayQty} ${unitStr}`;
         }
-    } else if (quantity && currentQuantityNum > 0) { // Only quantity provided
+    } else if (quantity && currentQuantityNum > 0) {
         detailsPart = `${currentQuantityNum}`;
-    } else if (unit) { // Only unit provided (less common, but handle)
+    } else if (unit) {
         detailsPart = unit;
     }
-    // If neither quantity nor unit, detailsPart remains empty
 
     return { itemName, itemNameClass, detailsPart, detailsClass };
   };
@@ -309,13 +305,12 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
       }
     });
 
-    // Add manual items
     manualItems.forEach(manualItem => {
       const { itemName, itemNameClass, detailsPart, detailsClass } = formatSingleIngredientForDisplay(
         manualItem.name,
-        manualItem.quantity, // Pass as string, formatSingleIngredientForDisplay will parse
+        manualItem.quantity,
         manualItem.unit,
-        false // Manual items are not summable in the same way
+        false
       );
       const uniqueKey = `manual:${manualItem.id}`;
       grouped["Manually Added"].push({
@@ -354,11 +349,10 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
               false
             );
 
-            let foundCategory: Category = 'Other'; // For key generation consistency
+            let foundCategory: Category = 'Other';
             const itemLower = ing.name.toLowerCase();
             for (const cat of categoryOrder) { if (cat !== 'Other' && cat !== "Manually Added" && categoriesMap[cat].some(keyword => itemLower.includes(keyword))) { foundCategory = cat; break; } }
             const uniqueKeyForStriking = `mealwise:${pm.meals!.name}:${ing.name.trim().toLowerCase()}:${(ing.unit || "").trim().toLowerCase()}-${index}`;
-
 
             mealEntry!.ingredients.push({
               itemName,
@@ -375,7 +369,6 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
     return Array.from(mealsMap.values()).sort((a,b) => new Date(a.planDate).getTime() - new Date(b.planDate).getTime() || a.mealName.localeCompare(b.mealName));
   }, [plannedMealsData, displaySystem]);
 
-
   useEffect(() => {
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === SHARED_LOCAL_STORAGE_KEY) {
@@ -386,7 +379,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
           viewMode === 'category'
             ? Object.values(categorizedDisplayList).flat().map(item => item.uniqueKey)
             : mealWiseDisplayList.flatMap(meal => meal.ingredients.map(ing => ing.uniqueKey))
-                .concat(manualItems.map(item => `manual:${item.id}`)) // Add manual item keys for meal view
+                .concat(manualItems.map(item => `manual:${item.id}`))
         );
 
         setStruckItems(prevLocalStruckItems => {
@@ -401,21 +394,21 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
           }
           return prevLocalStruckItems;
         });
-      } else if (event.key === MANUAL_ITEMS_LOCAL_STORAGE_KEY) { // Listen for manual item changes
+      } else if (event.key === MANUAL_ITEMS_LOCAL_STORAGE_KEY) {
         const newManualItems = event.newValue ? JSON.parse(event.newValue) : [];
         setManualItems(newManualItems);
       }
     };
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
-  }, [categorizedDisplayList, mealWiseDisplayList, viewMode, manualItems]); // Added manualItems dependency
+  }, [categorizedDisplayList, mealWiseDisplayList, viewMode, manualItems]);
 
   useEffect(() => {
     const currentDisplayKeys = new Set(
       viewMode === 'category'
         ? Object.values(categorizedDisplayList).flat().map(item => item.uniqueKey)
         : mealWiseDisplayList.flatMap(meal => meal.ingredients.map(ing => ing.uniqueKey))
-            .concat(manualItems.map(item => `manual:${item.id}`)) // Add manual item keys for meal view
+            .concat(manualItems.map(item => `manual:${item.id}`))
     );
     const globalRaw = localStorage.getItem(SHARED_LOCAL_STORAGE_KEY);
     const globalStruckItems = globalRaw ? new Set<string>(JSON.parse(globalRaw)) : new Set<string>();
@@ -433,8 +426,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
       }
       return prevLocalStruckItems;
     });
-  }, [categorizedDisplayList, mealWiseDisplayList, viewMode, userId, currentWeekStart, selectedDays, displaySystem, manualItems]); // Added manualItems
-
+  }, [categorizedDisplayList, mealWiseDisplayList, viewMode, userId, currentWeekStart, selectedDays, displaySystem, manualItems]);
 
   const handleItemClick = (uniqueKey: string) => {
     const globalRaw = localStorage.getItem(SHARED_LOCAL_STORAGE_KEY);
@@ -468,7 +460,6 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
   const isEmptyList = viewMode === 'category'
     ? Object.values(categorizedDisplayList).every(list => list.length === 0)
     : (mealWiseDisplayList.length === 0 && isManualEmpty);
-
 
   return (
     <Card className="hover:shadow-lg transition-shadow duration-200">
@@ -546,7 +537,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
             }
             return null;
           })
-        ) : ( // Meal-wise view
+        ) : (
           <>
             {mealWiseDisplayList.map(mealItem => (
               <div key={`${mealItem.planDate}-${mealItem.mealName}`} className="mb-4">
@@ -594,20 +585,26 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
             )}
           </>
         )}
-        <Collapsible open={showManualAddForm} onOpenChange={setShowManualAddForm}>
-          <CollapsibleTrigger asChild>
+        <Dialog open={isManualAddDialogOpen} onOpenChange={setIsManualAddDialogOpen}>
+          <DialogTrigger asChild>
             <Button variant="outline" className="w-full mt-4">
               <PlusCircle className="mr-2 h-4 w-4" />
-              {showManualAddForm ? 'Cancel Adding Item' : 'Add Item Manually'}
+              Add Item Manually
             </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Add Custom Grocery Item</DialogTitle>
+              <DialogDescription>
+                Enter the details for the item you want to add to your list.
+              </DialogDescription>
+            </DialogHeader>
             <ManualAddItemForm
               onAddItem={handleAddManualItem}
-              onCancel={() => setShowManualAddForm(false)}
+              onCancel={() => setIsManualAddDialogOpen(false)}
             />
-          </CollapsibleContent>
-        </Collapsible>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
