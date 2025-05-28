@@ -278,11 +278,12 @@ const MealList = () => {
                 const shouldShowCalories = canTrackCalories && caloriesPerServing !== null;
                 
                 return (
-                  <div key={meal.id} className="border p-4 rounded-lg shadow-sm bg-card hover:shadow-md transition-shadow duration-150 space-y-2 flex flex-col">
-                    <div className="flex items-start"> 
+                  <div key={meal.id} className="border p-3 sm:p-4 rounded-lg shadow-sm bg-card hover:shadow-md transition-shadow duration-150 flex flex-col">
+                    {/* Top section: Image (mobile full-width) and Main Info + Desktop Buttons */}
+                    <div className="flex flex-col sm:flex-row items-start">
                       {meal.image_url && (
                          <div
-                           className="h-28 w-28 md:h-32 md:w-32 object-cover rounded-md mr-4 flex-shrink-0 cursor-pointer flex items-center justify-center overflow-hidden bg-muted" 
+                           className="w-full sm:w-24 md:w-28 h-40 sm:h-24 md:h-28 object-cover rounded-md mb-2 sm:mb-0 sm:mr-4 flex-shrink-0 cursor-pointer flex items-center justify-center overflow-hidden bg-muted" 
                            onClick={() => setViewingImageUrl(meal.image_url || null)}
                          >
                            <img
@@ -293,8 +294,8 @@ const MealList = () => {
                            />
                          </div>
                       )}
-                      <div className="flex-grow pr-2">
-                        <h3 className="text-xl font-semibold text-foreground">{meal.name}</h3>
+                      <div className="flex-grow min-w-0"> {/* min-w-0 for flex child to truncate */}
+                        <h3 className="text-lg sm:text-xl font-semibold text-foreground">{meal.name}</h3>
                         {meal.meal_tags && meal.meal_tags.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-1.5">
                             {meal.meal_tags.map(tag => (
@@ -315,7 +316,8 @@ const MealList = () => {
                           </div>
                         )}
                       </div>
-                      <div className="flex flex-col space-y-1 sm:space-y-2 flex-shrink-0 ml-2"> 
+                      {/* Desktop Buttons (only visible on sm+) */}
+                      <div className="hidden sm:flex flex-col space-y-2 ml-2 flex-shrink-0">
                         <Button 
                           variant="outline" 
                           onClick={() => handleEditClick(meal)} 
@@ -334,8 +336,10 @@ const MealList = () => {
                         </Button>
                       </div>
                     </div>
+
+                    {/* Ingredients & Instructions */}
                     {(meal.ingredients || (meal.instructions && meal.instructions.trim() !== "")) && (
-                      <div className="space-y-2 pt-2 border-t border-muted/50 flex-grow"> 
+                      <div className="space-y-2 mt-2 pt-2 border-t sm:border-t-0 sm:pt-2 flex-grow"> 
                         {meal.ingredients && (
                           <div>
                             <p className="text-sm font-medium text-muted-foreground">Ingredients:</p>
@@ -345,7 +349,7 @@ const MealList = () => {
                           </div>
                         )}
                         {meal.instructions && meal.instructions.trim() !== "" && (
-                          <div>
+                          <div className="mt-2">
                             <p className="text-sm font-medium text-muted-foreground">Instructions:</p>
                             <p className="text-xs text-foreground/80 mt-0.5 pl-2 whitespace-pre-line">
                               {meal.instructions.substring(0, 100)}{meal.instructions.length > 100 ? '...' : ''}
@@ -354,6 +358,26 @@ const MealList = () => {
                         )}
                       </div>
                     )}
+
+                    {/* Mobile Buttons (only visible on screens smaller than sm) */}
+                    <div className="flex sm:hidden space-x-2 mt-3 pt-3 border-t">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => handleEditClick(meal)} 
+                        aria-label="Edit meal"
+                        className="flex-1 h-10"
+                      >
+                        <Edit3 className="h-5 w-5 mr-2" /> Edit
+                      </Button>
+                      <Button 
+                        variant="destructive" 
+                        onClick={() => handleDeleteClick(meal)} 
+                        aria-label="Delete meal"
+                        className="flex-1 h-10"
+                      >
+                        <Trash2 className="h-5 w-5 mr-2" /> Delete
+                      </Button>
+                    </div>
                   </div>
                 );
               })}

@@ -12,7 +12,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import AddMealToPlanDialog from "./AddMealToPlanDialog"; 
-import { calculateCaloriesPerServing } from '@/utils/mealUtils';
+import { calculateCaloriesPerServing } from '@/utils/mealUtils'; 
 
 interface MealPlan {
   id: string;
@@ -184,10 +184,16 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
               {displayPlans.map(plannedMeal => {
                 const caloriesPerServing = calculateCaloriesPerServing(plannedMeal.meals?.estimated_calories, plannedMeal.meals?.servings);
                 return (
-                  <li key={plannedMeal.id} className={cn("border rounded-md p-3 bg-card shadow-sm flex items-center space-x-3", showExampleData && "opacity-80 border-dashed")}>
+                  <li 
+                    key={plannedMeal.id} 
+                    className={cn(
+                      "border rounded-md p-3 bg-card shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center", 
+                      showExampleData && "opacity-80 border-dashed"
+                    )}
+                  >
                      {plannedMeal.meals?.image_url ? (
                       <div
-                        className="h-24 w-24 object-cover rounded-md flex-shrink-0 cursor-pointer flex items-center justify-center overflow-hidden bg-muted" 
+                        className="w-full h-40 sm:w-24 sm:h-24 object-cover rounded-md mb-2 sm:mb-0 sm:mr-3 flex-shrink-0 cursor-pointer flex items-center justify-center overflow-hidden bg-muted" 
                         onClick={() => !showExampleData && plannedMeal.meals?.image_url && setViewingImageUrl(plannedMeal.meals.image_url)}
                       >
                         <img
@@ -200,7 +206,7 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
                             const parent = target.parentElement;
                             if (parent) {
                               const iconContainer = document.createElement('div');
-                              iconContainer.className = "h-24 w-24 rounded-md flex-shrink-0 flex items-center justify-center bg-muted text-muted-foreground";
+                              iconContainer.className = "w-full h-40 sm:w-24 sm:h-24 rounded-md flex-shrink-0 flex items-center justify-center bg-muted text-muted-foreground";
                               iconContainer.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>'; // ImageIcon
                               parent.appendChild(iconContainer);
                             }
@@ -208,11 +214,11 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
                         />
                       </div>
                      ) : (
-                       <div className="h-24 w-24 rounded-md flex-shrink-0 flex items-center justify-center bg-muted text-muted-foreground">
+                       <div className="w-full h-40 sm:w-24 sm:h-24 rounded-md mb-2 sm:mb-0 sm:mr-3 flex-shrink-0 flex items-center justify-center bg-muted text-muted-foreground">
                          <ImageIcon size={32} />
                        </div>
                      )}
-                     <div className="flex-grow">
+                     <div className="flex-grow w-full sm:w-auto">
                        <div className="font-medium text-gray-600 dark:text-gray-400 text-sm">
                          {plannedMeal.meal_type || 'Meal'}
                        </div>
@@ -231,9 +237,10 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
                           variant="outline" 
                           size="sm" 
                           onClick={() => handleChangeMealClick(parseISO((plannedMeal as MealPlan).plan_date), plannedMeal.meal_type)}
-                          className="ml-auto"
+                          className="mt-2 sm:mt-0 sm:ml-auto self-end sm:self-center px-2 sm:px-3"
                         >
-                         <Edit className="h-4 w-4 mr-2" /> Change
+                         <Edit className="h-4 w-4 sm:mr-2" />
+                         <span className="hidden sm:inline">Change</span>
                        </Button>
                      )}
                   </li>
