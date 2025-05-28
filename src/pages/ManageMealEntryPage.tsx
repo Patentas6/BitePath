@@ -3,15 +3,18 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { format as formatDateFns, startOfWeek, addDays } from "date-fns";
 import { IMAGE_GENERATION_LIMIT_PER_MONTH, RECIPE_GENERATION_LIMIT_PER_PERIOD, RECIPE_GENERATION_PERIOD_DAYS } from '@/lib/constants';
+import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
 
 import AppHeader from "@/components/AppHeader";
 import MealForm, { GenerationStatusInfo as MealFormGenerationStatus, MealFormValues } from "@/components/MealForm";
 import GenerateMealFlow, { GeneratedMeal } from "@/components/GenerateMealFlow"; 
-import WeeklyPlanner from "@/components/WeeklyPlanner"; // Import WeeklyPlanner
+import WeeklyPlanner from "@/components/WeeklyPlanner"; 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'; 
-import { Button } from '@/components/ui/button'; // Import Button
+import { Button } from '@/components/ui/button'; 
 import { PlusCircle, Brain, X, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'; 
+import { ThemeToggleButton } from "@/components/ThemeToggleButton"; // Import ThemeToggleButton
 
 interface UserProfileDataForLimits {
   is_admin: boolean;
@@ -40,8 +43,8 @@ const ManageMealEntryPage = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'generate' | 'add'>('generate');
   const [mealDataForManualForm, setMealDataForManualForm] = useState<GeneratedMeal | null>(null);
+  const isMobile = useIsMobile();
   
-  // State for post-save planner
   const [showPostSavePlanner, setShowPostSavePlanner] = useState(false);
   const [newlySavedMealInfo, setNewlySavedMealInfo] = useState<{id: string, name: string} | null>(null);
   const [plannerWeekStart, setPlannerWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
@@ -170,15 +173,12 @@ const ManageMealEntryPage = () => {
     setMealDataForManualForm(null);
     setNewlySavedMealInfo(savedMeal);
     setShowPostSavePlanner(true);
-    // Reset the active tab to 'generate' or keep it on 'add' based on preference
-    // setActiveTab('generate'); 
   };
 
   const handleClosePostSavePlanner = () => {
     setShowPostSavePlanner(false);
     setNewlySavedMealInfo(null);
-    // Optionally reset active tab or form states here
-    setActiveTab('generate'); // Example: go back to generate tab
+    setActiveTab('generate'); 
   };
   
   const handleWeekNavigate = (direction: "prev" | "next") => {
@@ -187,9 +187,18 @@ const ManageMealEntryPage = () => {
 
   if (showPostSavePlanner && userId) {
     return (
-      <div className="min-h-screen bg-background text-foreground p-4">
+      <div className={cn("min-h-screen bg-background text-foreground", isMobile ? "pt-4 pb-20 px-2" : "p-4")}>
+        <AppHeader />
+        {isMobile && (
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">
+              "{newlySavedMealInfo?.name}" saved!
+            </h2>
+            <ThemeToggleButton />
+          </div>
+        )}
         <div className="container mx-auto space-y-6">
-          <AppHeader />
+          {!isMobile && <AppHeader />}
           <div className="relative p-4 border rounded-lg shadow-lg bg-card">
             <Button 
               variant="ghost" 
@@ -200,9 +209,11 @@ const ManageMealEntryPage = () => {
             >
               <X className="h-5 w-5" />
             </Button>
-            <h2 className="text-xl font-semibold text-center mb-2">
-              "{newlySavedMealInfo?.name}" saved!
-            </h2>
+            {!isMobile && (
+              <h2 className="text-xl font-semibold text-center mb-2">
+                "{newlySavedMealInfo?.name}" saved!
+              </h2>
+            )}
             <p className="text-sm text-muted-foreground text-center mb-4">
               Want to add it to your plan now?
             </p>
@@ -223,14 +234,17 @@ const ManageMealEntryPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-4">
-      <div className="container mx-auto space-y-6">
-        <AppHeader />
-        <div className="flex justify-center items-center mb-0">
+    <div className={cn("min-h-screen bg-background text-foreground", isMobile ? "pt-4 pb-20 px-2" : "p-4")}>
+      <AppHeader /> {/* AppHeader now only renders bottom nav on mobile */}
+      <div className={cn("space-y-6", !isMobile && "container mx-auto")}>
+        {!isMobile && <AppHeader />} {/* Desktop header */}
+        
+        <div className="flex justify-between items-center mb-0">
             <h1 className="text-xl sm:text-3xl font-bold flex items-center">
               {activeTab === 'generate' ? <Brain className="mr-2 h-6 w-6" /> : <PlusCircle className="mr-2 h-6 w-6" />}
               {activeTab === 'add' ? 'Add Your Own Meal' : 'Generate Meal with AI'}
             </h1>
+            {isMobile && <ThemeToggleButton />} {/* Theme toggle next to title on mobile */}
         </div>
         
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'generate' | 'add')} className="w-full">
@@ -245,7 +259,7 @@ const ManageMealEntryPage = () => {
               showCaloriesField={combinedGenerationLimits.showCaloriesField}
               initialData={mealFormInitialData}
               onInitialDataProcessed={handleMealFormInitialDataProcessed}
-              onSaveSuccess={handleMealSaveSuccess} // Updated prop
+              onSaveSuccess={handleMealSaveSuccess}
             />
           </TabsContent>
           <TabsContent value="generate" className="mt-4">
@@ -258,7 +272,7 @@ const ManageMealEntryPage = () => {
                 track_calories: userProfile.track_calories 
               } : null}
               onEditGeneratedMeal={handleEditGeneratedMeal}
-              onSaveSuccess={handleMealSaveSuccess} // Pass the handler
+              onSaveSuccess={handleMealSaveSuccess}
             />
           </TabsContent>
         </Tabs>

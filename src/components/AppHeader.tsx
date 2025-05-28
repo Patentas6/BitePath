@@ -24,17 +24,13 @@ const AppHeader = () => {
       if (session?.user) {
         setUser(session.user);
       } else {
-        if (isMobile) { // Only navigate if mobile and no session, desktop might have public pages
-             // navigate("/auth"); // Decided against auto-navigating from header directly
-        }
+        // No automatic navigation to /auth from header
       }
     };
     getSession();
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
-      if (!session?.user && isMobile) {
-         // navigate("/auth"); // Decided against auto-navigating from header directly
-      }
+      // No automatic navigation to /auth from header on state change
     });
     return () => authListener?.subscription.unsubscribe();
   }, [navigate, isMobile]);
@@ -75,45 +71,39 @@ const AppHeader = () => {
   
   // Mobile Layout
   if (isMobile) {
-    if (!user) { // If mobile and not logged in, render minimal top theme toggle
-        return (
-            <div className="fixed top-4 left-4 z-50">
-                <ThemeToggleButton />
-            </div>
-        );
+    if (!user) { 
+        // Render nothing if mobile and not logged in, theme toggle will be in page content
+        return null;
     }
+    // Only render bottom navigation for logged-in mobile users
     return (
-      <>
-        <div className="fixed top-4 left-4 z-50">
-          <ThemeToggleButton />
-        </div>
-        <nav className="fixed bottom-0 left-0 right-0 bg-background border-t border-border shadow-lg p-1 flex justify-around items-center z-50 h-16">
-          <Link to="/dashboard" data-tourid="tour-home-button" className="flex flex-col items-center justify-center text-xs text-muted-foreground hover:text-primary p-1 w-1/5 h-full">
-            <Home className="h-5 w-5 mb-0.5" />
-            <span className="truncate">Home</span>
-          </Link>
-          <Link to="/meals" data-tourid="tour-my-meals-button" className="flex flex-col items-center justify-center text-xs text-muted-foreground hover:text-primary p-1 w-1/5 h-full">
-            <BookOpenText className="h-5 w-5 mb-0.5" />
-            <span className="truncate">Meals</span>
-          </Link>
-          <Link to="/manage-meal-entry" data-tourid="tour-new-meal-button" className="flex flex-col items-center justify-center text-xs text-muted-foreground hover:text-primary p-1 w-1/5 h-full">
-            <PlusCircle className="h-7 w-7 text-primary" />
-            {/* <span className="mt-0.5 truncate text-primary">New</span> */}
-          </Link>
-          <Link to="/planning" data-tourid="tour-planning-button" className="flex flex-col items-center justify-center text-xs text-muted-foreground hover:text-primary p-1 w-1/5 h-full">
-            <CalendarDays className="h-5 w-5 mb-0.5" />
-            <span className="truncate">Plan</span>
-          </Link>
-          <Link to="/profile" data-tourid="tour-profile-button" className="flex flex-col items-center justify-center text-xs text-muted-foreground hover:text-primary p-1 w-1/5 h-full">
-            <UserCircle className="h-5 w-5 mb-0.5" />
-            <span className="truncate">Profile</span>
-          </Link>
-        </nav>
-      </>
+      <nav className="fixed bottom-0 left-0 right-0 bg-background border-t border-border shadow-lg p-1 flex justify-around items-center z-50 h-16">
+        <Link to="/dashboard" data-tourid="tour-home-button" className="flex flex-col items-center justify-center text-xs text-muted-foreground hover:text-primary p-1 w-1/5 h-full">
+          <Home className="h-5 w-5 mb-0.5" />
+          <span className="truncate">Home</span>
+        </Link>
+        <Link to="/meals" data-tourid="tour-my-meals-button" className="flex flex-col items-center justify-center text-xs text-muted-foreground hover:text-primary p-1 w-1/5 h-full">
+          <BookOpenText className="h-5 w-5 mb-0.5" />
+          <span className="truncate">Meals</span>
+        </Link>
+        <Link to="/manage-meal-entry" data-tourid="tour-new-meal-button" className="flex flex-col items-center justify-center text-xs text-muted-foreground hover:text-primary p-1 w-1/5 h-full">
+          <PlusCircle className="h-7 w-7 text-primary" />
+          {/* <span className="mt-0.5 truncate text-primary">New</span> */}
+        </Link>
+        <Link to="/planning" data-tourid="tour-planning-button" className="flex flex-col items-center justify-center text-xs text-muted-foreground hover:text-primary p-1 w-1/5 h-full">
+          <CalendarDays className="h-5 w-5 mb-0.5" />
+          <span className="truncate">Plan</span>
+        </Link>
+        <Link to="/profile" data-tourid="tour-profile-button" className="flex flex-col items-center justify-center text-xs text-muted-foreground hover:text-primary p-1 w-1/5 h-full">
+          <UserCircle className="h-5 w-5 mb-0.5" />
+          <span className="truncate">Profile</span>
+        </Link>
+      </nav>
     );
   }
 
   // Desktop/Tablet Layout (Original code)
+  // If not mobile, and user is not logged in, show logo and theme toggle
   if (!user) { 
     return ( 
         <header className="flex justify-between items-center p-4 container mx-auto">
@@ -128,6 +118,7 @@ const AppHeader = () => {
     );
   }
 
+  // Default Desktop/Tablet header for logged-in users
   return (
     <header className="flex justify-between items-center">
       <div className="flex items-center space-x-1 sm:space-x-3">
