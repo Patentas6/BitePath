@@ -29,11 +29,10 @@ export const UNITS = ['piece', 'g', 'kg', 'ml', 'l', 'tsp', 'tbsp', 'cup', 'oz',
 
 const ingredientSchema = z.object({
   name: z.string().min(1, { message: "Ingredient name is required." }),
-  quantity: z.union([
-    z.literal("").transform(() => undefined), 
-    z.null().transform(() => undefined),     
-    z.coerce.number().positive({ message: "Quantity must be a positive number." }) 
-  ]).optional(), 
+  quantity: z.preprocess(
+    (val) => (val === "" || val === null ? undefined : val), 
+    z.coerce.number().positive({ message: "Quantity must be a positive number." }).optional()
+  ),
   unit: z.string().optional().transform(val => val === "" ? undefined : val), 
   description: z.string().optional(),
 }).refine(data => {
@@ -142,7 +141,7 @@ const MealForm: React.FC<MealFormProps> = ({
       const ingredientsToSave = values.ingredients?.map(ing => ({
         name: ing.name,
         quantity: ing.quantity !== undefined ? ing.quantity : null,
-        unit: ing.quantity !== undefined ? (ing.unit || "") : null, // Ensure unit is null if quantity is null
+        unit: ing.quantity !== undefined ? (ing.unit || "") : null,
         description: ing.description,
       })).filter(ing => ing.name.trim() !== ""); 
 
@@ -364,7 +363,7 @@ const MealForm: React.FC<MealFormProps> = ({
                             <FormItem className="md:col-span-1">
                               <FormLabel className="text-xs">Qty (Optional)</FormLabel>
                               <FormControl>
-                                <Input type="number" placeholder="e.g., 2" {...itemField} value={itemField.value === undefined ? "" : itemField.value} step="any" />
+                                <Input type="number" placeholder="e.g., 2" {...itemField} value={itemField.value ?? ""} step="any" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
