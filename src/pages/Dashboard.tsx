@@ -7,6 +7,8 @@ import type { User } from "@supabase/supabase-js";
 import { useNavigate, useLocation } from "react-router-dom";
 import AppTour from "@/components/AppTour";
 import { useQuery } from '@tanstack/react-query';
+import { useIsMobile } from "@/hooks/use-mobile"; // Import useIsMobile
+import { cn } from "@/lib/utils"; // Import cn for conditional classes
 
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -14,6 +16,7 @@ const Dashboard = () => {
   const location = useLocation();
   const [isClient, setIsClient] = useState(false);
   const [justLoggedInForTour, setJustLoggedInForTour] = useState(false);
+  const isMobile = useIsMobile(); // Initialize useIsMobile
 
   useEffect(() => {
     setIsClient(true);
@@ -101,10 +104,17 @@ const Dashboard = () => {
   console.log(`[Dashboard] Rendering AppTour with startTour = ${shouldStartTour}`);
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-4">
+    <div className={cn(
+      "min-h-screen bg-background text-foreground",
+      isMobile ? "pt-16 pb-20 px-2" : "p-4" // Conditional padding for mobile
+    )}>
       {isClient && user && <AppTour startTour={shouldStartTour} userId={user.id} />}
-      <div className="container mx-auto space-y-6">
-        <AppHeader />
+      {/* AppHeader is now fixed, so it's not part of this container's layout flow on mobile */}
+      <AppHeader /> 
+      <div className={cn(
+        "space-y-6",
+        !isMobile && "container mx-auto" // Apply container only on non-mobile
+      )}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {user && <TodaysMeals userId={user.id} />}
           {user && <TodaysGroceryList userId={user.id} />}

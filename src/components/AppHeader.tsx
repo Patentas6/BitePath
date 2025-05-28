@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import type { User } from "@supabase/supabase-js";
 import { UserCircle, BookOpenText, Brain, SquarePen, CalendarDays, Home, PlusCircle } from "lucide-react";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
+import { useIsMobile } from "@/hooks/use-mobile"; // Import useIsMobile
 
 interface UserProfile {
   first_name: string | null;
@@ -15,6 +16,7 @@ interface UserProfile {
 const AppHeader = () => {
   const [user, setUser] = useState<User | null>(null);
   const navigate = useNavigate();
+  const isMobile = useIsMobile(); // Initialize useIsMobile
 
   useEffect(() => {
     const getSession = async () => {
@@ -22,18 +24,20 @@ const AppHeader = () => {
       if (session?.user) {
         setUser(session.user);
       } else {
-        navigate("/auth"); 
+        if (isMobile) { // Only navigate if mobile and no session, desktop might have public pages
+             // navigate("/auth"); // Decided against auto-navigating from header directly
+        }
       }
     };
     getSession();
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
-      if (!session?.user) {
-        navigate("/auth");
+      if (!session?.user && isMobile) {
+         // navigate("/auth"); // Decided against auto-navigating from header directly
       }
     });
     return () => authListener?.subscription.unsubscribe();
-  }, [navigate]);
+  }, [navigate, isMobile]);
 
   const { data: userProfile, isLoading: isUserProfileLoading } = useQuery<UserProfile | null>({
     queryKey: ["userProfileDataForHeader", user?.id],
@@ -69,6 +73,47 @@ const AppHeader = () => {
     return namePart ? `Welcome ${namePart}!` : "";
   };
   
+  // Mobile Layout
+  if (isMobile) {
+    if (!user) { // If mobile and not logged in, render minimal top theme toggle
+        return (
+            <div className="fixed top-4 left-4 z-50">
+                <ThemeToggleButton />
+            </div>
+        );
+    }
+    return (
+      <>
+        <div className="fixed top-4 left-4 z-50">
+          <ThemeToggleButton />
+        </div>
+        <nav className="fixed bottom-0 left-0 right-0 bg-background border-t border-border shadow-lg p-1 flex justify-around items-center z-50 h-16">
+          <Link to="/dashboard" data-tourid="tour-home-button" className="flex flex-col items-center justify-center text-xs text-muted-foreground hover:text-primary p-1 w-1/5 h-full">
+            <Home className="h-5 w-5 mb-0.5" />
+            <span className="truncate">Home</span>
+          </Link>
+          <Link to="/meals" data-tourid="tour-my-meals-button" className="flex flex-col items-center justify-center text-xs text-muted-foreground hover:text-primary p-1 w-1/5 h-full">
+            <BookOpenText className="h-5 w-5 mb-0.5" />
+            <span className="truncate">Meals</span>
+          </Link>
+          <Link to="/manage-meal-entry" data-tourid="tour-new-meal-button" className="flex flex-col items-center justify-center text-xs text-muted-foreground hover:text-primary p-1 w-1/5 h-full">
+            <PlusCircle className="h-7 w-7 text-primary" />
+            {/* <span className="mt-0.5 truncate text-primary">New</span> */}
+          </Link>
+          <Link to="/planning" data-tourid="tour-planning-button" className="flex flex-col items-center justify-center text-xs text-muted-foreground hover:text-primary p-1 w-1/5 h-full">
+            <CalendarDays className="h-5 w-5 mb-0.5" />
+            <span className="truncate">Plan</span>
+          </Link>
+          <Link to="/profile" data-tourid="tour-profile-button" className="flex flex-col items-center justify-center text-xs text-muted-foreground hover:text-primary p-1 w-1/5 h-full">
+            <UserCircle className="h-5 w-5 mb-0.5" />
+            <span className="truncate">Profile</span>
+          </Link>
+        </nav>
+      </>
+    );
+  }
+
+  // Desktop/Tablet Layout (Original code)
   if (!user) { 
     return ( 
         <header className="flex justify-between items-center p-4 container mx-auto">
