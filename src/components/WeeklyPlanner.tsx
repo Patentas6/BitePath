@@ -42,7 +42,7 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart 
   const [selectedMealTypeForDialog, setSelectedMealTypeForDialog] = useState<PlanningMealType | undefined>(undefined);
 
   const queryClient = useQueryClient();
-  const today = startOfToday();
+  const todayDate = startOfToday(); // Renamed to avoid conflict with isToday function
 
   const { data: userProfile, isLoading: isLoadingProfile } = useQuery<UserProfileData | null>({
     queryKey: ['userProfileForWeeklyPlanner', userId],
@@ -116,7 +116,6 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart 
   }, [currentWeekStart]);
 
   const handleAddOrChangeMealClick = (day: Date, mealType?: PlanningMealType) => {
-    console.log("[WeeklyPlanner] handleAddOrChangeMealClick - Day:", day, "MealType from slot:", mealType); // LOG 1
     if (isPast(day) && !isToday(day)) {
         console.log("Cannot plan for a past date (excluding today).");
         return;
@@ -162,117 +161,120 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart 
 
   const isLoading = isLoadingMealPlans || isLoadingProfile;
 
-  // Log selectedMealTypeForDialog when isDialogOpen is true, before rendering the dialog
-  if (isDialogOpen) {
-    console.log("[WeeklyPlanner] Rendering dialog. `selectedMealTypeForDialog` state is:", selectedMealTypeForDialog); // LOG 2
-  }
-
   if (isLoading) return <Card><CardHeader><CardTitle>Weekly Plan</CardTitle></CardHeader><CardContent><Skeleton className="h-64 w-full" /></CardContent></Card>;
   if (error) return <Card><CardHeader><CardTitle>Weekly Plan</CardTitle></CardHeader><CardContent><p className="text-red-500 dark:text-red-400">Error loading meal plans.</p></CardContent></Card>;
 
   return (
     <>
-      <div className="bg-muted p-4 rounded-lg shadow">
-        <div className="grid grid-cols-7 gap-2 text-center mb-2">
-          {daysOfWeek.map(day => {
-            const dateKey = format(day, 'yyyy-MM-dd');
-            const dailyTotal = dailyTotalsByDatePerServing.get(dateKey);
-            return (
-              <div
-                key={day.toISOString()}
-                className={cn(
-                  "flex flex-col items-center p-1 rounded-md",
-                  isToday(day) && "bg-primary/10 dark:bg-primary/20"
-                )}
-              >
-                <div className="font-semibold text-foreground">{format(day, 'EEE')}</div>
-                <div className="text-sm text-muted-foreground">{format(day, 'MMM dd')}</div>
-                {userProfile?.track_calories && dailyTotal && dailyTotal > 0 && (
-                  <div className="text-xs text-primary mt-0.5 flex items-center">
-                    <Zap size={10} className="mr-0.5" />
-                    {dailyTotal} kcal
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-        <div className="grid grid-cols-7 gap-2">
-          {daysOfWeek.map(day => {
-            const isDayPast = isPast(day) && !isToday(day);
-            const dateKey = format(day, 'yyyy-MM-dd');
-            const mealsForDayMap = mealPlansByDateAndType.get(dateKey);
+      <div className="bg-muted p-2 sm:p-4 rounded-lg shadow">
+        <div className="overflow-x-auto pb-2">
+          {/* Days Container: Flex for mobile scroll, Grid for sm+ */}
+          <div className="flex space-x-2 sm:grid sm:grid-cols-7 sm:gap-2 sm:space-x-0">
+            {daysOfWeek.map(day => {
+              const isDayPast = isPast(day) && !isToday(day);
+              const dateKey = format(day, 'yyyy-MM-dd');
+              const mealsForDayMap = mealPlansByDateAndType.get(dateKey);
+              const dailyTotal = dailyTotalsByDatePerServing.get(dateKey);
 
-            return (
-              <div key={day.toISOString() + "-slots"} className={cn("flex flex-col space-y-1", isDayPast && "opacity-60")}>
-                {MEAL_TYPE_DISPLAY_ORDER.map(mealType => { // mealType here is "Breakfast", "Lunch", etc.
-                  const plannedMeal = mealsForDayMap?.get(mealType);
-                  const caloriesPerServing = calculateCaloriesPerServing(plannedMeal?.meals?.estimated_calories, plannedMeal?.meals?.servings);
-                  return (
-                    <div
-                      key={mealType}
-                      onClick={() => !isDayPast && handleAddOrChangeMealClick(day, mealType)} // mealType is passed here
-                      className={cn(
-                        "border rounded-md p-2 text-xs flex flex-col justify-between overflow-hidden relative transition-colors min-h-[70px]", 
-                        isDayPast ? "bg-gray-100 dark:bg-gray-700/50 cursor-not-allowed" : "bg-card hover:bg-card/80 cursor-pointer"
-                      )}
-                    >
-                      {plannedMeal ? (
-                        <>
-                          <div className={cn(
-                            "font-medium self-start text-gray-600 dark:text-gray-400 text-[10px] leading-tight", 
-                            isDayPast && "text-gray-500 dark:text-gray-500"
-                          )}>
-                            {plannedMeal.meal_type || mealType}
-                          </div>
-                          <div className={cn(
-                            "text-xs font-semibold truncate self-start flex-grow mt-0.5", 
-                            isDayPast ? "line-through text-gray-500 dark:text-gray-500" : "text-foreground"
-                          )}>
-                            {plannedMeal.meals?.name || 'Unknown Meal'}
-                          </div>
-                          {userProfile?.track_calories && caloriesPerServing !== null && (
-                            <div className={cn(
-                              "text-[10px] text-primary self-start flex items-center mt-0.5",
-                              isDayPast && "text-gray-500 dark:text-gray-500"
-                            )}>
-                              <Zap size={10} className="mr-0.5" />
-                              {caloriesPerServing} kcal / serv
+              return (
+                // Day Column
+                <div
+                  key={day.toISOString()}
+                  className={cn(
+                    "flex-shrink-0 w-[48%] sm:w-auto", // w-[48%] for mobile flex (2 days), sm:w-auto for grid item
+                    "flex flex-col",                   // Vertical layout for header + slots
+                    isDayPast && "opacity-60"
+                  )}
+                >
+                  {/* Day Header Part */}
+                  <div
+                    className={cn(
+                      "flex flex-col items-center p-1 rounded-md mb-1 sm:mb-2",
+                      isToday(day) && "bg-primary/10 dark:bg-primary/20"
+                    )}
+                  >
+                    <div className="font-semibold text-foreground text-sm sm:text-base">{format(day, 'EEE')}</div>
+                    <div className="text-xs sm:text-sm text-muted-foreground">{format(day, 'MMM dd')}</div>
+                    {userProfile?.track_calories && dailyTotal && dailyTotal > 0 && (
+                      <div className="text-xs text-primary mt-0.5 flex items-center">
+                        <Zap size={10} className="mr-0.5" />
+                        {dailyTotal} kcal
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Meal Slots for this day */}
+                  <div className="flex flex-col space-y-1">
+                    {MEAL_TYPE_DISPLAY_ORDER.map(mealType => {
+                      const plannedMeal = mealsForDayMap?.get(mealType);
+                      const caloriesPerServing = calculateCaloriesPerServing(plannedMeal?.meals?.estimated_calories, plannedMeal?.meals?.servings);
+                      return (
+                        <div
+                          key={mealType}
+                          onClick={() => !isDayPast && handleAddOrChangeMealClick(day, mealType)}
+                          className={cn(
+                            "border rounded-md p-2 text-xs flex flex-col justify-between overflow-hidden relative transition-colors min-h-[80px] sm:min-h-[70px]", 
+                            isDayPast ? "bg-gray-100 dark:bg-gray-700/50 cursor-not-allowed" : "bg-card hover:bg-card/80 cursor-pointer"
+                          )}
+                        >
+                          {plannedMeal ? (
+                            <>
+                              <div className={cn(
+                                "font-medium self-start text-gray-600 dark:text-gray-400 text-[10px] leading-tight", 
+                                isDayPast && "text-gray-500 dark:text-gray-500"
+                              )}>
+                                {plannedMeal.meal_type || mealType}
+                              </div>
+                              <div className={cn(
+                                "text-xs font-semibold truncate self-start flex-grow mt-0.5", 
+                                isDayPast ? "line-through text-gray-500 dark:text-gray-500" : "text-foreground"
+                              )}>
+                                {plannedMeal.meals?.name || 'Unknown Meal'}
+                              </div>
+                              {userProfile?.track_calories && caloriesPerServing !== null && (
+                                <div className={cn(
+                                  "text-[10px] text-primary self-start flex items-center mt-0.5",
+                                  isDayPast && "text-gray-500 dark:text-gray-500"
+                                )}>
+                                  <Zap size={10} className="mr-0.5" />
+                                  {caloriesPerServing} kcal / serv
+                                </div>
+                              )}
+                              {!isDayPast && (
+                                <button
+                                  onClick={(e) => handleRemoveMeal(plannedMeal.id, e)}
+                                  className="absolute top-0.5 right-0.5 p-0.5 rounded-full text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-500/80 hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors"
+                                  aria-label="Remove meal"
+                                >
+                                  <XCircle size={14} />
+                                </button>
+                              )}
+                            </>
+                          ) : (
+                            <div className="flex flex-col items-center justify-center h-full">
+                              <span className="text-[10px] text-muted-foreground/70">{mealType}</span>
+                              {!isDayPast && <Plus size={14} className="text-muted-foreground/50 mt-0.5" />}
                             </div>
                           )}
-                          {!isDayPast && (
-                            <button
-                              onClick={(e) => handleRemoveMeal(plannedMeal.id, e)}
-                              className="absolute top-0.5 right-0.5 p-0.5 rounded-full text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-500/80 hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors"
-                              aria-label="Remove meal"
-                            >
-                              <XCircle size={14} />
-                            </button>
-                          )}
-                        </>
-                      ) : (
-                        <div className="flex flex-col items-center justify-center h-full">
-                          <span className="text-[10px] text-muted-foreground/70">{mealType}</span>
-                          {!isDayPast && <Plus size={14} className="text-muted-foreground/50 mt-0.5" />}
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })}
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
-      {isDialogOpen && ( // Conditionally render the dialog to ensure props are fresh
+      {isDialogOpen && (
         <AddMealToPlanDialog
           open={isDialogOpen}
           onOpenChange={(isOpen) => {
             setIsDialogOpen(isOpen);
             if (!isOpen) {
                setSelectedDateForDialog(null);
-               setSelectedMealTypeForDialog(undefined); // Reset when closing
+               setSelectedMealTypeForDialog(undefined);
             }
           }}
           planDate={selectedDateForDialog}
