@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { format as formatDateFns, startOfWeek, addDays } from "date-fns";
 import { IMAGE_GENERATION_LIMIT_PER_MONTH, RECIPE_GENERATION_LIMIT_PER_PERIOD, RECIPE_GENERATION_PERIOD_DAYS } from '@/lib/constants';
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useIsMobile } from "@/hooks/use-isMobile";
 import { cn } from "@/lib/utils";
 
 import AppHeader from "@/components/AppHeader";
@@ -13,7 +13,7 @@ import WeeklyPlanner from "@/components/WeeklyPlanner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'; 
 import { Button } from '@/components/ui/button'; 
-import { PlusCircle, Brain, X, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'; 
+import { PlusCircle, Brain, X, ChevronLeft, ChevronRight } from 'lucide-react'; 
 
 interface UserProfileDataForLimits {
   is_admin: boolean;
@@ -148,14 +148,19 @@ const ManageMealEntryPage = () => {
 
   const mealFormInitialData = useMemo((): MealFormValues | null => {
     if (!mealDataForManualForm) return null;
+    
+    const ingredientsForForm = mealDataForManualForm.ingredients && mealDataForManualForm.ingredients.length > 0
+      ? mealDataForManualForm.ingredients.map(ing => ({
+          name: ing.name || "",
+          quantity: ing.quantity !== undefined && ing.quantity !== null ? String(ing.quantity) : "",
+          unit: ing.unit || "",
+          description: ing.description || "",
+        }))
+      : []; // Use empty array if AI provides no ingredients or an empty list
+
     return {
       name: mealDataForManualForm.name || "",
-      ingredients: mealDataForManualForm.ingredients?.map(ing => ({
-        name: ing.name || "",
-        quantity: ing.quantity !== undefined && ing.quantity !== null ? String(ing.quantity) : "",
-        unit: ing.unit || "",
-        description: ing.description || "",
-      })) || [{ name: "", quantity: "", unit: "", description: "" }],
+      ingredients: ingredientsForForm,
       instructions: mealDataForManualForm.instructions || "",
       meal_tags: mealDataForManualForm.meal_tags || [],
       image_url: mealDataForManualForm.image_url || "",
@@ -169,7 +174,7 @@ const ManageMealEntryPage = () => {
   };
   
   const handleMealSaveSuccess = (savedMeal: {id: string, name: string}) => {
-    setMealDataForManualForm(null);
+    setMealDataForManualForm(null); // Clear data used for editing
     setNewlySavedMealInfo(savedMeal);
     setShowPostSavePlanner(true);
   };

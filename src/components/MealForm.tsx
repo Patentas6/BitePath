@@ -34,13 +34,19 @@ const ingredientSchema = z.object({
     z.literal("").transform(() => undefined), 
     z.null().transform(() => undefined) 
   ]).optional(),
-  unit: z.string().min(1, { message: "Unit is required." }),
+  unit: z.string().optional().transform(val => val === "" ? undefined : val), // Treat "" as undefined, then optional
   description: z.string().optional(),
 }).refine(data => {
-  return data.quantity === undefined || (data.quantity !== undefined && data.unit && data.unit.trim() !== "");
+  // If quantity is a number (meaning it was successfully parsed and is not undefined),
+  // then unit must also be defined (i.e., not undefined and not an empty string after initial transform).
+  if (typeof data.quantity === 'number') {
+    return typeof data.unit === 'string' && data.unit.trim() !== "";
+  }
+  // If quantity is undefined, then there's no requirement on unit.
+  return true;
 }, {
   message: "Unit is required if quantity is specified.",
-  path: ["unit"],
+  path: ["unit"], // Apply error to unit field
 });
 
 
@@ -69,7 +75,7 @@ interface MealFormProps {
   showCaloriesField?: boolean; 
   initialData?: MealFormValues | null;
   onInitialDataProcessed?: () => void;
-  onSaveSuccess?: (savedMeal: {id: string, name: string}) => void; // Updated signature
+  onSaveSuccess?: (savedMeal: {id: string, name: string}) => void;
 }
 
 const MealForm: React.FC<MealFormProps> = ({ 
@@ -88,7 +94,7 @@ const MealForm: React.FC<MealFormProps> = ({
     resolver: zodResolver(mealFormSchema),
     defaultValues: {
       name: "",
-      ingredients: [{ name: "", quantity: "", unit: "", description: "" }],
+      ingredients: [{ name: "", quantity: "", unit: "", description: "" }], // Default to one empty row
       instructions: "",
       meal_tags: [],
       image_url: "",
@@ -99,11 +105,32 @@ const MealForm: React.FC<MealFormProps> = ({
 
   useEffect(() => {
     if (initialData) {
-      form.reset(initialData);
+      // Ensure ingredients is an array, even if empty, for reset.
+      // If initialData.ingredients is empty or not provided, reset with an empty array for ingredients.
+      // Otherwise, use the provided ingredients.
+      const resetData = {
+        ...initialData,
+        ingredients: initialData.ingredients && initialData.ingredients.length > 0 
+          ? initialData.ingredients 
+          : [] // Use empty array to clear default if no ingredients or empty
+      };
+      form.reset(resetData);
       if (initialData.image_url) {
         setShowImageUrlInput(false);
       }
       onInitialDataProcessed?.();
+    } else {
+      // If initialData becomes null (e.g. user clears/switches context)
+      // Reset to truly default state, which includes one empty ingredient row by default in useForm
+      form.reset({ 
+          name: "",
+          ingredients: [{ name: "", quantity: "", unit: "", description: "" }],
+          instructions: "",
+          meal_tags: [],
+          image_url: "",
+          estimated_calories: "", 
+          servings: "", 
+        });
     }
   }, [initialData, form, onInitialDataProcessed]);
 
@@ -123,7 +150,7 @@ const MealForm: React.FC<MealFormProps> = ({
       const ingredientsToSave = values.ingredients?.map(ing => ({
         name: ing.name,
         quantity: (ing.quantity === undefined || ing.quantity === "") ? null : parseFloat(ing.quantity as any),
-        unit: (ing.quantity === undefined || ing.quantity === "") ? "" : ing.unit,
+        unit: (ing.quantity === undefined || ing.quantity === "") ? "" : ing.unit, // Keep unit if quantity was there, even if now null
         description: ing.description,
       })).filter(ing => ing.name.trim() !== ""); 
 
@@ -148,7 +175,7 @@ const MealForm: React.FC<MealFormProps> = ({
       if (error) {
         throw error;
       }
-      return { data, values }; // Pass values along for onSuccess
+      return { data, values }; 
     },
     onSuccess: ({ data, values }) => {
       showSuccess("Meal added successfully!");
@@ -156,7 +183,6 @@ const MealForm: React.FC<MealFormProps> = ({
       if (savedMealEntry && onSaveSuccess) {
         onSaveSuccess({ id: savedMealEntry.id, name: values.name });
       } else if (onSaveSuccess) {
-        // Fallback if data is not as expected, though ideally it should always have the saved meal
         onSaveSuccess({ id: 'unknown', name: values.name });
       }
       
@@ -564,7 +590,7 @@ const MealForm: React.FC<MealFormProps> = ({
               src={viewingImageUrl}
               alt="Enlarged meal image"
               className="max-w-full max-h-full object-contain" 
-              onClick={(e) => e.stopPropagation()} // Optional: if you want clicking image itself to NOT close
+              onClick={(e) => e.stopPropagation()} 
             />
           )}
         </DialogContent>
