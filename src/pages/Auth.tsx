@@ -91,7 +91,11 @@ const Auth = () => {
       <Card className="w-full max-w-md mt-16 md:mt-0">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold">
-            {isLogin ? "Login to Your Account" : "Join BitePath Today!"}
+            {isLogin ? "Login to Your Account" : (
+              <>
+                Join <span className="text-accent dark:text-foreground">Bite</span><span className="text-primary dark:text-primary">Path</span> Today!
+              </>
+            )}
           </CardTitle>
           {!isLogin && (
             <CardDescription className="pt-2">
