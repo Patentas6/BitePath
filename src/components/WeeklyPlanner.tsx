@@ -2,10 +2,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { showError, showSuccess } from "@/utils/toast";
 import { format, addDays, isSameDay, isToday, isPast, startOfToday, parseISO } from "date-fns";
-import { useMemo, useState, useEffect, useRef } from "react"; // Added useEffect, useRef
+import { useMemo, useState, useEffect, useRef } from "react"; 
 import { cn } from "@/lib/utils";
 import { PLANNING_MEAL_TYPES, PlanningMealType } from "@/lib/constants"; 
-import { useIsMobile } from "@/hooks/use-mobile"; // Added useIsMobile
+import { useIsMobile } from "@/hooks/use-mobile"; 
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -33,17 +33,24 @@ interface UserProfileData {
 interface WeeklyPlannerProps {
   userId: string;
   currentWeekStart: Date;
+  preSelectedMealId?: string | null; // New prop
+  onMealPreSelectedAndPlanned?: () => void; // New prop
 }
 
 const MEAL_TYPE_DISPLAY_ORDER: PlanningMealType[] = ["Breakfast", "Brunch Snack", "Lunch", "Afternoon Snack", "Dinner"];
 
-const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart }) => {
+const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ 
+  userId, 
+  currentWeekStart, 
+  preSelectedMealId, 
+  onMealPreSelectedAndPlanned 
+}) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedDateForDialog, setSelectedDateForDialog] = useState<Date | null>(null);
   const [selectedMealTypeForDialog, setSelectedMealTypeForDialog] = useState<PlanningMealType | undefined>(undefined);
   
-  const scrollContainerRef = useRef<HTMLDivElement>(null); // Ref for the scrollable container
-  const isMobile = useIsMobile(); // Hook to check for mobile screen size
+  const scrollContainerRef = useRef<HTMLDivElement>(null); 
+  const isMobile = useIsMobile(); 
 
   const queryClient = useQueryClient();
   const todayDate = startOfToday(); 
@@ -94,21 +101,51 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart 
     onSuccess: () => {
       showSuccess("Meal removed from plan!");
       refetchMealPlans();
-      queryClient.invalidateQueries({
-        queryKey: ["groceryListSource"] 
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["todaysGroceryListSource"]
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["todaysMealPlans"]
-      });
+      queryClient.invalidateQueries({ queryKey: ["groceryListSource"] });
+      queryClient.invalidateQueries({ queryKey: ["todaysGroceryListSource"] });
+      queryClient.invalidateQueries({ queryKey: ["todaysMealPlans"] });
     },
     onError: (error) => {
       console.error("Error removing meal from plan:", error);
       showError(`Failed to remove meal: ${error.message}`);
     },
   });
+
+  const directAddMealToPlanMutation = useMutation({
+    mutationFn: async ({ meal_id, plan_date_obj, meal_type_str }: { meal_id: string; plan_date_obj: Date; meal_type_str: string }) => {
+      if (!userId) throw new Error("User not authenticated.");
+      
+      const plan_date_str = format(plan_date_obj, "yyyy-MM-dd");
+
+      // Delete existing entry for the slot first
+      const { error: deleteError } = await supabase
+        .from("meal_plans")
+        .delete()
+        .match({ user_id: userId, plan_date: plan_date_str, meal_type: meal_type_str });
+      if (deleteError) console.warn("Error deleting existing meal plan entry for direct add:", deleteError.message);
+      
+      // Insert the new meal
+      const { data, error: insertError } = await supabase
+        .from("meal_plans")
+        .insert([{ user_id: userId, meal_id: meal_id, plan_date: plan_date_str, meal_type: meal_type_str }])
+        .select();
+      if (insertError) throw insertError;
+      return data;
+    },
+    onSuccess: () => {
+      showSuccess("Meal added to plan!");
+      refetchMealPlans(); // Refetch current week's plans
+      queryClient.invalidateQueries({ queryKey: ["groceryListSource"] });
+      queryClient.invalidateQueries({ queryKey: ["todaysGroceryListSource"] });
+      queryClient.invalidateQueries({ queryKey: ["todaysMealPlans"] });
+      onMealPreSelectedAndPlanned?.(); // Call the callback to close the planner view
+    },
+    onError: (error) => {
+      console.error("Error directly adding meal to plan:", error);
+      showError(`Failed to add meal to plan: ${error.message}`);
+    },
+  });
+
 
   const handleRemoveMeal = (mealPlanId: string, event: React.MouseEvent) => {
     event.stopPropagation();
@@ -127,30 +164,31 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart 
       if (todayElement) {
         const firstDayOfCurrentWeek = daysOfWeek[0];
         const lastDayOfCurrentWeek = daysOfWeek[6];
-        // Check if today is actually within the current displayed week
         if (todayDate >= firstDayOfCurrentWeek && todayDate <= lastDayOfCurrentWeek) {
-          const containerLeft = scrollContainerRef.current.getBoundingClientRect().left;
-          const todayLeft = todayElement.getBoundingClientRect().left;
-          const scrollPosition = todayElement.offsetLeft - scrollContainerRef.current.offsetLeft; // More reliable offset
-          
-          scrollContainerRef.current.scrollTo({
-            left: scrollPosition,
-            behavior: 'auto' 
-          });
+          const scrollPosition = todayElement.offsetLeft - scrollContainerRef.current.offsetLeft;
+          scrollContainerRef.current.scrollTo({ left: scrollPosition, behavior: 'auto' });
         }
       }
     }
   }, [isMobile, isLoadingMealPlans, daysOfWeek, currentWeekStart, todayDate]);
 
-
   const handleAddOrChangeMealClick = (day: Date, mealType?: PlanningMealType) => {
     if (isPast(day) && !isToday(day)) {
-        console.log("Cannot plan for a past date (excluding today).");
-        return;
+      console.log("Cannot plan for a past date (excluding today).");
+      return;
     }
-    setSelectedDateForDialog(day);
-    setSelectedMealTypeForDialog(mealType); 
-    setIsDialogOpen(true);
+
+    if (preSelectedMealId && mealType) { // If a meal is pre-selected and a valid mealType is clicked
+      directAddMealToPlanMutation.mutate({
+        meal_id: preSelectedMealId,
+        plan_date_obj: day,
+        meal_type_str: mealType,
+      });
+    } else { // Otherwise, open the dialog to select a meal
+      setSelectedDateForDialog(day);
+      setSelectedMealTypeForDialog(mealType); 
+      setIsDialogOpen(true);
+    }
   };
 
   const mealPlansByDateAndType = useMemo(() => {
@@ -195,7 +233,7 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart 
   return (
     <>
       <div className="bg-muted p-2 sm:p-4 rounded-lg shadow">
-        <div className="overflow-x-auto pb-2" ref={scrollContainerRef}> {/* Added ref here */}
+        <div className="overflow-x-auto pb-2" ref={scrollContainerRef}> 
           <div className="flex space-x-2 sm:grid sm:grid-cols-7 sm:gap-2 sm:space-x-0">
             {daysOfWeek.map(day => {
               const isDayPast = isPast(day) && !isToday(day);
@@ -206,7 +244,7 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart 
               return (
                 <div
                   key={day.toISOString()}
-                  data-date={dateKey} // Added data-date attribute
+                  data-date={dateKey} 
                   className={cn(
                     "flex-shrink-0 w-[48%] sm:w-auto", 
                     "flex flex-col",                   
@@ -237,8 +275,9 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart 
                           key={mealType}
                           onClick={() => !isDayPast && handleAddOrChangeMealClick(day, mealType)}
                           className={cn(
-                            "border rounded-md p-2 text-xs flex flex-col justify-between overflow-hidden relative transition-colors h-[80px] sm:h-[70px]", // Changed min-h to h
-                            isDayPast ? "bg-gray-100 dark:bg-gray-700/50 cursor-not-allowed" : "bg-card hover:bg-card/80 cursor-pointer"
+                            "border rounded-md p-2 text-xs flex flex-col justify-between overflow-hidden relative transition-colors h-[80px] sm:h-[70px]", 
+                            isDayPast ? "bg-gray-100 dark:bg-gray-700/50 cursor-not-allowed" : "bg-card hover:bg-card/80 cursor-pointer",
+                            preSelectedMealId && !isDayPast && "ring-2 ring-primary animate-pulse" // Highlight if pre-selected
                           )}
                         >
                           {plannedMeal ? (
@@ -286,7 +325,7 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart 
                           ) : (
                             <div className="flex flex-col items-center justify-center h-full">
                               <span className="text-[10px] text-muted-foreground/70">{mealType}</span>
-                              {!isDayPast && <Plus size={14} className="text-muted-foreground/50 mt-0.5" />}
+                              {!isDayPast && <Plus size={14} className={cn("mt-0.5", preSelectedMealId ? "text-primary" : "text-muted-foreground/50")} />}
                             </div>
                           )}
                         </div>

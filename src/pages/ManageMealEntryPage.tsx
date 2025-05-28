@@ -189,7 +189,6 @@ const ManageMealEntryPage = () => {
       <div className={cn("min-h-screen bg-background text-foreground", isMobile ? "pt-4 pb-20 px-2" : "p-4")}>
         <AppHeader />
         <div className="container mx-auto space-y-6">
-          {/* Desktop header is now handled by the single AppHeader above */}
           <div className="relative p-4 border rounded-lg shadow-lg bg-card">
             <Button 
               variant="ghost" 
@@ -204,7 +203,7 @@ const ManageMealEntryPage = () => {
               "{newlySavedMealInfo?.name}" saved!
             </h2>
             <p className="text-sm text-muted-foreground text-center mb-4">
-              Want to add it to your plan now?
+              Click a slot below to add it to your plan.
             </p>
             
             <div className="flex justify-between items-center mb-4">
@@ -212,7 +211,12 @@ const ManageMealEntryPage = () => {
               <h3 className="text-lg font-semibold text-center text-foreground">{formatDateFns(plannerWeekStart, 'MMM dd')} - {formatDateFns(addDays(plannerWeekStart, 6), 'MMM dd, yyyy')}</h3>
               <Button variant="outline" size="sm" onClick={() => handleWeekNavigate("next")}>Next <ChevronRight className="h-4 w-4 ml-1" /></Button>
             </div>
-            <WeeklyPlanner userId={userId} currentWeekStart={plannerWeekStart} />
+            <WeeklyPlanner 
+              userId={userId} 
+              currentWeekStart={plannerWeekStart} 
+              preSelectedMealId={newlySavedMealInfo?.id || null}
+              onMealPreSelectedAndPlanned={handleClosePostSavePlanner}
+            />
             <div className="mt-6 text-center">
               <Button onClick={handleClosePostSavePlanner}>Done Planning</Button>
             </div>
@@ -226,7 +230,6 @@ const ManageMealEntryPage = () => {
     <div className={cn("min-h-screen bg-background text-foreground", isMobile ? "pt-4 pb-20 px-2" : "p-4")}>
       <AppHeader />
       <div className={cn("space-y-6", !isMobile && "container mx-auto")}>
-        {/* Desktop header is now handled by the single AppHeader above */}
         
         <div className="flex justify-between items-center mb-0">
             <h1 className="text-xl sm:text-3xl font-bold flex items-center">
