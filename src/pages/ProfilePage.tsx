@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription as ShadcnCardDescription } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Switch } from "@/components/ui/switch"; // Added Switch
+import { Switch } from "@/components/ui/switch"; 
 import { useNavigate, Link } from "react-router-dom";
 import type { User } from "@supabase/supabase-js";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
@@ -23,7 +23,7 @@ const profileFormSchema = z.object({
   last_name: z.string().min(1, "Last name is required.").max(50, "Last name cannot exceed 50 characters."),
   ai_preferences: z.string().optional(),
   preferred_unit_system: z.enum(["imperial", "metric"]).default("imperial"),
-  track_calories: z.boolean().default(false).optional(), // Added track_calories
+  track_calories: z.boolean().default(false).optional(),
 });
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
@@ -33,7 +33,7 @@ interface ProfileData {
   last_name: string | null;
   ai_preferences: string | null;
   preferred_unit_system: "imperial" | "metric" | null;
-  track_calories: boolean | null; // Added track_calories
+  track_calories: boolean | null;
 }
 
 const ProfilePage = () => {
@@ -66,7 +66,7 @@ const ProfilePage = () => {
       last_name: "", 
       ai_preferences: "", 
       preferred_unit_system: "imperial",
-      track_calories: false, // Added default
+      track_calories: false,
     },
   });
 
@@ -76,7 +76,7 @@ const ProfilePage = () => {
       if (!userId) return null;
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, first_name, last_name, ai_preferences, preferred_unit_system, track_calories") // Added track_calories
+        .select("id, first_name, last_name, ai_preferences, preferred_unit_system, track_calories")
         .eq("id", userId)
         .single();
       if (error && error.code !== 'PGRST116') throw error;
@@ -92,18 +92,29 @@ const ProfilePage = () => {
         last_name: profile.last_name || "",
         ai_preferences: profile.ai_preferences || "",
         preferred_unit_system: profile.preferred_unit_system || "imperial",
-        track_calories: profile.track_calories || false, // Added track_calories
+        track_calories: profile.track_calories || false,
       });
     } else if (!isLoadingProfile && userId) {
-      form.reset({ 
-        first_name: "", 
-        last_name: "", 
-        ai_preferences: "", 
+      // This case is for when a user is loaded, profile isn't loading, but profile is null (e.g. new user)
+      form.reset({
+        first_name: "",
+        last_name: "",
+        ai_preferences: "",
         preferred_unit_system: "imperial",
-        track_calories: false, // Added default
+        track_calories: false,
       });
     }
-  }, [profile, isLoadingProfile, userId, form]);
+  }, [
+    userId, 
+    profile?.id, 
+    profile?.first_name,
+    profile?.last_name,
+    profile?.ai_preferences,
+    profile?.preferred_unit_system,
+    profile?.track_calories,
+    isLoadingProfile, 
+    form.reset 
+  ]);
 
   const updateProfileMutation = useMutation({
     mutationFn: async (values: ProfileFormValues) => {
@@ -114,7 +125,7 @@ const ProfilePage = () => {
         last_name: values.last_name,
         ai_preferences: values.ai_preferences,
         preferred_unit_system: values.preferred_unit_system,
-        track_calories: values.track_calories, // Added track_calories
+        track_calories: values.track_calories,
       };
       const { data, error } = await supabase.from("profiles").upsert(updateData).select();
       if (error) throw error;
@@ -142,7 +153,6 @@ const ProfilePage = () => {
       showError(`Logout failed: ${error.message}`);
     } else {
       showSuccess("Logged out successfully.");
-      // Navigation to /auth is handled by onAuthStateChange in AppHeader and ProtectedRoute
     }
   };
 
@@ -267,7 +277,6 @@ const ProfilePage = () => {
                     <FormItem 
                       className="flex flex-row items-center justify-between rounded-lg border p-4 cursor-pointer hover:bg-muted/50 transition-colors"
                       onClick={(e) => {
-                        // Prevent click on switch itself from triggering this FormItem's onClick
                         if (e.target === e.currentTarget || (e.target as HTMLElement).closest('[role="switch"]') === null) {
                            field.onChange(!field.value);
                         }
