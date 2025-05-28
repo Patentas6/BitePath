@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { format, addDays, parseISO } from "date-fns";
+import { format, addDays, parseISO, startOfToday } from "date-fns"; // Added startOfToday
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -99,10 +99,12 @@ interface MealWiseDisplayItem {
 
 interface GroceryListProps {
   userId: string;
-  currentWeekStart: Date;
+  // currentWeekStart is no longer used for date range calculation here,
+  // but kept if other parts of PlanningPage rely on it being passed (though unlikely for this component's core logic)
+  currentWeekStart?: Date; // Make it optional or remove if truly unused by parent for this specific component instance
 }
 
-const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) => {
+const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
   const [displaySystem, setDisplaySystem] = useState<'imperial' | 'metric'>('imperial');
   const [selectedDays, setSelectedDays] = useState<string>('7');
   const [isManualAddDialogOpen, setIsManualAddDialogOpen] = useState(false);
@@ -157,12 +159,15 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
     }
   }, [userProfile]);
 
-  const queryStartDate = currentWeekStart;
-  const queryEndDate = addDays(queryStartDate, parseInt(selectedDays) - 1);
-  const dateRangeQueryKeyPart = `${format(queryStartDate, 'yyyy-MM-dd')}_${selectedDays}`;
+  const today = useMemo(() => startOfToday(), []); // Memoize today's date
+  const queryStartDate = today;
+  const queryEndDate = useMemo(() => addDays(today, parseInt(selectedDays) - 1), [today, selectedDays]);
+  
+  // Use today's date string and selectedDays for the query key part
+  const dateRangeQueryKeyPart = `${format(today, 'yyyy-MM-dd')}_${selectedDays}`;
 
   const { data: plannedMealsData, isLoading, error: plannedMealsError, refetch } = useQuery<PlannedMealWithIngredients[]>({
-    queryKey: ["groceryListSource", userId, dateRangeQueryKeyPart],
+    queryKey: ["groceryListSource", userId, dateRangeQueryKeyPart], // Updated queryKey
     queryFn: async () => {
       if (!userId) return [];
       const startDateStr = format(queryStartDate, 'yyyy-MM-dd');
@@ -210,12 +215,6 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
               if (SUMMABLE_UNITS.includes(unitLower)) {
                 existingUnitQuantity.totalQuantity += processedItem.quantity;
               } else {
-                // If unit is not in SUMMABLE_UNITS, or if it's a different kind of non-summable unit, add as new
-                // This case should be rare if units are consistent, but handles edge cases.
-                // For simplicity, if a unit is not explicitly summable, we might list it separately or decide on a primary.
-                // The current logic will sum if the unit string matches exactly and is in SUMMABLE_UNITS.
-                // If it's e.g. "1 pinch" and another "1 pinch", they will sum.
-                // If it's "1 pinch" and "1 dash", they will be separate UnitQuantity entries.
                 existingAggItem.unitQuantities.push({ unit: processedItem.unit, totalQuantity: processedItem.quantity });
               }
             } else {
@@ -443,7 +442,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
       }
       return prevLocalStruckItems;
     });
-  }, [categorizedDisplayList, mealWiseDisplayList, viewMode, userId, currentWeekStart, selectedDays, displaySystem, manualItems]);
+  }, [categorizedDisplayList, mealWiseDisplayList, viewMode, userId, selectedDays, displaySystem, manualItems, today]); // Added today
 
   const handleItemClick = (uniqueKey: string) => {
     const globalRaw = localStorage.getItem(SHARED_LOCAL_STORAGE_KEY);
