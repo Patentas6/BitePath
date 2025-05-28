@@ -46,20 +46,41 @@ const ProfilePage = () => {
   const isMobile = useIsMobile(); // Initialize useIsMobile
 
   useEffect(() => {
-    const getSessionAndUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) { setUser(session.user); setUserId(session.user.id); }
-      else { navigate("/auth"); }
-    };
-    getSessionAndUser();
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_OUT" || !session?.user) { 
-        setUser(null); 
-        setUserId(null); 
+    // ProtectedRoute should ensure a session exists.
+    // This effect primarily sets local state and handles SIGNED_OUT.
+    const initializeUser = async () => {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (currentUser) {
+        setUser(currentUser);
+        setUserId(currentUser.id);
+      } else {
+        // If ProtectedRoute somehow failed or this page was accessed directly without auth
+        // This is a fallback.
+        console.warn("[ProfilePage] No user session found, redirecting to auth.");
+        navigate("/auth", { replace: true });
       }
-      else if (session?.user) { setUser(session.user); setUserId(session.user.id); }
+    };
+
+    initializeUser();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT") {
+        setUser(null);
+        setUserId(null);
+        navigate("/auth", { replace: true });
+      } else if (session?.user) {
+        setUser(session.user);
+        setUserId(session.user.id);
+      } else if (!session?.user && event !== 'INITIAL_SESSION') {
+        // If session becomes null for other reasons (e.g. token revoked)
+        setUser(null);
+        setUserId(null);
+        navigate("/auth", { replace: true });
+      }
     });
-    return () => authListener?.subscription.unsubscribe();
+    return () => {
+      authListener?.subscription.unsubscribe();
+    };
   }, [navigate]);
 
   const form = useForm<ProfileFormValues>({
@@ -85,7 +106,7 @@ const ProfilePage = () => {
       if (error && error.code !== 'PGRST116') throw error;
       return data;
     },
-    enabled: !!userId,
+    enabled: !!userId, // Query will only run if userId is set
   });
 
   useEffect(() => {
@@ -98,12 +119,13 @@ const ProfilePage = () => {
         track_calories: profile.track_calories || false, // Added track_calories
       });
     } else if (!isLoadingProfile && userId) {
+      // If there's a userId but no profile data (e.g., new user), reset with defaults
       form.reset({ 
         first_name: "", 
         last_name: "", 
         ai_preferences: "", 
         preferred_unit_system: "imperial",
-        track_calories: false, // Added default
+        track_calories: false, 
       });
     }
   }, [profile, isLoadingProfile, userId, form]);
@@ -145,16 +167,13 @@ const ProfilePage = () => {
       showError(`Logout failed: ${error.message}`);
     } else {
       showSuccess("Logged out successfully.");
-      // Navigation to /auth is handled by onAuthStateChange in AppHeader and ProtectedRoute
+      // Navigation to /auth is handled by onAuthStateChange listener or ProtectedRoute
     }
   };
 
-  if (!userId && !user && !isLoadingProfile) { 
-     navigate("/auth", { replace: true });
-     return <div className="min-h-screen flex items-center justify-center">Redirecting...</div>;
-  }
-  if (isLoadingProfile && !profile) { 
-    return <div className="min-h-screen flex items-center justify-center">Loading profile...</div>;
+  // Render loading state while userId is being determined or profile is loading
+  if (!userId || (isLoadingProfile && !profile)) { 
+     return <div className="min-h-screen flex items-center justify-center">Loading profile...</div>;
   }
   if (profileError) return <div>Error loading profile. Please try refreshing.</div>;
 
