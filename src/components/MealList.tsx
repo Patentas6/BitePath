@@ -315,22 +315,22 @@ const MealList = () => {
                           </div>
                         )}
                       </div>
-                      <div className="flex flex-col space-y-2 flex-shrink-0 ml-2"> 
+                      <div className="flex flex-col space-y-1 sm:space-y-2 flex-shrink-0 ml-2"> 
                         <Button 
                           variant="outline" 
                           onClick={() => handleEditClick(meal)} 
                           aria-label="Edit meal"
-                          className="h-12 w-12 md:h-14 md:w-14 p-0" 
+                          className="h-10 w-10 sm:h-12 sm:w-12 md:h-14 md:w-14 p-0" 
                         >
-                          <Edit3 className="h-6 w-6 md:h-7 md:w-7" /> 
+                          <Edit3 className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7" /> 
                         </Button>
                         <Button 
                           variant="destructive" 
                           onClick={() => handleDeleteClick(meal)} 
                           aria-label="Delete meal"
-                          className="h-12 w-12 md:h-14 md:w-14 p-0" 
+                          className="h-10 w-10 sm:h-12 sm:w-12 md:h-14 md:w-14 p-0" 
                         >
-                          <Trash2 className="h-6 w-6 md:h-7 md:w-7" /> 
+                          <Trash2 className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7" /> 
                         </Button>
                       </div>
                     </div>
