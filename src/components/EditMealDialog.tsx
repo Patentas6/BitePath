@@ -108,7 +108,7 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
       if (meal.ingredients) {
         try {
           const parsed = JSON.parse(meal.ingredients);
-          if (Array.isArray(parsed)) { // No need to check parsed.length > 0 here
+          if (Array.isArray(parsed)) {
             parsedIngredients = parsed.map(item => ({
               name: item.name || "",
               quantity: item.quantity !== undefined && item.quantity !== null ? String(item.quantity) : "",
@@ -123,14 +123,13 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
       
       form.reset({
         name: meal.name,
-        ingredients: parsedIngredients, // Pass parsedIngredients directly (it will be [] if no ingredients)
+        ingredients: parsedIngredients, 
         instructions: meal.instructions || "",
         meal_tags: meal.meal_tags || [],
         estimated_calories: meal.estimated_calories || "", 
         servings: meal.servings || "", 
       });
     } else if (!open) {
-      // Reset to default when dialog closes or no meal
       form.reset({
         name: "",
         ingredients: [{ name: "", quantity: "", unit: "", description: "" }],
@@ -140,7 +139,7 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
         servings: "", 
       });
     }
-  }, [meal, open, form]); // Removed append from dependency array as form.reset handles ingredients array
+  }, [meal, open, form]);
 
   const editMealMutation = useMutation({
     mutationFn: async (values: MealFormValues) => {
@@ -153,8 +152,8 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
 
       const ingredientsToSave = values.ingredients?.map(ing => ({
         name: ing.name,
-        quantity: (ing.quantity === undefined || ing.quantity === "") ? null : parseFloat(ing.quantity as any),
-        unit: (ing.quantity === undefined || ing.quantity === "") ? "" : ing.unit,
+        quantity: ing.quantity !== undefined ? ing.quantity : null,
+        unit: ing.quantity !== undefined ? (ing.unit || "") : null,
         description: ing.description,
       })).filter(ing => ing.name.trim() !== "");
 

@@ -100,17 +100,14 @@ const MealForm: React.FC<MealFormProps> = ({
     },
   });
 
-  const { fields, append, remove, replace } = useFieldArray({ // Added replace
+  const { fields, append, remove, replace } = useFieldArray({
     control: form.control,
     name: "ingredients",
   });
 
   useEffect(() => {
     if (initialData) {
-      form.reset(initialData); // Reset the whole form with initialData
-      // Explicitly replace the ingredients field array
-      // initialData.ingredients should already be in the correct format (array of objects with string quantities)
-      // from ManageMealEntryPage's mealFormInitialData
+      form.reset(initialData); 
       replace(initialData.ingredients || []); 
 
       if (initialData.image_url) {
@@ -120,21 +117,19 @@ const MealForm: React.FC<MealFormProps> = ({
         onInitialDataProcessed();
       }
     } else {
-      // When initialData is not present (fresh "Add Manually" tab)
       form.reset({
         name: "",
-        ingredients: [{ name: "", quantity: "", unit: "", description: "" }], // Default one blank row
+        ingredients: [{ name: "", quantity: "", unit: "", description: "" }], 
         instructions: "",
         meal_tags: [],
         image_url: "",
         estimated_calories: "",
         servings: "",
       });
-      // Ensure the field array also reflects this one blank row
       replace([{ name: "", quantity: "", unit: "", description: "" }]);
       setShowImageUrlInput(false);
     }
-  }, [initialData, form, onInitialDataProcessed, replace]); // Added replace to dependencies
+  }, [initialData, form, onInitialDataProcessed, replace]); 
 
 
   const addMealMutation = useMutation({
@@ -146,8 +141,11 @@ const MealForm: React.FC<MealFormProps> = ({
 
       const ingredientsToSave = values.ingredients?.map(ing => ({
         name: ing.name,
-        quantity: (ing.quantity === undefined || ing.quantity === "") ? null : parseFloat(ing.quantity as any),
-        unit: (ing.quantity === undefined || ing.quantity === "") ? "" : ing.unit, 
+        // If ing.quantity (from Zod) is undefined, set DB quantity to null. Otherwise, use the number.
+        quantity: ing.quantity !== undefined ? ing.quantity : null,
+        // If quantity is undefined (will be null for DB), set unit to null for DB.
+        // Otherwise, use ing.unit (Zod ensures it's a string if quantity is a number) or "" if somehow undefined.
+        unit: ing.quantity !== undefined ? (ing.unit || "") : null,
         description: ing.description,
       })).filter(ing => ing.name.trim() !== ""); 
 
@@ -192,7 +190,7 @@ const MealForm: React.FC<MealFormProps> = ({
         estimated_calories: "", 
         servings: "", 
       });
-      replace([{ name: "", quantity: "", unit: "", description: "" }]); // Also reset field array
+      replace([{ name: "", quantity: "", unit: "", description: "" }]); 
       setShowImageUrlInput(false); 
       queryClient.invalidateQueries({ queryKey: ["meals"] });
       queryClient.invalidateQueries({ queryKey: ['userProfileForAddMealLimits'] });
