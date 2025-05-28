@@ -6,13 +6,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { ListChecks, ShoppingCart, Utensils, LayoutGrid } from "lucide-react"; // Removed RefreshCw
+import { ListChecks, ShoppingCart, Utensils, LayoutGrid, PlusCircle } from "lucide-react";
 import { convertToPreferredSystem } from "@/utils/conversionUtils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import ManualAddItemForm from "./ManualAddItemForm"; // Import the new form
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 const SHARED_LOCAL_STORAGE_KEY = 'bitepath-struckSharedGroceryItems';
 const GROCERY_VIEW_MODE_KEY = 'bitepath-groceryViewMode';
+const MANUAL_ITEMS_LOCAL_STORAGE_KEY = 'bitepath-manualGroceryItems'; // Key for manual items
 
 interface PlannedMealWithIngredients {
   plan_date: string;
@@ -27,7 +30,15 @@ interface ParsedIngredientItem {
   quantity: number | string;
   unit: string;
   description?: string;
-  mealName?: string; 
+  mealName?: string;
+}
+
+// Interface for manually added items
+interface ManualGroceryItem {
+  id: string;
+  name: string;
+  quantity: string; // Keep as string for flexible input
+  unit: string;     // Keep as string
 }
 
 const NON_SUMMABLE_DISPLAY_UNITS: ReadonlyArray<string> = [
@@ -55,16 +66,17 @@ const categoriesMap = {
   Frozen: ['ice cream', 'sorbet', 'frozen vegetables', 'frozen fruit', 'frozen meal', 'frozen pizza', 'frozen fries', 'frozen peas', 'frozen corn', 'frozen spinach'],
   Beverages: ['water', 'sparkling water', 'juice', 'soda', 'cola', 'wine', 'beer', 'spirits', 'kombucha', 'coconut water', 'sports drink', 'energy drink'],
   Other: [],
+  "Manually Added": [], // New category for manual items
 };
 type Category = keyof typeof categoriesMap;
-const categoryOrder: Category[] = ['Produce', 'Meat & Poultry', 'Dairy & Eggs', 'Pantry', 'Frozen', 'Beverages', 'Other'];
+const categoryOrder: Category[] = ['Produce', 'Meat & Poultry', 'Dairy & Eggs', 'Pantry', 'Frozen', 'Beverages', 'Other', "Manually Added"]; // Add new category to order
 
 interface GroceryListItem {
   name: string;
   totalQuantity: number;
   unit: string | null;
   isSummable: boolean;
-  originalItems: ParsedIngredientItem[]; 
+  originalItems: ParsedIngredientItem[];
 }
 
 interface CategorizedDisplayListItem {
@@ -82,7 +94,6 @@ interface MealWiseDisplayItem {
   ingredients: CategorizedDisplayListItem[];
 }
 
-
 interface GroceryListProps {
   userId: string;
   currentWeekStart: Date;
@@ -91,10 +102,30 @@ interface GroceryListProps {
 const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) => {
   const [displaySystem, setDisplaySystem] = useState<'imperial' | 'metric'>('imperial');
   const [selectedDays, setSelectedDays] = useState<string>('7');
-  
+  const [showManualAddForm, setShowManualAddForm] = useState(false);
+
+  const [manualItems, setManualItems] = useState<ManualGroceryItem[]>(() => {
+    const saved = localStorage.getItem(MANUAL_ITEMS_LOCAL_STORAGE_KEY);
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem(MANUAL_ITEMS_LOCAL_STORAGE_KEY, JSON.stringify(manualItems));
+  }, [manualItems]);
+
+  const handleAddManualItem = (item: { name: string; quantity: string; unit: string }) => {
+    const newItem: ManualGroceryItem = {
+      id: `manual-${Date.now()}`,
+      ...item,
+    };
+    setManualItems(prev => [...prev, newItem]);
+    setShowManualAddForm(false);
+  };
+
+
   const [viewMode, setViewMode] = useState<'category' | 'meal'>(() => {
     const savedViewMode = localStorage.getItem(GROCERY_VIEW_MODE_KEY);
-    return (savedViewMode === 'category' || savedViewMode === 'meal') ? savedViewMode : 'meal'; // Default to 'meal'
+    return (savedViewMode === 'category' || savedViewMode === 'meal') ? savedViewMode : 'meal';
   });
 
   useEffect(() => {
@@ -105,7 +136,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
     const saved = localStorage.getItem(SHARED_LOCAL_STORAGE_KEY);
     return saved ? new Set(JSON.parse(saved)) : new Set();
   });
-  
+
   const { data: userProfile } = useQuery<{ preferred_unit_system: 'imperial' | 'metric' | null } | null>({
     queryKey: ["userProfileForGrocery", userId],
     queryFn: async () => {
@@ -115,7 +146,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
       return data;
     },
     enabled: !!userId,
-    staleTime: 1000 * 60 * 5, 
+    staleTime: 1000 * 60 * 5,
   });
 
   useEffect(() => {
@@ -130,7 +161,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
   const dateRangeQueryKeyPart = `${format(queryStartDate, 'yyyy-MM-dd')}_${selectedDays}`;
 
   const { data: plannedMealsData, isLoading, error: plannedMealsError, refetch } = useQuery<PlannedMealWithIngredients[]>({
-    queryKey: ["groceryListSource", userId, dateRangeQueryKeyPart], 
+    queryKey: ["groceryListSource", userId, dateRangeQueryKeyPart],
     queryFn: async () => {
       if (!userId) return [];
       const startDateStr = format(queryStartDate, 'yyyy-MM-dd');
@@ -162,7 +193,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
             parsedIngredientList.forEach(item => {
               const quantityAsNumber = typeof item.quantity === 'string' ? parseFloat(item.quantity) : item.quantity;
               if (!item.name || typeof quantityAsNumber !== 'number' || isNaN(quantityAsNumber) || !item.unit) return;
-              
+
               const processedItem: ParsedIngredientItem = { ...item, quantity: quantityAsNumber, mealName };
               const normalizedName = processedItem.name.trim().toLowerCase();
               const unitLower = processedItem.unit.toLowerCase();
@@ -189,35 +220,35 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
     });
     return Array.from(ingredientMap.values());
   }, [plannedMealsData]);
-  
+
   const formatSingleIngredientForDisplay = (
-    name: string, 
-    quantity: number | string, 
-    unit: string, 
-    isSummableOverride?: boolean 
+    name: string,
+    quantity: number | string,
+    unit: string,
+    isSummableOverride?: boolean
   ): Pick<CategorizedDisplayListItem, 'itemName' | 'itemNameClass' | 'detailsPart' | 'detailsClass'> => {
-    
+
     const itemName = name;
     const itemNameClass = "text-foreground";
-    let currentQuantity = typeof quantity === 'string' ? parseFloat(quantity) : quantity;
+    let currentQuantityNum = typeof quantity === 'string' ? parseFloat(quantity) : quantity;
     let currentUnit = unit;
     let detailsPart = "";
     let detailsClass = "text-foreground";
 
     if (displaySystem === 'metric' && (isSummableOverride || SUMMABLE_UNITS.includes(unit.toLowerCase()))) {
-        const converted = convertToPreferredSystem(currentQuantity, unit, 'metric');
+        const converted = convertToPreferredSystem(currentQuantityNum, unit, 'metric');
         if (converted) {
-            currentQuantity = converted.quantity;
+            currentQuantityNum = converted.quantity;
             currentUnit = converted.unit;
         }
     }
-    
+
     if (SPICE_MEASUREMENT_UNITS.includes(currentUnit.toLowerCase())) {
         detailsClass = "text-gray-500 dark:text-gray-400";
     }
-
-    if (currentQuantity > 0) {
-        const roundedDisplayQty = (currentQuantity % 1 === 0) ? Math.round(currentQuantity) : parseFloat(currentQuantity.toFixed(1));
+    
+    if (quantity && unit && currentQuantityNum > 0) { // Check if quantity and unit are provided
+        const roundedDisplayQty = (currentQuantityNum % 1 === 0) ? Math.round(currentQuantityNum) : parseFloat(currentQuantityNum.toFixed(1));
         if (PIECE_UNITS.includes(currentUnit.toLowerCase())) {
             detailsPart = `${roundedDisplayQty}`;
         } else {
@@ -229,7 +260,13 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
             }
             detailsPart = `${roundedDisplayQty} ${unitStr}`;
         }
+    } else if (quantity && currentQuantityNum > 0) { // Only quantity provided
+        detailsPart = `${currentQuantityNum}`;
+    } else if (unit) { // Only unit provided (less common, but handle)
+        detailsPart = unit;
     }
+    // If neither quantity nor unit, detailsPart remains empty
+
     return { itemName, itemNameClass, detailsPart, detailsClass };
   };
 
@@ -241,28 +278,28 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
       let foundCategory: Category = 'Other';
       const itemLower = aggItem.name.toLowerCase();
       for (const cat of categoryOrder) {
-        if (cat === 'Other') continue;
+        if (cat === 'Other' || cat === "Manually Added") continue;
         if (categoriesMap[cat].some(keyword => itemLower.includes(keyword))) {
           foundCategory = cat; break;
         }
       }
-      
+
       const { itemName, itemNameClass, detailsPart, detailsClass } = formatSingleIngredientForDisplay(
-        aggItem.name, 
-        aggItem.totalQuantity, 
+        aggItem.name,
+        aggItem.totalQuantity,
         aggItem.unit || "",
         aggItem.isSummable
       );
-      
+
       let finalDetailsPart = detailsPart;
       if (!aggItem.isSummable && aggItem.originalItems.length > 0) {
         finalDetailsPart = aggItem.originalItems.map(orig => {
           const formattedOrig = formatSingleIngredientForDisplay(orig.name, orig.quantity, orig.unit, false);
           return formattedOrig.detailsPart;
-        }).filter(Boolean).join(' + '); 
+        }).filter(Boolean).join(' + ');
       }
 
-      const uniqueKey = `${aggItem.name.trim().toLowerCase()}:${(aggItem.unit || "").trim().toLowerCase()}-${foundCategory.toLowerCase()}`;
+      const uniqueKey = `agg:${aggItem.name.trim().toLowerCase()}:${(aggItem.unit || "").trim().toLowerCase()}-${foundCategory.toLowerCase()}`;
       const originalItemsTooltip = aggItem.originalItems
         .map(oi => `${oi.quantity} ${oi.unit} ${oi.name} (from: ${oi.mealName})${oi.description ? ` (${oi.description})` : ''}`)
         .join('\n');
@@ -271,8 +308,25 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
         grouped[foundCategory].push({ itemName, itemNameClass, detailsPart: finalDetailsPart, detailsClass, originalItemsTooltip, uniqueKey });
       }
     });
+
+    // Add manual items
+    manualItems.forEach(manualItem => {
+      const { itemName, itemNameClass, detailsPart, detailsClass } = formatSingleIngredientForDisplay(
+        manualItem.name,
+        manualItem.quantity, // Pass as string, formatSingleIngredientForDisplay will parse
+        manualItem.unit,
+        false // Manual items are not summable in the same way
+      );
+      const uniqueKey = `manual:${manualItem.id}`;
+      grouped["Manually Added"].push({
+        itemName, itemNameClass, detailsPart, detailsClass,
+        originalItemsTooltip: "Manually added item",
+        uniqueKey
+      });
+    });
+
     return grouped;
-  }, [aggregatedIngredients, displaySystem]);
+  }, [aggregatedIngredients, manualItems, displaySystem]);
 
   const mealWiseDisplayList = useMemo(() => {
     if (!plannedMealsData) return [];
@@ -292,18 +346,19 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
           const parsedIngredients: Omit<ParsedIngredientItem, 'mealName'>[] = JSON.parse(pm.meals.ingredients);
           parsedIngredients.forEach((ing, index) => {
             if (!ing.name || typeof ing.quantity !== 'number' && typeof ing.quantity !== 'string' || !ing.unit) return;
-            
+
             const { itemName, itemNameClass, detailsPart, detailsClass } = formatSingleIngredientForDisplay(
-              ing.name, 
-              ing.quantity, 
+              ing.name,
+              ing.quantity,
               ing.unit,
-              false 
+              false
             );
-            
-            let foundCategory: Category = 'Other';
+
+            let foundCategory: Category = 'Other'; // For key generation consistency
             const itemLower = ing.name.toLowerCase();
-            for (const cat of categoryOrder) { if (cat !== 'Other' && categoriesMap[cat].some(keyword => itemLower.includes(keyword))) { foundCategory = cat; break; } }
-            const uniqueKeyForStriking = `${ing.name.trim().toLowerCase()}:${(ing.unit || "").trim().toLowerCase()}-${foundCategory.toLowerCase()}`;
+            for (const cat of categoryOrder) { if (cat !== 'Other' && cat !== "Manually Added" && categoriesMap[cat].some(keyword => itemLower.includes(keyword))) { foundCategory = cat; break; } }
+            const uniqueKeyForStriking = `mealwise:${pm.meals!.name}:${ing.name.trim().toLowerCase()}:${(ing.unit || "").trim().toLowerCase()}-${index}`;
+
 
             mealEntry!.ingredients.push({
               itemName,
@@ -311,7 +366,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
               detailsPart,
               detailsClass,
               originalItemsTooltip: `${ing.quantity} ${ing.unit} ${ing.name}${ing.description ? ` (${ing.description})` : ''} (from: ${pm.meals!.name})`,
-              uniqueKey: uniqueKeyForStriking, 
+              uniqueKey: uniqueKeyForStriking,
             });
           });
         } catch (e) { console.warn("Error parsing ingredients for meal-wise view:", e); }
@@ -326,11 +381,12 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
       if (event.key === SHARED_LOCAL_STORAGE_KEY) {
         const newGlobalValue = event.newValue;
         const newGlobalStruckItems = newGlobalValue ? new Set<string>(JSON.parse(newGlobalValue)) : new Set<string>();
-        
+
         const currentDisplayKeys = new Set(
-          viewMode === 'category' 
+          viewMode === 'category'
             ? Object.values(categorizedDisplayList).flat().map(item => item.uniqueKey)
             : mealWiseDisplayList.flatMap(meal => meal.ingredients.map(ing => ing.uniqueKey))
+                .concat(manualItems.map(item => `manual:${item.id}`)) // Add manual item keys for meal view
         );
 
         setStruckItems(prevLocalStruckItems => {
@@ -345,17 +401,21 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
           }
           return prevLocalStruckItems;
         });
+      } else if (event.key === MANUAL_ITEMS_LOCAL_STORAGE_KEY) { // Listen for manual item changes
+        const newManualItems = event.newValue ? JSON.parse(event.newValue) : [];
+        setManualItems(newManualItems);
       }
     };
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
-  }, [categorizedDisplayList, mealWiseDisplayList, viewMode]);
+  }, [categorizedDisplayList, mealWiseDisplayList, viewMode, manualItems]); // Added manualItems dependency
 
   useEffect(() => {
     const currentDisplayKeys = new Set(
-      viewMode === 'category' 
+      viewMode === 'category'
         ? Object.values(categorizedDisplayList).flat().map(item => item.uniqueKey)
         : mealWiseDisplayList.flatMap(meal => meal.ingredients.map(ing => ing.uniqueKey))
+            .concat(manualItems.map(item => `manual:${item.id}`)) // Add manual item keys for meal view
     );
     const globalRaw = localStorage.getItem(SHARED_LOCAL_STORAGE_KEY);
     const globalStruckItems = globalRaw ? new Set<string>(JSON.parse(globalRaw)) : new Set<string>();
@@ -373,7 +433,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
       }
       return prevLocalStruckItems;
     });
-  }, [categorizedDisplayList, mealWiseDisplayList, viewMode, userId, currentWeekStart, selectedDays, displaySystem]);
+  }, [categorizedDisplayList, mealWiseDisplayList, viewMode, userId, currentWeekStart, selectedDays, displaySystem, manualItems]); // Added manualItems
 
 
   const handleItemClick = (uniqueKey: string) => {
@@ -388,7 +448,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
       globalSet.add(uniqueKey);
       newLocalSet.add(uniqueKey);
     }
-    
+
     localStorage.setItem(SHARED_LOCAL_STORAGE_KEY, JSON.stringify(Array.from(globalSet)));
     setStruckItems(newLocalSet);
 
@@ -403,9 +463,12 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
   if (isLoading) return <Card className="hover:shadow-lg transition-shadow duration-200"><CardHeader><CardTitle>Grocery List</CardTitle></CardHeader><CardContent><Skeleton className="h-40 w-full" /></CardContent></Card>;
   if (plannedMealsError) return <Card className="hover:shadow-lg transition-shadow duration-200"><CardHeader><CardTitle>Grocery List</CardTitle></CardHeader><CardContent><Alert variant="destructive"><AlertTitle>Error</AlertTitle><AlertDescription>Could not load grocery list: {plannedMealsError.message}</AlertDescription></Alert></CardContent></Card>;
 
-  const isEmptyList = viewMode === 'category' 
+  const isAggregatedEmpty = aggregatedIngredients.length === 0;
+  const isManualEmpty = manualItems.length === 0;
+  const isEmptyList = viewMode === 'category'
     ? Object.values(categorizedDisplayList).every(list => list.length === 0)
-    : mealWiseDisplayList.length === 0;
+    : (mealWiseDisplayList.length === 0 && isManualEmpty);
+
 
   return (
     <Card className="hover:shadow-lg transition-shadow duration-200">
@@ -453,7 +516,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
           <div className="text-center py-6 text-muted-foreground">
             <ShoppingCart className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500 mb-4" />
             <p className="text-lg font-semibold mb-1">Your List is Empty</p>
-            <p className="text-sm">Plan some meals for the selected date range to see ingredients here.</p>
+            <p className="text-sm">Plan some meals or add items manually to see them here.</p>
           </div>
         ) : viewMode === 'category' ? (
           categoryOrder.map(category => {
@@ -473,8 +536,8 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
                         className={`cursor-pointer p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${struckItems.has(item.uniqueKey) ? 'line-through text-gray-400 dark:text-gray-600' : ''}`}
                         title={item.originalItemsTooltip}
                       >
-                        <span className={struckItems.has(item.uniqueKey) ? '' : item.itemNameClass}>{item.itemName}: </span>
-                        {item.detailsPart && <span className={struckItems.has(item.uniqueKey) ? '' : item.detailsClass}>{item.detailsPart}</span>}
+                        <span className={struckItems.has(item.uniqueKey) ? '' : item.itemNameClass}>{item.itemName}</span>
+                        {item.detailsPart && <span className={struckItems.has(item.uniqueKey) ? '' : item.detailsClass}>: {item.detailsPart}</span>}
                       </li>
                     ))}
                   </ul>
@@ -484,27 +547,67 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
             return null;
           })
         ) : ( // Meal-wise view
-          mealWiseDisplayList.map(mealItem => (
-            <div key={`${mealItem.planDate}-${mealItem.mealName}`} className="mb-4">
-              <h3 className="text-md font-semibold text-gray-800 dark:text-gray-200 border-b pb-1 mb-2">
-                {mealItem.mealName} ({format(parseISO(mealItem.planDate), 'MMM dd')})
-              </h3>
-              <ul className="space-y-1 text-sm pl-2">
-                {mealItem.ingredients.map((item, index) => (
-                  <li
-                    key={`${item.uniqueKey}-${index}`} 
-                    onClick={() => handleItemClick(item.uniqueKey)}
-                    className={`cursor-pointer p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${struckItems.has(item.uniqueKey) ? 'line-through text-gray-400 dark:text-gray-600' : ''}`}
-                    title={item.originalItemsTooltip}
-                  >
-                    <span className={struckItems.has(item.uniqueKey) ? '' : item.itemNameClass}>{item.itemName}: </span>
-                    {item.detailsPart && <span className={struckItems.has(item.uniqueKey) ? '' : item.detailsClass}>{item.detailsPart}</span>}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))
+          <>
+            {mealWiseDisplayList.map(mealItem => (
+              <div key={`${mealItem.planDate}-${mealItem.mealName}`} className="mb-4">
+                <h3 className="text-md font-semibold text-gray-800 dark:text-gray-200 border-b pb-1 mb-2">
+                  {mealItem.mealName} ({format(parseISO(mealItem.planDate), 'MMM dd')})
+                </h3>
+                <ul className="space-y-1 text-sm pl-2">
+                  {mealItem.ingredients.map((item, index) => (
+                    <li
+                      key={`${item.uniqueKey}-${index}`}
+                      onClick={() => handleItemClick(item.uniqueKey)}
+                      className={`cursor-pointer p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${struckItems.has(item.uniqueKey) ? 'line-through text-gray-400 dark:text-gray-600' : ''}`}
+                      title={item.originalItemsTooltip}
+                    >
+                      <span className={struckItems.has(item.uniqueKey) ? '' : item.itemNameClass}>{item.itemName}</span>
+                      {item.detailsPart && <span className={struckItems.has(item.uniqueKey) ? '' : item.detailsClass}>: {item.detailsPart}</span>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+            {manualItems.length > 0 && (
+              <div className="mb-4">
+                <h3 className="text-md font-semibold text-gray-800 dark:text-gray-200 border-b pb-1 mb-2">
+                  Manually Added Items
+                </h3>
+                <ul className="space-y-1 text-sm pl-2">
+                  {manualItems.map(item => {
+                    const displayInfo = formatSingleIngredientForDisplay(item.name, item.quantity, item.unit, false);
+                    const uniqueKey = `manual:${item.id}`;
+                    return (
+                      <li
+                        key={uniqueKey}
+                        onClick={() => handleItemClick(uniqueKey)}
+                        className={`cursor-pointer p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${struckItems.has(uniqueKey) ? 'line-through text-gray-400 dark:text-gray-600' : ''}`}
+                        title="Manually added item"
+                      >
+                        <span className={struckItems.has(uniqueKey) ? '' : displayInfo.itemNameClass}>{displayInfo.itemName}</span>
+                        {displayInfo.detailsPart && <span className={struckItems.has(uniqueKey) ? '' : displayInfo.detailsClass}>: {displayInfo.detailsPart}</span>}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+          </>
         )}
+        <Collapsible open={showManualAddForm} onOpenChange={setShowManualAddForm}>
+          <CollapsibleTrigger asChild>
+            <Button variant="outline" className="w-full mt-4">
+              <PlusCircle className="mr-2 h-4 w-4" />
+              {showManualAddForm ? 'Cancel Adding Item' : 'Add Item Manually'}
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <ManualAddItemForm
+              onAddItem={handleAddManualItem}
+              onCancel={() => setShowManualAddForm(false)}
+            />
+          </CollapsibleContent>
+        </Collapsible>
       </CardContent>
     </Card>
   );
