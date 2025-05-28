@@ -23,14 +23,11 @@ const AppHeader = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         setUser(session.user);
-      } else {
-        // No automatic navigation to /auth from header
       }
     };
     getSession();
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
-      // No automatic navigation to /auth from header on state change
     });
     return () => authListener?.subscription.unsubscribe();
   }, [navigate, isMobile]);
@@ -72,7 +69,8 @@ const AppHeader = () => {
   // Mobile Layout
   if (isMobile) {
     if (!user) { 
-        // Render nothing if mobile and not logged in, theme toggle will be in page content
+        // Render nothing if mobile and not logged in.
+        // Theme toggle will be handled by individual pages if needed.
         return null;
     }
     // Only render bottom navigation for logged-in mobile users
@@ -102,7 +100,7 @@ const AppHeader = () => {
     );
   }
 
-  // Desktop/Tablet Layout (Original code)
+  // Desktop/Tablet Layout
   // If not mobile, and user is not logged in, show logo and theme toggle
   if (!user) { 
     return ( 

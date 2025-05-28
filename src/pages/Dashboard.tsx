@@ -106,14 +106,13 @@ const Dashboard = () => {
   return (
     <div className={cn(
       "min-h-screen bg-background text-foreground",
-      isMobile ? "pt-16 pb-20 px-2" : "p-4" // Conditional padding for mobile
+      isMobile ? "pt-4 pb-20 px-2" : "p-4" // Adjusted mobile top padding
     )}>
       {isClient && user && <AppTour startTour={shouldStartTour} userId={user.id} />}
-      {/* AppHeader is now fixed, so it's not part of this container's layout flow on mobile */}
       <AppHeader /> 
       <div className={cn(
         "space-y-6",
-        !isMobile && "container mx-auto" // Apply container only on non-mobile
+        !isMobile && "container mx-auto" 
       )}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {user && <TodaysMeals userId={user.id} />}

@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'; 
 import { Button } from '@/components/ui/button'; 
 import { PlusCircle, Brain, X, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'; 
-import { ThemeToggleButton } from "@/components/ThemeToggleButton"; // Import ThemeToggleButton
+// Removed ThemeToggleButton import
 
 interface UserProfileDataForLimits {
   is_admin: boolean;
@@ -189,14 +189,7 @@ const ManageMealEntryPage = () => {
     return (
       <div className={cn("min-h-screen bg-background text-foreground", isMobile ? "pt-4 pb-20 px-2" : "p-4")}>
         <AppHeader />
-        {isMobile && (
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">
-              "{newlySavedMealInfo?.name}" saved!
-            </h2>
-            <ThemeToggleButton />
-          </div>
-        )}
+        {/* Removed ThemeToggleButton from here for mobile, as it's now page-specific */}
         <div className="container mx-auto space-y-6">
           {!isMobile && <AppHeader />}
           <div className="relative p-4 border rounded-lg shadow-lg bg-card">
@@ -209,11 +202,9 @@ const ManageMealEntryPage = () => {
             >
               <X className="h-5 w-5" />
             </Button>
-            {!isMobile && (
-              <h2 className="text-xl font-semibold text-center mb-2">
-                "{newlySavedMealInfo?.name}" saved!
-              </h2>
-            )}
+            <h2 className="text-xl font-semibold text-center mb-2">
+              "{newlySavedMealInfo?.name}" saved!
+            </h2>
             <p className="text-sm text-muted-foreground text-center mb-4">
               Want to add it to your plan now?
             </p>
@@ -235,16 +226,16 @@ const ManageMealEntryPage = () => {
 
   return (
     <div className={cn("min-h-screen bg-background text-foreground", isMobile ? "pt-4 pb-20 px-2" : "p-4")}>
-      <AppHeader /> {/* AppHeader now only renders bottom nav on mobile */}
+      <AppHeader />
       <div className={cn("space-y-6", !isMobile && "container mx-auto")}>
-        {!isMobile && <AppHeader />} {/* Desktop header */}
+        {!isMobile && <AppHeader />}
         
         <div className="flex justify-between items-center mb-0">
             <h1 className="text-xl sm:text-3xl font-bold flex items-center">
               {activeTab === 'generate' ? <Brain className="mr-2 h-6 w-6" /> : <PlusCircle className="mr-2 h-6 w-6" />}
               {activeTab === 'add' ? 'Add Your Own Meal' : 'Generate Meal with AI'}
             </h1>
-            {isMobile && <ThemeToggleButton />} {/* Theme toggle next to title on mobile */}
+            {/* ThemeToggleButton removed from here for mobile */}
         </div>
         
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'generate' | 'add')} className="w-full">

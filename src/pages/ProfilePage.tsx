@@ -16,6 +16,9 @@ import type { User } from "@supabase/supabase-js";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 import { Textarea } from "@/components/ui/textarea";
 import { LogOut } from "lucide-react"; 
+import { useIsMobile } from "@/hooks/use-mobile"; // Import useIsMobile
+import AppHeader from "@/components/AppHeader"; // Import AppHeader for desktop
+import { cn } from "@/lib/utils";
 
 const profileFormSchema = z.object({
   first_name: z.string().min(1, "First name is required.").max(50, "First name cannot exceed 50 characters."),
@@ -40,6 +43,7 @@ const ProfilePage = () => {
   const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const isMobile = useIsMobile(); // Initialize useIsMobile
 
   useEffect(() => {
     const getSessionAndUser = async () => {
@@ -156,17 +160,26 @@ const ProfilePage = () => {
 
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-4">
-      <header className="container mx-auto mb-6 flex justify-between items-center">
-        <div className="flex items-center space-x-3">
+    <div className={cn("min-h-screen bg-background text-foreground", isMobile ? "pt-4 pb-20 px-2" : "p-4")}>
+      <AppHeader /> {/* Renders bottom nav on mobile, full header on desktop */}
+      
+      {/* Page specific header for mobile (logo + theme toggle) */}
+      {isMobile && (
+        <header className="flex justify-between items-center mb-6">
           <Link to="/dashboard" className="text-2xl font-bold group">
             <span className="text-accent dark:text-foreground transition-opacity duration-150 ease-in-out group-hover:opacity-80">Bite</span>
             <span className="text-primary dark:text-primary transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
           </Link>
           <ThemeToggleButton />
-        </div>
-      </header>
-      <div className="flex flex-col items-center">
+        </header>
+      )}
+      
+      <div className={cn("flex flex-col items-center", !isMobile && "container mx-auto")}>
+        {!isMobile && ( /* Desktop header is handled by AppHeader, this is for page title */
+          <header className="w-full mb-6 flex justify-between items-center">
+             {/* Desktop doesn't need BitePath logo here as AppHeader shows it */}
+          </header>
+        )}
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle>Your Profile</CardTitle>
