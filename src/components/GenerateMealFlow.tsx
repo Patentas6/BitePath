@@ -434,13 +434,13 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
               </div>
               {generatedMeal.image_url && (
                 <div
-                  className="cursor-pointer w-auto h-72 flex-shrink-0 rounded-md bg-muted"
+                  className="cursor-pointer w-full h-60 sm:h-64 md:h-72 flex-shrink-0 rounded-md bg-muted"
                   onClick={() => setViewingImageUrl(generatedMeal.image_url || null)}
                 >
                   <img
                     src={generatedMeal.image_url}
                     alt={`Image of ${generatedMeal.name}`}
-                    className="h-full object-contain rounded-md"
+                    className="h-full w-full object-contain rounded-md"
                     onError={(e) => (e.currentTarget.style.display = 'none')}
                   />
                 </div>
