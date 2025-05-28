@@ -25,25 +25,28 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useState, useEffect } from "react";
 
-export const UNITS = ['piece', 'g', 'kg', 'ml', 'l', 'tsp', 'tbsp', 'cup', 'oz', 'lb', 'pinch', 'dash', 'clove', 'can', 'bottle', 'package', 'slice', 'item', 'sprig', 'head', 'bunch'] as const;
+export const UNITS = ['piece', 'g', 'kg', 'ml', 'l', 'tsp', 'tbsp', 'cup', 'oz', 'lb', 'pinch', 'dash', 'clove', 'can', 'bottle', 'package', 'slice', 'item', 'sprig', 'head', 'bunch', 'to taste'] as const;
 
 const ingredientSchema = z.object({
   name: z.string().min(1, { message: "Ingredient name is required." }),
   quantity: z.string() 
     .transform((val) => val.trim() === "" ? undefined : parseFloat(val)) 
-    .refine((val) => val === undefined || (typeof val === 'number' && !isNaN(val) && val > 0), {
-      message: "Quantity must be a positive number if provided.",
+    .refine((val) => val === undefined || (typeof val === 'number' && !isNaN(val) && val >= 0), { // Allow 0
+      message: "Quantity must be a non-negative number if provided.",
     })
     .optional(), 
   unit: z.string().optional().transform(val => val === "" ? undefined : val), 
   description: z.string().optional(),
 }).refine(data => {
-  if (typeof data.quantity === 'number') { 
-    return typeof data.unit === 'string' && data.unit.trim() !== "";
+  if (typeof data.quantity === 'number') {
+    if (data.quantity === 0) { 
+      return data.unit === undefined || data.unit.trim().toLowerCase() === "to taste" || data.unit.trim() === "";
+    }
+    return typeof data.unit === 'string' && data.unit.trim() !== "" && data.unit.trim().toLowerCase() !== "to taste";
   }
   return true; 
 }, {
-  message: "Unit is required if a valid quantity is specified.",
+  message: "Unit is required for non-zero quantities. For 'to taste', set quantity to 0 and unit to 'to taste' or leave empty.",
   path: ["unit"], 
 });
 
@@ -365,7 +368,7 @@ const MealForm: React.FC<MealFormProps> = ({
                             <FormItem className="md:col-span-1">
                               <FormLabel className="text-xs">Qty (Optional)</FormLabel>
                               <FormControl>
-                                <Input type="text" placeholder="e.g., 2" {...itemField} value={itemField.value ?? ""} />
+                                <Input type="text" placeholder="e.g., 2 or 0" {...itemField} value={itemField.value ?? ""} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
