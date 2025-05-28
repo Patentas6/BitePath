@@ -178,7 +178,7 @@ serve(async (req) => {
     const { mealType, kinds, styles, preferences, mealData, existingRecipeText, refinementInstructions } = requestBody;
 
     let generatedMealData: GeneratedMeal | undefined;
-    let mealNameForImage: string | undefined; 
+    let mealNameForImage: string | undefined; // Can be undefined if recipe generation fails
     let anImageShouldBeGenerated = false; 
 
     if (mealData) { 
@@ -258,8 +258,7 @@ serve(async (req) => {
         IMPORTANT: 
         - The "servings" field MUST contain the number of servings (e.g., "4", "2 servings").
         - If calorie tracking is enabled for the user (indicated in the prompt), the "estimated_calories" field MUST contain the total calorie count for the entire recipe (e.g., "2000 kcal total", "550 kcal"). Do NOT put per-serving calories here.
-        - Do NOT embed serving information within the "estimated_calories" string. Keep them separate. For example, "estimated_calories": "2000 kcal", "servings": "4". NOT "estimated_calories": "500 kcal per serving (serves 4)".
-        - For ingredients like salt, pepper, or others specified 'to taste', set the \`quantity\` field to \`0\` (zero) and the \`unit\` field to the string \`"to taste"\`. Do not attempt to assign other numerical quantities or standard units for these 'to taste' items.`;
+        - Do NOT embed serving information within the "estimated_calories" string. Keep them separate. For example, "estimated_calories": "2000 kcal", "servings": "4". NOT "estimated_calories": "500 kcal per serving (serves 4)".`;
 
         if (userPreferredUnitSystem === 'metric') {
             prompt += `\nUNIT SYSTEM: The user's preferred unit system is METRIC. Please provide all ingredient quantities primarily in grams (g), kilograms (kg), milliliters (ml), or liters (L). For common small measurements like spices, you can use teaspoons (tsp) or tablespoons (tbsp). For items counted as whole units, use 'piece' or similar. Avoid imperial units like ounces, pounds, fluid ounces, and especially cups for bulk ingredients like flour/sugar (these should be in grams or ml).`;
@@ -342,9 +341,9 @@ The meal should still generally be a ${mealType || 'general'} type.`;
             throw new Error("Failed to parse recipe from AI. The AI may have returned non-JSON text or incomplete JSON.");
         }
         
-        if (generatedMealData) { 
+        if (generatedMealData) { // Check if recipe generation was successful
             mealNameForImage = generatedMealData.name;
-            anImageShouldBeGenerated = true; 
+            anImageShouldBeGenerated = true; // Always try to generate an image for a new recipe
             console.log(existingRecipeText ? "Refined Recipe Text:" : "Generated Recipe Text:", generatedMealData.name);
             if (generatedMealData.estimated_calories) console.log("Estimated Calories:", generatedMealData.estimated_calories);
             if (generatedMealData.servings) console.log("Servings:", generatedMealData.servings);
@@ -375,16 +374,20 @@ The meal should still generally be a ${mealType || 'general'} type.`;
             }
 
             if (userImageGenerationCount >= IMAGE_GENERATION_LIMIT_PER_MONTH) {
+                // If only generating recipe text, and image limit is hit, still return recipe text
                 if (!requestBody.mealData && generatedMealData) {
                     console.warn(`Image generation limit reached for user ${user.id}, but returning generated recipe text.`);
+                    // Set image_url to undefined or null in generatedMealData if it exists
                     generatedMealData.image_url = undefined; 
                 } else {
+                    // If specifically asked for an image (mealData was in request) or if recipe generation failed
                     return new Response(JSON.stringify({ 
                         error: `You have reached your monthly image generation limit of ${IMAGE_GENERATION_LIMIT_PER_MONTH}.`,
+                        // Include mealData if it was part of the original request and image failed
                         ...(requestBody.mealData && { 
                             mealData: {
-                                ...generatedMealData, 
-                                image_url: generatedMealData?.image_url 
+                                ...generatedMealData, // Spread existing generatedMealData
+                                image_url: generatedMealData?.image_url // Ensure image_url is explicitly what it was
                             }
                         }) 
                     }), {
@@ -394,11 +397,16 @@ The meal should still generally be a ${mealType || 'general'} type.`;
             }
         }
         
+        // Proceed with image generation only if limit not hit (or admin)
+        // This check is now implicitly handled by the return above for non-admins
+        // or by admin status bypassing the limit.
         if (userIsAdmin || userImageGenerationCount < IMAGE_GENERATION_LIMIT_PER_MONTH || userLastImageGenerationReset !== formatDate(new Date(), "yyyy-MM")) {
             const serviceAccountJsonStringForImagen = Deno.env.get("VERTEX_SERVICE_ACCOUNT_KEY_JSON");
             if (!serviceAccountJsonStringForImagen) {
                 console.error("VERTEX_SERVICE_ACCOUNT_KEY_JSON secret not set for Imagen.");
                 if (generatedMealData) generatedMealData.image_url = undefined; 
+                // If only generating recipe text, and Imagen is not configured, still return recipe text
+                // This path is taken if anImageShouldBeGenerated was true but Imagen config is missing
             } else {
                 const accessTokenForImagen = await getAccessToken(serviceAccountJsonStringForImagen);
                 const saImagen = JSON.parse(serviceAccountJsonStringForImagen);
@@ -451,16 +459,18 @@ The meal should still generally be a ${mealType || 'general'} type.`;
         }
     } 
 
-    if (requestBody.mealData) { 
+    // Response logic
+    if (requestBody.mealData) { // If the original request was specifically for an image for mealData
          return new Response(
             JSON.stringify({ 
                 image_url: generatedMealData?.image_url,
+                // Also return the calorie and serving info that was part of the input mealData
                 estimated_calories: generatedMealData?.estimated_calories,
                 servings: generatedMealData?.servings
             }), 
             { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
          );
-    } else if (generatedMealData) { 
+    } else if (generatedMealData) { // If the original request was for recipe text (and then image)
         return new Response(
           JSON.stringify(generatedMealData), 
           { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { format, addDays, parseISO, startOfToday } from "date-fns"; // Added startOfToday
+import { format, addDays, parseISO } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -66,7 +66,7 @@ const SUMMABLE_UNITS: ReadonlyArray<string> = [
 ];
 
 const PIECE_UNITS: ReadonlyArray<string> = ['piece', 'pieces', 'item', 'items', 'unit', 'units'];
-const SPICE_MEASUREMENT_UNITS: ReadonlyArray<string> = ['tsp', 'teaspoon', 'teaspoons', 'tbsp', 'tablespoon', 'tablespoons', 'pinch', 'pinches', 'dash', 'dashes', 'to taste'];
+const SPICE_MEASUREMENT_UNITS: ReadonlyArray<string> = ['tsp', 'teaspoon', 'teaspoons', 'tbsp', 'tablespoon', 'tablespoons', 'pinch', 'pinches', 'dash', 'dashes'];
 
 
 const categoriesMap = {
@@ -99,10 +99,10 @@ interface MealWiseDisplayItem {
 
 interface GroceryListProps {
   userId: string;
-  currentWeekStart?: Date; 
+  currentWeekStart: Date;
 }
 
-const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
+const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) => {
   const [displaySystem, setDisplaySystem] = useState<'imperial' | 'metric'>('imperial');
   const [selectedDays, setSelectedDays] = useState<string>('7');
   const [isManualAddDialogOpen, setIsManualAddDialogOpen] = useState(false);
@@ -157,14 +157,12 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
     }
   }, [userProfile]);
 
-  const today = useMemo(() => startOfToday(), []); 
-  const queryStartDate = today;
-  const queryEndDate = useMemo(() => addDays(today, parseInt(selectedDays) - 1), [today, selectedDays]);
-  
-  const dateRangeQueryKeyPart = `${format(today, 'yyyy-MM-dd')}_${selectedDays}`;
+  const queryStartDate = currentWeekStart;
+  const queryEndDate = addDays(queryStartDate, parseInt(selectedDays) - 1);
+  const dateRangeQueryKeyPart = `${format(queryStartDate, 'yyyy-MM-dd')}_${selectedDays}`;
 
   const { data: plannedMealsData, isLoading, error: plannedMealsError, refetch } = useQuery<PlannedMealWithIngredients[]>({
-    queryKey: ["groceryListSource", userId, dateRangeQueryKeyPart], 
+    queryKey: ["groceryListSource", userId, dateRangeQueryKeyPart],
     queryFn: async () => {
       if (!userId) return [];
       const startDateStr = format(queryStartDate, 'yyyy-MM-dd');
@@ -206,23 +204,22 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
             }
 
             existingAggItem.originalItems.push(processedItem);
-            
-            if (processedItem.quantity === 0 && unitLower === "to taste") {
-              const hasToTasteEntry = existingAggItem.unitQuantities.some(uq => uq.unit.toLowerCase() === "to taste");
-              if (!hasToTasteEntry) {
-                existingAggItem.unitQuantities.push({ unit: "to taste", totalQuantity: 0 });
-              }
-            } else {
-              let existingUnitQuantity = existingAggItem.unitQuantities.find(uq => uq.unit.toLowerCase() === unitLower);
-              if (existingUnitQuantity) {
-                if (SUMMABLE_UNITS.includes(unitLower)) {
-                  existingUnitQuantity.totalQuantity += processedItem.quantity;
-                } else {
-                  existingAggItem.unitQuantities.push({ unit: processedItem.unit, totalQuantity: processedItem.quantity });
-                }
+            let existingUnitQuantity = existingAggItem.unitQuantities.find(uq => uq.unit.toLowerCase() === unitLower);
+
+            if (existingUnitQuantity) {
+              if (SUMMABLE_UNITS.includes(unitLower)) {
+                existingUnitQuantity.totalQuantity += processedItem.quantity;
               } else {
+                // If unit is not in SUMMABLE_UNITS, or if it's a different kind of non-summable unit, add as new
+                // This case should be rare if units are consistent, but handles edge cases.
+                // For simplicity, if a unit is not explicitly summable, we might list it separately or decide on a primary.
+                // The current logic will sum if the unit string matches exactly and is in SUMMABLE_UNITS.
+                // If it's e.g. "1 pinch" and another "1 pinch", they will sum.
+                // If it's "1 pinch" and "1 dash", they will be separate UnitQuantity entries.
                 existingAggItem.unitQuantities.push({ unit: processedItem.unit, totalQuantity: processedItem.quantity });
               }
+            } else {
+              existingAggItem.unitQuantities.push({ unit: processedItem.unit, totalQuantity: processedItem.quantity });
             }
           });
         }
@@ -249,10 +246,6 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
     
     if (SPICE_MEASUREMENT_UNITS.includes(currentUnit.toLowerCase())) {
         detailsClass = "text-gray-500 dark:text-gray-400";
-    }
-    
-    if (currentQuantityNum === 0 && currentUnit.toLowerCase() === "to taste") {
-        return { quantity: 0, unit: "to taste", detailsClass };
     }
 
     const roundedDisplayQty = (currentQuantityNum % 1 === 0) ? Math.round(currentQuantityNum) : parseFloat(currentQuantityNum.toFixed(1));
@@ -281,31 +274,25 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
       }
       
       const detailsParts: string[] = [];
-      let combinedDetailsClass = "text-foreground";
+      let combinedDetailsClass = "text-foreground"; // Default
 
       aggItem.unitQuantities.forEach(uq => {
-        const formatted = formatQuantityAndUnitForDisplay(uq.totalQuantity, uq.unit);
-        
-        if (formatted.unit.toLowerCase() === "to taste") {
-          if (!detailsParts.some(part => part.toLowerCase() === "to taste")) {
-            detailsParts.push(formatted.unit); 
+          const formatted = formatQuantityAndUnitForDisplay(uq.totalQuantity, uq.unit);
+          if (PIECE_UNITS.includes(formatted.unit.toLowerCase()) && formatted.quantity > 0) {
+            detailsParts.push(`${formatted.quantity}`);
+          } else if (formatted.quantity > 0 && formatted.unit) {
+            detailsParts.push(`${formatted.quantity} ${formatted.unit}`);
+          } else if (formatted.unit) { // Only unit, no quantity
+            detailsParts.push(formatted.unit);
           }
-        } else if (PIECE_UNITS.includes(formatted.unit.toLowerCase()) && formatted.quantity > 0) {
-          detailsParts.push(`${formatted.quantity}`);
-        } else if (formatted.quantity > 0 && formatted.unit) {
-          detailsParts.push(`${formatted.quantity} ${formatted.unit}`);
-        } else if (formatted.unit) { 
-          detailsParts.push(formatted.unit);
-        }
-        
-        if (SPICE_MEASUREMENT_UNITS.includes(uq.unit.toLowerCase())) {
-            combinedDetailsClass = "text-gray-500 dark:text-gray-400";
-        }
+          // If any part is a spice, the whole detail might be styled as such, or handle per part
+          if (SPICE_MEASUREMENT_UNITS.includes(uq.unit.toLowerCase())) {
+            combinedDetailsClass = "text-gray-500 dark:text-gray-400"; // Example: make all gray if one spice unit
+          }
       });
-      
       const detailsPartStr = detailsParts.join(' + ');
 
-      const uniqueKey = `agg:${aggItem.name.trim().toLowerCase()}-${foundCategory.toLowerCase()}`; 
+      const uniqueKey = `agg:${aggItem.name.trim().toLowerCase()}-${foundCategory.toLowerCase()}`; // Key for the whole item
       const originalItemsTooltip = aggItem.originalItems
         .map(oi => `${oi.quantity} ${oi.unit} ${oi.name} (from: ${oi.mealName})${oi.description ? ` (${oi.description})` : ''}`)
         .join('\n');
@@ -328,9 +315,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
         manualItem.unit
       );
       let detailsPartStr = "";
-      if (formatted.unit.toLowerCase() === "to taste") {
-        detailsPartStr = "to taste";
-      } else if (PIECE_UNITS.includes(formatted.unit.toLowerCase()) && formatted.quantity > 0) {
+      if (PIECE_UNITS.includes(formatted.unit.toLowerCase()) && formatted.quantity > 0) {
         detailsPartStr = `${formatted.quantity}`;
       } else if (formatted.quantity > 0 && formatted.unit) {
         detailsPartStr = `${formatted.quantity} ${formatted.unit}`;
@@ -375,9 +360,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
 
             const formatted = formatQuantityAndUnitForDisplay(quantityNum, ing.unit);
             let detailsPartStr = "";
-            if (formatted.unit.toLowerCase() === "to taste") {
-                detailsPartStr = "to taste";
-            } else if (PIECE_UNITS.includes(formatted.unit.toLowerCase()) && formatted.quantity > 0) {
+            if (PIECE_UNITS.includes(formatted.unit.toLowerCase()) && formatted.quantity > 0) {
                 detailsPartStr = `${formatted.quantity}`;
             } else if (formatted.quantity > 0 && formatted.unit) {
                 detailsPartStr = `${formatted.quantity} ${formatted.unit}`;
@@ -460,7 +443,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
       }
       return prevLocalStruckItems;
     });
-  }, [categorizedDisplayList, mealWiseDisplayList, viewMode, userId, selectedDays, displaySystem, manualItems, today]); // Added today
+  }, [categorizedDisplayList, mealWiseDisplayList, viewMode, userId, currentWeekStart, selectedDays, displaySystem, manualItems]);
 
   const handleItemClick = (uniqueKey: string) => {
     const globalRaw = localStorage.getItem(SHARED_LOCAL_STORAGE_KEY);
@@ -550,7 +533,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
               const allItemsInCategoryStruck = itemsInCategory.every(item => struckItems.has(item.uniqueKey));
               return (
                 <div key={category} className="mb-4">
-                  <h3 className={`text-md font-semibold text-gray-800 dark:text-gray-200 border-b pb-1 mb-2 ${allItemsInCategoryStruck ? 'line-through text-gray-400 dark:text-gray-600 opacity-70' : ''}`}>
+                  <h3 className={`text-md font-semibold text-gray-800 dark:text-gray-200 border-b pb-1 mb-2 ${allItemsInCategoryStruck ? 'line-through text-gray-400 dark:text-gray-600' : ''}`}>
                     {category}
                   </h3>
                   <ul className="space-y-1 text-sm">
@@ -558,7 +541,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
                       <li
                         key={item.uniqueKey}
                         onClick={() => handleItemClick(item.uniqueKey)}
-                        className={`cursor-pointer p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${struckItems.has(item.uniqueKey) ? 'line-through text-gray-400 dark:text-gray-600 opacity-70' : ''}`}
+                        className={`cursor-pointer p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${struckItems.has(item.uniqueKey) ? 'line-through text-gray-400 dark:text-gray-600' : ''}`}
                         title={item.originalItemsTooltip}
                       >
                         <span className={struckItems.has(item.uniqueKey) ? '' : item.itemNameClass}>{item.itemName}</span>
@@ -605,9 +588,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
                         item.unit
                     );
                     let detailsPartStr = "";
-                    if (formatted.unit.toLowerCase() === "to taste") {
-                        detailsPartStr = "to taste";
-                    } else if (PIECE_UNITS.includes(formatted.unit.toLowerCase()) && formatted.quantity > 0) {
+                    if (PIECE_UNITS.includes(formatted.unit.toLowerCase()) && formatted.quantity > 0) {
                         detailsPartStr = `${formatted.quantity}`;
                     } else if (formatted.quantity > 0 && formatted.unit) {
                         detailsPartStr = `${formatted.quantity} ${formatted.unit}`;

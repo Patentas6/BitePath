@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { format as formatDateFns, startOfWeek, addDays } from "date-fns";
 import { IMAGE_GENERATION_LIMIT_PER_MONTH, RECIPE_GENERATION_LIMIT_PER_PERIOD, RECIPE_GENERATION_PERIOD_DAYS } from '@/lib/constants';
-import { useIsMobile } from "@/hooks/use-mobile"; 
+import { useIsMobile } from "@/hooks/use-mobile"; // Corrected import path
 import { cn } from "@/lib/utils";
 
 import AppHeader from "@/components/AppHeader";
@@ -149,17 +149,18 @@ const ManageMealEntryPage = () => {
   const mealFormInitialData = useMemo((): MealFormValues | null => {
     if (!mealDataForManualForm) return null;
     
-    // Ensure ingredients is always an array, even if empty
-    const ingredientsForForm = (mealDataForManualForm.ingredients || []).map(ing => ({
-      name: ing.name || "",
-      quantity: ing.quantity !== undefined && ing.quantity !== null ? String(ing.quantity) : "",
-      unit: ing.unit || "",
-      description: ing.description || "",
-    }));
+    const ingredientsForForm = mealDataForManualForm.ingredients && mealDataForManualForm.ingredients.length > 0
+      ? mealDataForManualForm.ingredients.map(ing => ({
+          name: ing.name || "",
+          quantity: ing.quantity !== undefined && ing.quantity !== null ? String(ing.quantity) : "",
+          unit: ing.unit || "",
+          description: ing.description || "",
+        }))
+      : []; // Use empty array if AI provides no ingredients or an empty list
 
     return {
       name: mealDataForManualForm.name || "",
-      ingredients: ingredientsForForm, // This will be [] if source was undefined or []
+      ingredients: ingredientsForForm,
       instructions: mealDataForManualForm.instructions || "",
       meal_tags: mealDataForManualForm.meal_tags || [],
       image_url: mealDataForManualForm.image_url || "",
@@ -169,9 +170,7 @@ const ManageMealEntryPage = () => {
   }, [mealDataForManualForm]);
 
   const handleMealFormInitialDataProcessed = () => {
-    // This callback could be used to clear mealDataForManualForm if needed,
-    // but the key change on MealForm might make this less critical.
-    // For now, let MealForm handle its own state once initialData is processed.
+    setMealDataForManualForm(null);
   };
   
   const handleMealSaveSuccess = (savedMeal: {id: string, name: string}) => {
@@ -251,7 +250,6 @@ const ManageMealEntryPage = () => {
           </TabsList>
           <TabsContent value="add" className="mt-4">
             <MealForm 
-              key={mealDataForManualForm ? 'edit-mode' : 'add-mode'} // Key to force remount
               generationStatus={combinedGenerationLimits.image} 
               isLoadingProfile={combinedGenerationLimits.isLoadingProfile}
               showCaloriesField={combinedGenerationLimits.showCaloriesField}
