@@ -35,10 +35,12 @@ import { UNITS } from "./MealForm";
 
 const ingredientSchema = z.object({
   name: z.string().min(1, { message: "Ingredient name is required." }),
-  quantity: z.preprocess(
-    (val) => (val === "" || val === null ? undefined : val), 
-    z.coerce.number().positive({ message: "Quantity must be a positive number." }).optional()
-  ),
+  quantity: z.string() 
+    .transform((val) => val.trim() === "" ? undefined : parseFloat(val)) 
+    .refine((val) => val === undefined || (typeof val === 'number' && !isNaN(val) && val > 0), {
+      message: "Quantity must be a positive number if provided.",
+    })
+    .optional(), 
   unit: z.string().optional().transform(val => val === "" ? undefined : val),
   description: z.string().optional(),
 }).refine(data => {
@@ -309,7 +311,7 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
                             <FormItem className="md:col-span-2"> 
                               <FormLabel className="text-xs">Qty (Optional)</FormLabel>
                               <FormControl>
-                                <Input type="number" placeholder="e.g., 2" {...itemField} value={itemField.value ?? ""} step="any"/>
+                                <Input type="text" placeholder="e.g., 2" {...itemField} value={itemField.value ?? ""} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
