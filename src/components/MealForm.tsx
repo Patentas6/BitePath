@@ -37,16 +37,13 @@ const ingredientSchema = z.object({
   unit: z.string().optional().transform(val => val === "" ? undefined : val), // Treat "" as undefined, then optional
   description: z.string().optional(),
 }).refine(data => {
-  // If quantity is a number (meaning it was successfully parsed and is not undefined),
-  // then unit must also be defined (i.e., not undefined and not an empty string after initial transform).
   if (typeof data.quantity === 'number') {
     return typeof data.unit === 'string' && data.unit.trim() !== "";
   }
-  // If quantity is undefined, then there's no requirement on unit.
   return true;
 }, {
   message: "Unit is required if quantity is specified.",
-  path: ["unit"], // Apply error to unit field
+  path: ["unit"], 
 });
 
 
@@ -92,9 +89,9 @@ const MealForm: React.FC<MealFormProps> = ({
 
   const form = useForm<MealFormValues>({
     resolver: zodResolver(mealFormSchema),
-    defaultValues: {
+    defaultValues: { // Updated defaultValues
       name: "",
-      ingredients: [{ name: "", quantity: "", unit: "", description: "" }], 
+      ingredients: [], // Default to an empty array for ingredients
       instructions: "",
       meal_tags: [],
       image_url: "",
@@ -105,11 +102,12 @@ const MealForm: React.FC<MealFormProps> = ({
 
   useEffect(() => {
     if (initialData) {
-      // If initialData is provided, reset the form with it.
-      // Ensure ingredients is an array (it should be from ManageMealEntryPage).
-      // If initialData.ingredients is an empty array, the form will have 0 ingredient rows.
-      // If it has items, those will be populated.
-      form.reset(initialData); 
+      // Ensure initialData.ingredients is an array for reset
+      const dataToReset = {
+        ...initialData,
+        ingredients: initialData.ingredients || [], 
+      };
+      form.reset(dataToReset);
       if (initialData.image_url) {
         setShowImageUrlInput(false);
       }
@@ -117,8 +115,7 @@ const MealForm: React.FC<MealFormProps> = ({
         onInitialDataProcessed();
       }
     } else {
-      // If initialData is null or undefined (not editing/loading specific data),
-      // reset to the standard default values, which includes one empty ingredient row.
+      // No initialData, reset to standard default with one blank ingredient row for user convenience
       form.reset({
         name: "",
         ingredients: [{ name: "", quantity: "", unit: "", description: "" }],
@@ -186,7 +183,7 @@ const MealForm: React.FC<MealFormProps> = ({
       
       form.reset({ 
         name: "",
-        ingredients: [{ name: "", quantity: "", unit: "", description: "" }],
+        ingredients: [{ name: "", quantity: "", unit: "", description: "" }], // Reset to one blank row
         instructions: "",
         meal_tags: [],
         image_url: "",
