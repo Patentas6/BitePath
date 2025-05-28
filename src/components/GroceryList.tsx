@@ -66,7 +66,7 @@ const SUMMABLE_UNITS: ReadonlyArray<string> = [
 ];
 
 const PIECE_UNITS: ReadonlyArray<string> = ['piece', 'pieces', 'item', 'items', 'unit', 'units'];
-const SPICE_MEASUREMENT_UNITS: ReadonlyArray<string> = ['tsp', 'teaspoon', 'teaspoons', 'tbsp', 'tablespoon', 'tablespoons', 'pinch', 'pinches', 'dash', 'dashes'];
+const SPICE_MEASUREMENT_UNITS: ReadonlyArray<string> = ['tsp', 'teaspoon', 'teaspoons', 'tbsp', 'tablespoon', 'tablespoons', 'pinch', 'pinches', 'dash', 'dashes', 'to taste'];
 
 
 const categoriesMap = {
@@ -207,7 +207,6 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
 
             existingAggItem.originalItems.push(processedItem);
             
-            // Special handling for "to taste"
             if (processedItem.quantity === 0 && unitLower === "to taste") {
               const hasToTasteEntry = existingAggItem.unitQuantities.some(uq => uq.unit.toLowerCase() === "to taste");
               if (!hasToTasteEntry) {
@@ -219,7 +218,6 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
                 if (SUMMABLE_UNITS.includes(unitLower)) {
                   existingUnitQuantity.totalQuantity += processedItem.quantity;
                 } else {
-                  // If units are not directly summable (e.g., "1 can" + "200g"), add as a new unit entry
                   existingAggItem.unitQuantities.push({ unit: processedItem.unit, totalQuantity: processedItem.quantity });
                 }
               } else {
@@ -285,21 +283,38 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
       const detailsParts: string[] = [];
       let combinedDetailsClass = "text-foreground"; 
 
+      const hasOverallToTaste = aggItem.unitQuantities.some(
+        uq => uq.unit.toLowerCase() === "to taste" && uq.totalQuantity === 0
+      );
+
+      if (hasOverallToTaste) {
+        detailsParts.push("to taste");
+        combinedDetailsClass = "text-gray-500 dark:text-gray-400"; // Ensure "to taste" gets spice styling
+      }
+
       aggItem.unitQuantities.forEach(uq => {
-          const formatted = formatQuantityAndUnitForDisplay(uq.totalQuantity, uq.unit);
-          if (formatted.unit.toLowerCase() === "to taste") {
-            detailsParts.push("to taste");
-          } else if (PIECE_UNITS.includes(formatted.unit.toLowerCase()) && formatted.quantity > 0) {
+        if (uq.unit.toLowerCase() === "to taste" && uq.totalQuantity === 0) {
+          return; // Already handled by hasOverallToTaste
+        }
+
+        const formatted = formatQuantityAndUnitForDisplay(uq.totalQuantity, uq.unit);
+        if (PIECE_UNITS.includes(formatted.unit.toLowerCase()) && formatted.quantity > 0) {
             detailsParts.push(`${formatted.quantity}`);
-          } else if (formatted.quantity > 0 && formatted.unit) {
+        } else if (formatted.quantity > 0 && formatted.unit) {
             detailsParts.push(`${formatted.quantity} ${formatted.unit}`);
-          } else if (formatted.unit) { 
+        } else if (formatted.unit) { 
             detailsParts.push(formatted.unit);
+        }
+        
+        if (SPICE_MEASUREMENT_UNITS.includes(uq.unit.toLowerCase())) {
+          // If not already set by "to taste", set it.
+          // This ensures if there's "1 tsp + to taste", the "1 tsp" part also contributes to spice styling.
+          if (combinedDetailsClass !== "text-gray-500 dark:text-gray-400") {
+            combinedDetailsClass = "text-gray-500 dark:text-gray-400";
           }
-          if (SPICE_MEASUREMENT_UNITS.includes(uq.unit.toLowerCase()) || uq.unit.toLowerCase() === "to taste") {
-            combinedDetailsClass = "text-gray-500 dark:text-gray-400"; 
-          }
+        }
       });
+      
       const detailsPartStr = detailsParts.join(' + ');
 
       const uniqueKey = `agg:${aggItem.name.trim().toLowerCase()}-${foundCategory.toLowerCase()}`; 
