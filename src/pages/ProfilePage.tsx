@@ -10,20 +10,19 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription as ShadcnCardDescription } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Switch } from "@/components/ui/switch"; 
+import { Switch } from "@/components/ui/switch"; // Added Switch
 import { useNavigate, Link } from "react-router-dom";
 import type { User } from "@supabase/supabase-js";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 import { Textarea } from "@/components/ui/textarea";
 import { LogOut } from "lucide-react"; 
-import { cn } from "@/lib/utils";
 
 const profileFormSchema = z.object({
   first_name: z.string().min(1, "First name is required.").max(50, "First name cannot exceed 50 characters."),
   last_name: z.string().min(1, "Last name is required.").max(50, "Last name cannot exceed 50 characters."),
   ai_preferences: z.string().optional(),
   preferred_unit_system: z.enum(["imperial", "metric"]).default("imperial"),
-  track_calories: z.boolean().default(false).optional(),
+  track_calories: z.boolean().default(false).optional(), // Added track_calories
 });
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
@@ -33,7 +32,7 @@ interface ProfileData {
   last_name: string | null;
   ai_preferences: string | null;
   preferred_unit_system: "imperial" | "metric" | null;
-  track_calories: boolean | null;
+  track_calories: boolean | null; // Added track_calories
 }
 
 const ProfilePage = () => {
@@ -41,35 +40,23 @@ const ProfilePage = () => {
   const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
-  const [hasFormBeenInitialized, setHasFormBeenInitialized] = useState(false);
 
   useEffect(() => {
     const getSessionAndUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) { 
-        setUser(session.user); 
-        setUserId(session.user.id); 
-        setHasFormBeenInitialized(false); // Reset flag when user context might change
-      } else { 
-        navigate("/auth"); 
-      }
+      if (session?.user) { setUser(session.user); setUserId(session.user.id); }
+      else { navigate("/auth"); }
     };
     getSessionAndUser();
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT" || !session?.user) { 
         setUser(null); 
         setUserId(null); 
-        setHasFormBeenInitialized(false);
-      } else if (session?.user) { 
-        if (userId !== session.user.id) { // User changed
-          setHasFormBeenInitialized(false);
-        }
-        setUser(session.user); 
-        setUserId(session.user.id); 
       }
+      else if (session?.user) { setUser(session.user); setUserId(session.user.id); }
     });
     return () => authListener?.subscription.unsubscribe();
-  }, [navigate, userId]); // Added userId to reset flag if it changes
+  }, [navigate]);
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
@@ -78,7 +65,7 @@ const ProfilePage = () => {
       last_name: "", 
       ai_preferences: "", 
       preferred_unit_system: "imperial",
-      track_calories: false,
+      track_calories: false, // Added default
     },
   });
 
@@ -88,7 +75,7 @@ const ProfilePage = () => {
       if (!userId) return null;
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, first_name, last_name, ai_preferences, preferred_unit_system, track_calories")
+        .select("id, first_name, last_name, ai_preferences, preferred_unit_system, track_calories") // Added track_calories
         .eq("id", userId)
         .single();
       if (error && error.code !== 'PGRST116') throw error;
@@ -98,35 +85,24 @@ const ProfilePage = () => {
   });
 
   useEffect(() => {
-    if (hasFormBeenInitialized || !userId) return;
-
     if (profile) {
       form.reset({
         first_name: profile.first_name || "",
         last_name: profile.last_name || "",
         ai_preferences: profile.ai_preferences || "",
         preferred_unit_system: profile.preferred_unit_system || "imperial",
-        track_calories: profile.track_calories || false,
+        track_calories: profile.track_calories || false, // Added track_calories
       });
-      setHasFormBeenInitialized(true);
-    } else if (!isLoadingProfile && userId) { // Profile is null/undefined, loading is done, user exists
-      form.reset({
-        first_name: "",
-        last_name: "",
-        ai_preferences: "",
+    } else if (!isLoadingProfile && userId) {
+      form.reset({ 
+        first_name: "", 
+        last_name: "", 
+        ai_preferences: "", 
         preferred_unit_system: "imperial",
-        track_calories: false,
+        track_calories: false, // Added default
       });
-      setHasFormBeenInitialized(true);
     }
-  }, [
-    userId, 
-    profile, // Keep profile object as dependency to react to its changes
-    isLoadingProfile, 
-    form.reset, 
-    hasFormBeenInitialized, 
-    setHasFormBeenInitialized
-  ]);
+  }, [profile, isLoadingProfile, userId, form]);
 
   const updateProfileMutation = useMutation({
     mutationFn: async (values: ProfileFormValues) => {
@@ -137,7 +113,7 @@ const ProfilePage = () => {
         last_name: values.last_name,
         ai_preferences: values.ai_preferences,
         preferred_unit_system: values.preferred_unit_system,
-        track_calories: values.track_calories,
+        track_calories: values.track_calories, // Added track_calories
       };
       const { data, error } = await supabase.from("profiles").upsert(updateData).select();
       if (error) throw error;
@@ -165,6 +141,7 @@ const ProfilePage = () => {
       showError(`Logout failed: ${error.message}`);
     } else {
       showSuccess("Logged out successfully.");
+      // Navigation to /auth is handled by onAuthStateChange in AppHeader and ProtectedRoute
     }
   };
 
@@ -172,7 +149,7 @@ const ProfilePage = () => {
      navigate("/auth", { replace: true });
      return <div className="min-h-screen flex items-center justify-center">Redirecting...</div>;
   }
-  if (isLoadingProfile && !profile && !hasFormBeenInitialized) { // Show loading only if form hasn't been initialized yet
+  if (isLoadingProfile && !profile) { 
     return <div className="min-h-screen flex items-center justify-center">Loading profile...</div>;
   }
   if (profileError) return <div>Error loading profile. Please try refreshing.</div>;
@@ -286,19 +263,12 @@ const ProfilePage = () => {
                   control={form.control}
                   name="track_calories"
                   render={({ field }) => (
-                    <FormItem 
-                      className="flex flex-row items-center justify-between rounded-lg border p-4 cursor-pointer hover:bg-muted/50 transition-colors"
-                      onClick={(e) => {
-                        if (e.target === e.currentTarget || (e.target as HTMLElement).closest('[role="switch"]') === null) {
-                           field.onChange(!field.value);
-                        }
-                      }}
-                    >
-                      <div className="space-y-0.5 mr-4">
-                        <FormLabel className="text-base cursor-pointer">
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                      <div className="space-y-0.5">
+                        <FormLabel className="text-base">
                           Track Calories
                         </FormLabel>
-                        <FormDescription className="cursor-pointer">
+                        <FormDescription>
                           Enable to have AI estimate calories for generated meals and display them in your plans.
                         </FormDescription>
                       </div>
@@ -307,8 +277,6 @@ const ProfilePage = () => {
                           checked={field.value}
                           onCheckedChange={field.onChange}
                           disabled={updateProfileMutation.isPending || isLoadingProfile}
-                          className="data-[state=unchecked]:border data-[state=unchecked]:border-input-border" 
-                          aria-label="Toggle calorie tracking"
                         />
                       </FormControl>
                     </FormItem>
