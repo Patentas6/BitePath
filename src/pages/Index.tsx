@@ -1,17 +1,42 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 import { LayoutDashboard, CalendarDays, BrainCircuit, ShoppingCart, ImagePlus, Info, Sparkles } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-// Card components are not explicitly used in the final version of Index.tsx based on the last full render,
-// but keeping them in case any styling relies on their base classes or if they are intended for future use.
-// If not, they can be removed. For now, I'll keep them as they were in the previous version.
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
-
+import { useIsMobile } from "@/hooks/use-mobile";
+import { supabase } from "@/lib/supabase";
 
 const Index = () => {
   const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const isMobile = useIsMobile(); // Can be undefined initially
+
+  useEffect(() => {
+    // Wait for isMobile to be determined
+    if (isMobile === undefined) {
+      return; 
+    }
+
+    if (isMobile) {
+      const checkSessionAndRedirect = async () => {
+        console.log("[Index.tsx] Mobile detected. Checking session...");
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          console.log("[Index.tsx] Mobile & Session: Redirecting to /dashboard");
+          navigate("/dashboard", { replace: true });
+        } else {
+          console.log("[Index.tsx] Mobile & No Session: Redirecting to /auth");
+          navigate("/auth", { replace: true });
+        }
+      };
+      checkSessionAndRedirect();
+    } else {
+      console.log("[Index.tsx] Desktop detected. Will render landing page.");
+    }
+  }, [isMobile, navigate]);
+
 
   const BitePathStyled = () => (
     <>
@@ -83,6 +108,17 @@ const Index = () => {
     },
   ];
 
+  // If isMobile is not yet determined, or if it is mobile (and will be redirected), show loading.
+  // This prevents rendering the landing page content on mobile.
+  if (isMobile === undefined || isMobile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
+  // Only render landing page content if not mobile (isMobile is false)
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="w-full p-4 bg-background shadow-sm sticky top-0 z-50">
