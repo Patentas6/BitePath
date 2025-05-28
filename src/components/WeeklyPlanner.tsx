@@ -237,7 +237,7 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart 
                           key={mealType}
                           onClick={() => !isDayPast && handleAddOrChangeMealClick(day, mealType)}
                           className={cn(
-                            "border rounded-md p-2 text-xs flex flex-col justify-between overflow-hidden relative transition-colors min-h-[80px] sm:min-h-[70px]", 
+                            "border rounded-md p-2 text-xs flex flex-col justify-between overflow-hidden relative transition-colors h-[80px] sm:h-[70px]", // Changed min-h to h
                             isDayPast ? "bg-gray-100 dark:bg-gray-700/50 cursor-not-allowed" : "bg-card hover:bg-card/80 cursor-pointer"
                           )}
                         >
