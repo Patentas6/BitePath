@@ -23,7 +23,7 @@ import { PlusCircle, Trash2, Brain, XCircle, Info, Link2, Zap, Users } from "luc
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { useState, useEffect } from "react"; // Added useEffect
+import { useState, useEffect } from "react";
 
 export const UNITS = ['piece', 'g', 'kg', 'ml', 'l', 'tsp', 'tbsp', 'cup', 'oz', 'lb', 'pinch', 'dash', 'clove', 'can', 'bottle', 'package', 'slice', 'item', 'sprig', 'head', 'bunch'] as const;
 
@@ -44,7 +44,7 @@ const ingredientSchema = z.object({
 });
 
 
-export type MealFormValues = z.infer<typeof mealFormSchema>; // Export type
+export type MealFormValues = z.infer<typeof mealFormSchema>;
 
 const mealFormSchema = z.object({
   name: z.string().min(1, { message: "Meal name is required." }),
@@ -67,9 +67,9 @@ interface MealFormProps {
   generationStatus?: GenerationStatusInfo;
   isLoadingProfile?: boolean;
   showCaloriesField?: boolean; 
-  initialData?: MealFormValues | null; // New prop
-  onInitialDataProcessed?: () => void; // New prop
-  onSaveSuccess?: () => void; // New prop
+  initialData?: MealFormValues | null;
+  onInitialDataProcessed?: () => void;
+  onSaveSuccess?: (savedMeal: {id: string, name: string}) => void; // Updated signature
 }
 
 const MealForm: React.FC<MealFormProps> = ({ 
@@ -100,7 +100,7 @@ const MealForm: React.FC<MealFormProps> = ({
   useEffect(() => {
     if (initialData) {
       form.reset(initialData);
-      if (initialData.image_url) { // If initial data has an image, ensure input is hidden unless user wants to change
+      if (initialData.image_url) {
         setShowImageUrlInput(false);
       }
       onInitialDataProcessed?.();
@@ -148,11 +148,19 @@ const MealForm: React.FC<MealFormProps> = ({
       if (error) {
         throw error;
       }
-      return data;
+      return { data, values }; // Pass values along for onSuccess
     },
-    onSuccess: () => {
+    onSuccess: ({ data, values }) => {
       showSuccess("Meal added successfully!");
-      form.reset({ // Reset to blank form
+      const savedMealEntry = data?.[0];
+      if (savedMealEntry && onSaveSuccess) {
+        onSaveSuccess({ id: savedMealEntry.id, name: values.name });
+      } else if (onSaveSuccess) {
+        // Fallback if data is not as expected, though ideally it should always have the saved meal
+        onSaveSuccess({ id: 'unknown', name: values.name });
+      }
+      
+      form.reset({ 
         name: "",
         ingredients: [{ name: "", quantity: "", unit: "", description: "" }],
         instructions: "",
@@ -165,7 +173,6 @@ const MealForm: React.FC<MealFormProps> = ({
       queryClient.invalidateQueries({ queryKey: ["meals"] });
       queryClient.invalidateQueries({ queryKey: ['userProfileForAddMealLimits'] });
       queryClient.invalidateQueries({ queryKey: ['userProfileForGenerationLimits'] });
-      onSaveSuccess?.(); // Notify parent on save
     },
     onError: (error) => {
       console.error("Error adding meal:", error);

@@ -13,7 +13,7 @@ import { Brain, Save, RefreshCw, Info, Image as ImageIcon, Edit2, Zap, Users } f
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { IMAGE_GENERATION_LIMIT_PER_MONTH, RECIPE_GENERATION_LIMIT_PER_PERIOD, RECIPE_GENERATION_PERIOD_DAYS } from '@/lib/constants';
 import { calculateCaloriesPerServing } from '@/utils/mealUtils';
-import type { CombinedGenerationLimits } from '@/pages/ManageMealEntryPage'; // For status types
+import type { CombinedGenerationLimits } from '@/pages/ManageMealEntryPage';
 
 interface GeneratedIngredient {
   name: string;
@@ -22,7 +22,7 @@ interface GeneratedIngredient {
   description?: string;
 }
 
-export interface GeneratedMeal { // Exporting for use in parent
+export interface GeneratedMeal {
   name: string;
   ingredients: GeneratedIngredient[];
   instructions: string;
@@ -43,6 +43,7 @@ interface GenerateMealFlowProps {
   isLoadingProfile: boolean;
   userProfile: UserProfileDataForAI | null;
   onEditGeneratedMeal: (meal: GeneratedMeal) => void; 
+  onSaveSuccess: (savedMeal: {id: string, name: string}) => void; // Added prop
 }
 
 const mealTypes = ["Breakfast", "Lunch", "Dinner", "Snack"];
@@ -57,7 +58,8 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
   imageGenerationStatus,
   isLoadingProfile,
   userProfile,
-  onEditGeneratedMeal, 
+  onEditGeneratedMeal,
+  onSaveSuccess, // Destructure new prop
 }) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -67,7 +69,7 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
   const [selectedMealType, setSelectedMealType] = useState<string | undefined>(undefined);
   const [selectedKinds, setSelectedKinds] = useState<string[]>([]);
   const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
-  const [ingredientPreferences, setIngredientPreferences] = useState(''); // Will start empty
+  const [ingredientPreferences, setIngredientPreferences] = useState('');
   const [refinementPrompt, setRefinementPrompt] = useState('');
 
   const [generatedMeal, setGeneratedMeal] = useState<GeneratedMeal | null>(null);
@@ -84,9 +86,6 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
     fetchUser();
   }, []);
   
-  // Removed useEffect that pre-filled ingredientPreferences from userProfile.
-  // The Edge Function will fetch profile preferences independently.
-
   useEffect(() => {
     console.log("[GenerateMealFlow] UserProfile Prop:", userProfile);
   }, [userProfile]);
@@ -118,8 +117,6 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
       setIsGeneratingRecipe(true);
       const loadingToastId = showLoading(params.isRefinement ? "Refining recipe..." : "Generating recipe...");
       
-      // `ingredientPreferences` now only contains what the user typed in the box for this specific request.
-      // Profile preferences will be fetched and used by the Edge Function.
       const bodyPayload: any = {
         mealType: selectedMealType,
         kinds: selectedKinds,
@@ -240,10 +237,16 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
           },])
         .select();
       if (error) throw error;
-      return data;
+      return { data, mealToSave }; // Pass mealToSave for onSuccess
     },
-    onSuccess: (data, vars) => {
-      showSuccess(`"${vars.name}" saved to My Meals!`);
+    onSuccess: ({ data, mealToSave }) => {
+      showSuccess(`"${mealToSave.name}" saved to My Meals!`);
+      const savedMealEntry = data?.[0];
+      if (savedMealEntry && onSaveSuccess) {
+        onSaveSuccess({ id: savedMealEntry.id, name: mealToSave.name });
+      } else if (onSaveSuccess) {
+        onSaveSuccess({ id: 'unknown', name: mealToSave.name });
+      }
       queryClient.invalidateQueries({ queryKey: ["meals"] });
       setGeneratedMeal(null); 
       setRefinementPrompt('');

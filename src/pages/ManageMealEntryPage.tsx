@@ -1,15 +1,17 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { format as formatDateFns } from "date-fns";
+import { format as formatDateFns, startOfWeek, addDays } from "date-fns";
 import { IMAGE_GENERATION_LIMIT_PER_MONTH, RECIPE_GENERATION_LIMIT_PER_PERIOD, RECIPE_GENERATION_PERIOD_DAYS } from '@/lib/constants';
 
 import AppHeader from "@/components/AppHeader";
-import MealForm, { GenerationStatusInfo as MealFormGenerationStatus, MealFormValues } from "@/components/MealForm"; // Import MealFormValues
+import MealForm, { GenerationStatusInfo as MealFormGenerationStatus, MealFormValues } from "@/components/MealForm";
 import GenerateMealFlow, { GeneratedMeal } from "@/components/GenerateMealFlow"; 
+import WeeklyPlanner from "@/components/WeeklyPlanner"; // Import WeeklyPlanner
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'; 
-import { PlusCircle, Brain } from 'lucide-react'; 
+import { Button } from '@/components/ui/button'; // Import Button
+import { PlusCircle, Brain, X, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'; 
 
 interface UserProfileDataForLimits {
   is_admin: boolean;
@@ -18,7 +20,7 @@ interface UserProfileDataForLimits {
   recipe_generation_count: number | null;
   last_recipe_generation_reset: string | null; 
   track_calories?: boolean;
-  ai_preferences?: string | null; // Added for passing to GenerateMealFlow
+  ai_preferences?: string | null;
 }
 
 export interface CombinedGenerationLimits {
@@ -38,6 +40,13 @@ const ManageMealEntryPage = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'generate' | 'add'>('generate');
   const [mealDataForManualForm, setMealDataForManualForm] = useState<GeneratedMeal | null>(null);
+  
+  // State for post-save planner
+  const [showPostSavePlanner, setShowPostSavePlanner] = useState(false);
+  const [newlySavedMealInfo, setNewlySavedMealInfo] = useState<{id: string, name: string} | null>(null);
+  const [plannerWeekStart, setPlannerWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
+
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -154,15 +163,64 @@ const ManageMealEntryPage = () => {
   }, [mealDataForManualForm]);
 
   const handleMealFormInitialDataProcessed = () => {
-    setMealDataForManualForm(null); // Clear data after MealForm has used it
+    setMealDataForManualForm(null);
   };
   
-  const handleMealFormSaveSuccess = () => {
-    setMealDataForManualForm(null); // Clear data if save was from pre-filled data
-    // Optionally, could switch tab back to 'generate' or stay on 'add'
+  const handleMealSaveSuccess = (savedMeal: {id: string, name: string}) => {
+    setMealDataForManualForm(null);
+    setNewlySavedMealInfo(savedMeal);
+    setShowPostSavePlanner(true);
+    // Reset the active tab to 'generate' or keep it on 'add' based on preference
     // setActiveTab('generate'); 
   };
 
+  const handleClosePostSavePlanner = () => {
+    setShowPostSavePlanner(false);
+    setNewlySavedMealInfo(null);
+    // Optionally reset active tab or form states here
+    setActiveTab('generate'); // Example: go back to generate tab
+  };
+  
+  const handleWeekNavigate = (direction: "prev" | "next") => {
+    setPlannerWeekStart(prev => addDays(prev, direction === "next" ? 7 : -7));
+  };
+
+  if (showPostSavePlanner && userId) {
+    return (
+      <div className="min-h-screen bg-background text-foreground p-4">
+        <div className="container mx-auto space-y-6">
+          <AppHeader />
+          <div className="relative p-4 border rounded-lg shadow-lg bg-card">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="absolute top-2 left-2 text-muted-foreground hover:text-foreground"
+              onClick={handleClosePostSavePlanner}
+              aria-label="Close planner"
+            >
+              <X className="h-5 w-5" />
+            </Button>
+            <h2 className="text-xl font-semibold text-center mb-2">
+              "{newlySavedMealInfo?.name}" saved!
+            </h2>
+            <p className="text-sm text-muted-foreground text-center mb-4">
+              Want to add it to your plan now?
+            </p>
+            
+            <div className="flex justify-between items-center mb-4">
+              <Button variant="outline" size="sm" onClick={() => handleWeekNavigate("prev")}><ChevronLeft className="h-4 w-4 mr-1" /> Previous</Button>
+              <h3 className="text-lg font-semibold text-center text-foreground">{formatDateFns(plannerWeekStart, 'MMM dd')} - {formatDateFns(addDays(plannerWeekStart, 6), 'MMM dd, yyyy')}</h3>
+              <Button variant="outline" size="sm" onClick={() => handleWeekNavigate("next")}>Next <ChevronRight className="h-4 w-4 ml-1" /></Button>
+            </div>
+            <WeeklyPlanner userId={userId} currentWeekStart={plannerWeekStart} />
+            <div className="mt-6 text-center">
+              <Button onClick={handleClosePostSavePlanner}>Done Planning</Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground p-4">
@@ -187,7 +245,7 @@ const ManageMealEntryPage = () => {
               showCaloriesField={combinedGenerationLimits.showCaloriesField}
               initialData={mealFormInitialData}
               onInitialDataProcessed={handleMealFormInitialDataProcessed}
-              onSaveSuccess={handleMealFormSaveSuccess}
+              onSaveSuccess={handleMealSaveSuccess} // Updated prop
             />
           </TabsContent>
           <TabsContent value="generate" className="mt-4">
@@ -200,6 +258,7 @@ const ManageMealEntryPage = () => {
                 track_calories: userProfile.track_calories 
               } : null}
               onEditGeneratedMeal={handleEditGeneratedMeal}
+              onSaveSuccess={handleMealSaveSuccess} // Pass the handler
             />
           </TabsContent>
         </Tabs>
