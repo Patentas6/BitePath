@@ -238,6 +238,7 @@ const MealList = () => {
                 size="icon"
                 onClick={() => setLayoutView('list')}
                 aria-label="Switch to list view"
+                className="hidden sm:inline-flex"
               >
                 <List className="h-5 w-5" />
               </Button>
