@@ -451,7 +451,7 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
             variant="outline"
             size="sm"
             onClick={() => setViewMode(prev => prev === 'category' ? 'meal' : 'category')}
-            className="ml-auto h-8 w-8 sm:h-8 sm:w-auto sm:px-3 text-xs"
+            className="ml-auto h-8 w-8 p-1 sm:p-0 sm:h-8 sm:w-auto sm:px-3 text-xs"
             disabled={showExampleData} 
         >
             {viewMode === 'category' ? <Utensils className="h-5 w-5 sm:mr-1" /> : <LayoutGrid className="h-5 w-5 sm:mr-1" />}

@@ -238,7 +238,7 @@ const MealList = () => {
                 size="icon"
                 onClick={() => setLayoutView('list')}
                 aria-label="Switch to list view"
-                className="hidden sm:inline-flex"
+                // className="hidden sm:inline-flex" // Reverted: List button visible on mobile
               >
                 <List className="h-5 w-5" />
               </Button>
@@ -247,7 +247,7 @@ const MealList = () => {
                 size="icon"
                 onClick={() => setLayoutView('grid')}
                 aria-label="Switch to grid view"
-                className="hidden sm:inline-flex"
+                className="hidden sm:inline-flex" // Grid button remains hidden on mobile
               >
                 <Grid3X3 className="h-5 w-5" />
               </Button>
