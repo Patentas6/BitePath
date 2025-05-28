@@ -281,37 +281,26 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
       }
       
       const detailsParts: string[] = [];
-      let combinedDetailsClass = "text-foreground"; 
-
-      const hasOverallToTaste = aggItem.unitQuantities.some(
-        uq => uq.unit.toLowerCase() === "to taste" && uq.totalQuantity === 0
-      );
-
-      if (hasOverallToTaste) {
-        detailsParts.push("to taste");
-        combinedDetailsClass = "text-gray-500 dark:text-gray-400"; // Ensure "to taste" gets spice styling
-      }
+      let combinedDetailsClass = "text-foreground";
+      const processedUnitsForThisItemDisplay = new Set<string>(); // Tracks units already added to detailsParts for THIS aggItem display
 
       aggItem.unitQuantities.forEach(uq => {
-        if (uq.unit.toLowerCase() === "to taste" && uq.totalQuantity === 0) {
-          return; // Already handled by hasOverallToTaste
-        }
-
         const formatted = formatQuantityAndUnitForDisplay(uq.totalQuantity, uq.unit);
-        if (PIECE_UNITS.includes(formatted.unit.toLowerCase()) && formatted.quantity > 0) {
-            detailsParts.push(`${formatted.quantity}`);
+        const displayUnitLower = formatted.unit.toLowerCase();
+
+        if (displayUnitLower === "to taste") {
+          if (!processedUnitsForThisItemDisplay.has("to taste")) {
+            detailsParts.push("to taste");
+            processedUnitsForThisItemDisplay.add("to taste");
+          }
         } else if (formatted.quantity > 0 && formatted.unit) {
-            detailsParts.push(`${formatted.quantity} ${formatted.unit}`);
+          detailsParts.push(`${formatted.quantity} ${formatted.unit}`);
         } else if (formatted.unit) { 
-            detailsParts.push(formatted.unit);
+          detailsParts.push(formatted.unit);
         }
         
-        if (SPICE_MEASUREMENT_UNITS.includes(uq.unit.toLowerCase())) {
-          // If not already set by "to taste", set it.
-          // This ensures if there's "1 tsp + to taste", the "1 tsp" part also contributes to spice styling.
-          if (combinedDetailsClass !== "text-gray-500 dark:text-gray-400") {
-            combinedDetailsClass = "text-gray-500 dark:text-gray-400";
-          }
+        if (SPICE_MEASUREMENT_UNITS.includes(displayUnitLower)) {
+          combinedDetailsClass = "text-gray-500 dark:text-gray-400";
         }
       });
       
