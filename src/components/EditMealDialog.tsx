@@ -104,14 +104,14 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
 
   useEffect(() => {
     if (meal && open) {
-      let parsedIngredients: any[] = []; // Default to empty array
+      let parsedIngredients: any[] = []; 
       if (meal.ingredients) {
         try {
           const parsed = JSON.parse(meal.ingredients);
-          if (Array.isArray(parsed) && parsed.length > 0) {
+          if (Array.isArray(parsed)) { // No need to check parsed.length > 0 here
             parsedIngredients = parsed.map(item => ({
               name: item.name || "",
-              quantity: item.quantity !== undefined && item.quantity !== null ? String(item.quantity) : "", // Ensure string for form
+              quantity: item.quantity !== undefined && item.quantity !== null ? String(item.quantity) : "",
               unit: item.unit || "",
               description: item.description || "",
             }));
@@ -123,20 +123,14 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
       
       form.reset({
         name: meal.name,
-        // If parsedIngredients is empty, react-hook-form will render 0 rows for the field array
-        ingredients: parsedIngredients.length > 0 ? parsedIngredients : [], 
+        ingredients: parsedIngredients, // Pass parsedIngredients directly (it will be [] if no ingredients)
         instructions: meal.instructions || "",
         meal_tags: meal.meal_tags || [],
         estimated_calories: meal.estimated_calories || "", 
         servings: meal.servings || "", 
       });
-       // If after reset, fields is still empty and we intended to have a blank row (e.g. from no ingredients)
-      // This ensures at least one row if `parsedIngredients` was empty.
-      if (parsedIngredients.length === 0 && form.getValues('ingredients').length === 0) {
-        append({ name: "", quantity: "", unit: "", description: "" });
-      }
-
     } else if (!open) {
+      // Reset to default when dialog closes or no meal
       form.reset({
         name: "",
         ingredients: [{ name: "", quantity: "", unit: "", description: "" }],
@@ -146,7 +140,7 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
         servings: "", 
       });
     }
-  }, [meal, open, form, append]); // Added append to dependency array
+  }, [meal, open, form]); // Removed append from dependency array as form.reset handles ingredients array
 
   const editMealMutation = useMutation({
     mutationFn: async (values: MealFormValues) => {
@@ -455,7 +449,7 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
               src={viewingImageUrl}
               alt="Enlarged meal image"
               className="max-w-full max-h-full object-contain"
-              onClick={(e) => e.stopPropagation()} // Optional: if you want clicking image itself to NOT close
+              onClick={(e) => e.stopPropagation()}
             />
           )}
         </DialogContent>
