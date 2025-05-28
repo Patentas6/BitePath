@@ -246,6 +246,7 @@ const MealList = () => {
                 size="icon"
                 onClick={() => setLayoutView('grid')}
                 aria-label="Switch to grid view"
+                className="hidden sm:inline-flex"
               >
                 <Grid3X3 className="h-5 w-5" />
               </Button>

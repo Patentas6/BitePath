@@ -437,14 +437,14 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId, currentWeekStart }) =
                    <SelectItem value="30">Next 30 Days</SelectItem>
                  </SelectContent>
                </Select>
-               {/* Unit system toggle button removed */}
                <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setViewMode(prev => prev === 'category' ? 'meal' : 'category')}
+                  className="h-8 w-8 sm:h-8 sm:w-auto sm:px-3"
                >
-                  {viewMode === 'category' ? <Utensils className="mr-1 h-3 w-3" /> : <LayoutGrid className="mr-1 h-3 w-3" />}
-                  {viewMode === 'category' ? 'View by Meal' : 'View by Category'}
+                  {viewMode === 'category' ? <Utensils className="h-4 w-4 sm:mr-1" /> : <LayoutGrid className="h-4 w-4 sm:mr-1" />}
+                  <span className="hidden sm:inline">{viewMode === 'category' ? 'View by Meal' : 'View by Category'}</span>
                </Button>
            </div>
          </div>

@@ -451,11 +451,11 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
             variant="outline"
             size="sm"
             onClick={() => setViewMode(prev => prev === 'category' ? 'meal' : 'category')}
-            className="ml-auto h-8 text-xs px-2"
-            disabled={showExampleData} // Disable toggle when showing examples, as examples are meal-wise
+            className="ml-auto h-8 w-8 sm:h-8 sm:w-auto sm:px-3 text-xs"
+            disabled={showExampleData} 
         >
-            {viewMode === 'category' ? <Utensils className="mr-1 h-3 w-3" /> : <LayoutGrid className="mr-1 h-3 w-3" />}
-            {viewMode === 'category' ? 'By Meal' : 'By Category'}
+            {viewMode === 'category' ? <Utensils className="h-4 w-4 sm:mr-1" /> : <LayoutGrid className="h-4 w-4 sm:mr-1" />}
+            <span className="hidden sm:inline">{viewMode === 'category' ? 'By Meal' : 'By Category'}</span>
         </Button>
       </CardHeader>
       <CardContent className="flex-grow">

@@ -14,16 +14,17 @@ export function ThemeToggleButton() {
   }, []);
 
   if (!mounted) {
-    return <Button variant="default" size="icon" disabled className="h-9 w-9 md:h-8 md:w-8" />;
+    // Maintain a consistent size with other small icon buttons during SSR/hydration
+    return <Button variant="default" size="icon" disabled className="h-9 w-9" />;
   }
 
   return (
     <Button
-      variant="default" /* Changed from outline to default */
-      size="icon"
+      variant="default" 
+      size="icon" // Ensures consistent icon button styling
       onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
       aria-label="Toggle theme"
-      className="h-9 w-9 md:h-8 md:w-8"
+      className="h-9 w-9" // Consistent size with other size="sm" nav buttons
     >
       {theme === "dark" ? (
         <Sun className="h-[1.2rem] w-[1.2rem]" />
