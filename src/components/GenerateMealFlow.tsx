@@ -37,15 +37,6 @@ interface UserProfileDataForAI {
   track_calories?: boolean;
 }
 
-// Define types for GenerateMealFlow state to be lifted (matches ManageMealEntryPage)
-interface GenerateMealSelections {
-  selectedMealType: string | undefined;
-  selectedKinds: string[];
-  selectedStyles: string[];
-  ingredientPreferences: string;
-  refinementPrompt: string;
-}
-
 interface GenerateMealFlowProps {
   recipeGenerationStatus: CombinedGenerationLimits['recipe'];
   imageGenerationStatus: CombinedGenerationLimits['image'];
@@ -53,11 +44,6 @@ interface GenerateMealFlowProps {
   userProfile: UserProfileDataForAI | null;
   onEditGeneratedMeal: (meal: GeneratedMeal) => void; 
   onSaveSuccess: (savedMeal: {id: string, name: string}) => void;
-  // Props for lifted state
-  selections: GenerateMealSelections;
-  onSelectionsChange: (selections: GenerateMealSelections) => void;
-  generatedMealData: GeneratedMeal | null;
-  onGeneratedMealDataChange: (meal: GeneratedMeal | null) => void;
 }
 
 const mealTypes = ["Breakfast", "Lunch", "Dinner", "Snack"];
@@ -74,17 +60,19 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
   userProfile,
   onEditGeneratedMeal,
   onSaveSuccess,
-  selections,
-  onSelectionsChange,
-  generatedMealData,
-  onGeneratedMealDataChange,
 }) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const recipeCardRef = useRef<HTMLDivElement>(null); 
   const [userId, setUserId] = useState<string | null>(null);
 
-  // Local component state for UI interactions, not directly part of the form data
+  const [selectedMealType, setSelectedMealType] = useState<string | undefined>(undefined);
+  const [selectedKinds, setSelectedKinds] = useState<string[]>([]);
+  const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
+  const [ingredientPreferences, setIngredientPreferences] = useState('');
+  const [refinementPrompt, setRefinementPrompt] = useState('');
+
+  const [generatedMeal, setGeneratedMeal] = useState<GeneratedMeal | null>(null);
   const [isGeneratingRecipe, setIsGeneratingRecipe] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -102,28 +90,22 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
     console.log("[GenerateMealFlow] UserProfile Prop:", userProfile);
   }, [userProfile]);
 
-  const handleSelectionChange = (field: keyof GenerateMealSelections, value: any) => {
-    onSelectionsChange({ ...selections, [field]: value });
-  };
-
   const handleKindChange = (kind: string, checked: boolean) => {
-    const newKinds = checked 
-      ? [...selections.selectedKinds, kind] 
-      : selections.selectedKinds.filter(k => k !== kind);
-    handleSelectionChange('selectedKinds', newKinds);
+    setSelectedKinds(prev =>
+      checked ? [...prev, kind] : prev.filter(k => k !== kind)
+    );
   };
 
   const handleStyleChange = (style: string, checked: boolean) => {
-    const newStyles = checked
-      ? [...selections.selectedStyles, style]
-      : selections.selectedStyles.filter(s => s !== style);
-    handleSelectionChange('selectedStyles', newStyles);
+    setSelectedStyles(prev =>
+      checked ? [...prev, style] : prev.filter(s => s !== style)
+    );
   };
 
   const recipeGenerationMutation = useMutation({
     mutationFn: async (params: { isRefinement: boolean; currentMeal?: GeneratedMeal | null; refinementText?: string }) => {
       if (!userId) throw new Error("User not authenticated.");
-      if (!params.isRefinement && !selections.selectedMealType) {
+      if (!params.isRefinement && !selectedMealType) {
         showError("Please select a meal type for initial generation.");
         return null;
       }
@@ -136,10 +118,10 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
       const loadingToastId = showLoading(params.isRefinement ? "Refining recipe..." : "Generating recipe...");
       
       const bodyPayload: any = {
-        mealType: selections.selectedMealType,
-        kinds: selections.selectedKinds,
-        styles: selections.selectedStyles,
-        preferences: selections.ingredientPreferences, 
+        mealType: selectedMealType,
+        kinds: selectedKinds,
+        styles: selectedStyles,
+        preferences: ingredientPreferences, 
       };
 
       if (params.isRefinement && params.currentMeal && params.refinementText) {
@@ -165,9 +147,8 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
             queryClient.invalidateQueries({ queryKey: ['userProfileForMealEntryLimits', userId] });
             return null; 
         }
-        // Update lifted state
-        onGeneratedMealDataChange({ ...data, image_url: params.isRefinement ? generatedMealData?.image_url : undefined });
-        handleSelectionChange('refinementPrompt', ''); // Clear refinement prompt
+        setGeneratedMeal({ ...data, image_url: params.isRefinement ? generatedMeal?.image_url : undefined }); 
+        setRefinementPrompt(''); 
         showSuccess(params.isRefinement ? "Recipe refined!" : "Recipe generated!");
         queryClient.invalidateQueries({ queryKey: ['userProfileForMealEntryLimits', userId] });
         return data;
@@ -208,12 +189,12 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
         }
         if (data?.error) { 
             showError(data.error); 
-            if (data.mealData) onGeneratedMealDataChange(prev => ({...prev!, ...data.mealData}));
+            if (data.mealData) setGeneratedMeal(prev => ({...prev!, ...data.mealData}));
             queryClient.invalidateQueries({ queryKey: ['userProfileForMealEntryLimits', userId] });
             return null;
         }
         if (data?.image_url !== undefined) { 
-          onGeneratedMealDataChange(prev => prev ? { 
+          setGeneratedMeal(prev => prev ? { 
             ...prev, 
             image_url: data.image_url,
             estimated_calories: data.estimated_calories !== undefined ? data.estimated_calories : prev.estimated_calories,
@@ -256,7 +237,7 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
           },])
         .select();
       if (error) throw error;
-      return { data, mealToSave };
+      return { data, mealToSave }; // Pass mealToSave for onSuccess
     },
     onSuccess: ({ data, mealToSave }) => {
       showSuccess(`"${mealToSave.name}" saved to My Meals!`);
@@ -267,7 +248,8 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
         onSaveSuccess({ id: 'unknown', name: mealToSave.name });
       }
       queryClient.invalidateQueries({ queryKey: ["meals"] });
-      // Do not reset generatedMealData here, ManageMealEntryPage will handle it
+      setGeneratedMeal(null); 
+      setRefinementPrompt('');
     },
     onError: (error: any, vars) => {
       showError(`Failed to save meal "${vars.name}": ${error.message || 'Please try again.'}`);
@@ -278,15 +260,15 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
   });
 
   const handleSaveMeal = () => {
-    if (generatedMealData) {
+    if (generatedMeal) {
       setIsSaving(true);
-      saveMealMutation.mutate(generatedMealData);
+      saveMealMutation.mutate(generatedMeal);
     }
   };
 
   const handleGenerateNewRecipeRequest = () => { 
-    onGeneratedMealDataChange(null); // Clear lifted state
-    handleSelectionChange('refinementPrompt', ''); // Clear refinement prompt
+    setGeneratedMeal(null); 
+    setRefinementPrompt('');
   };
 
   const handleInitialGenerateRecipeClick = async () => {
@@ -296,16 +278,16 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
   };
   
   const handleRefineRecipeClick = async () => {
-    if (!generatedMealData || !selections.refinementPrompt.trim()) {
+    if (!generatedMeal || !refinementPrompt.trim()) {
       showError("Please provide refinement instructions.");
       return;
     }
-    recipeGenerationMutation.mutate({ isRefinement: true, currentMeal: generatedMealData, refinementText: selections.refinementPrompt });
+    recipeGenerationMutation.mutate({ isRefinement: true, currentMeal: generatedMeal, refinementText: refinementPrompt });
   };
 
   const handleGenerateImageClick = () => {
-    if (generatedMealData) {
-      generateImageMutation.mutate(generatedMealData);
+    if (generatedMeal) {
+      generateImageMutation.mutate(generatedMeal);
     }
   };
 
@@ -326,15 +308,15 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
   };
 
   const caloriesPerServing = useMemo(() => {
-    if (generatedMealData) {
-      return calculateCaloriesPerServing(generatedMealData.estimated_calories, generatedMealData.servings);
+    if (generatedMeal) {
+      return calculateCaloriesPerServing(generatedMeal.estimated_calories, generatedMeal.servings);
     }
     return null;
-  }, [generatedMealData]);
+  }, [generatedMeal]);
 
   return (
     <div className="space-y-6">
-      {!generatedMealData && (
+      {!generatedMeal && (
         <Card>
           <CardHeader>
             <CardTitle>Tell us what you're craving!</CardTitle>
@@ -343,11 +325,7 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
           <CardContent className="space-y-6">
             <div>
               <Label className="text-base">What meal type do you want?</Label>
-              <RadioGroup 
-                onValueChange={(value) => handleSelectionChange('selectedMealType', value)} 
-                value={selections.selectedMealType} 
-                className="flex flex-wrap gap-4 mt-2"
-              >
+              <RadioGroup onValueChange={setSelectedMealType} value={selectedMealType} className="flex flex-wrap gap-4 mt-2">
                 {mealTypes.map(type => (
                   <div key={type} className="flex items-center space-x-2">
                     <RadioGroupItem value={type} id={`gen-meal-type-${type.toLowerCase()}`} />
@@ -363,7 +341,7 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
                   <div key={kind} className="flex items-center space-x-2">
                     <Checkbox
                       id={`gen-meal-kind-${kind.toLowerCase().replace(/\s+/g, '-')}`}
-                      checked={selections.selectedKinds.includes(kind)}
+                      checked={selectedKinds.includes(kind)}
                       onCheckedChange={(checked) => handleKindChange(kind, checked as boolean)}
                     />
                     <Label htmlFor={`gen-meal-kind-${kind.toLowerCase().replace(/\s+/g, '-')}`}>{kind}</Label>
@@ -378,7 +356,7 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
                   <div key={style} className="flex items-center space-x-2">
                     <Checkbox
                       id={`gen-meal-style-${style.toLowerCase().replace(/\s+/g, '-')}`}
-                      checked={selections.selectedStyles.includes(style)}
+                      checked={selectedStyles.includes(style)}
                       onCheckedChange={(checked) => handleStyleChange(style, checked as boolean)}
                     />
                     <Label htmlFor={`gen-meal-style-${style.toLowerCase().replace(/\s+/g, '-')}`}>{style}</Label>
@@ -393,8 +371,8 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
               <Textarea
                 id="gen-ingredient-preferences"
                 placeholder="e.g., 'Use only: chicken, broccoli, rice', 'Max 500 cals', 'No nuts, no onions'"
-                value={selections.ingredientPreferences}
-                onChange={(e) => handleSelectionChange('ingredientPreferences', e.target.value)}
+                value={ingredientPreferences}
+                onChange={(e) => setIngredientPreferences(e.target.value)}
                 className="mt-2"
                 maxLength={PREFERENCES_MAX_LENGTH}
               />
@@ -412,12 +390,12 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
                 </div>
               </div>
               <p className="text-xs text-muted-foreground mt-1 text-right">
-                {selections.ingredientPreferences.length}/{PREFERENCES_MAX_LENGTH} characters
+                {ingredientPreferences.length}/{PREFERENCES_MAX_LENGTH} characters
               </p>
             </div>
             <Button
               onClick={handleInitialGenerateRecipeClick}
-              disabled={!selections.selectedMealType || isGeneratingRecipe || recipeGenerationMutation.isPending || (!isLoadingProfile && !recipeGenerationStatus.isAdmin && recipeGenerationStatus.limitReached)}
+              disabled={!selectedMealType || isGeneratingRecipe || recipeGenerationMutation.isPending || (!isLoadingProfile && !recipeGenerationStatus.isAdmin && recipeGenerationStatus.limitReached)}
               className="w-full"
             >
               {isGeneratingRecipe || recipeGenerationMutation.isPending ? 'Generating Recipe...' : 'Generate Recipe'}
@@ -430,20 +408,20 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
         </Card>
       )}
 
-      {generatedMealData && (
+      {generatedMeal && (
         <Card ref={recipeCardRef}> 
           <CardHeader>
             <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-              <div className="flex-grow order-2 sm:order-1">
-                <CardTitle>{generatedMealData.name}</CardTitle>
+              <div className="flex-grow order-2 sm:order-1"> {/* Text content first on small screens */}
+                <CardTitle>{generatedMeal.name}</CardTitle>
                 <CardDescription>
-                  {generatedMealData.image_url ? "Generated Recipe & Image" : "Generated Recipe Text"}
+                  {generatedMeal.image_url ? "Generated Recipe & Image" : "Generated Recipe Text"}
                 </CardDescription>
                 <div className="mt-1 space-y-0.5">
-                  {generatedMealData.servings && (
+                  {generatedMeal.servings && (
                     <div className="text-sm text-muted-foreground flex items-center">
                       <Users size={14} className="mr-1.5 text-primary" />
-                      Servings: {generatedMealData.servings}
+                      Servings: {generatedMeal.servings}
                     </div>
                   )}
                   {userProfile?.track_calories && caloriesPerServing !== null && (
@@ -454,14 +432,14 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
                   )}
                 </div>
               </div>
-              {generatedMealData.image_url && (
+              {generatedMeal.image_url && (
                 <div
                   className="cursor-pointer w-full h-48 sm:w-48 sm:h-48 md:w-56 md:h-56 flex-shrink-0 rounded-md bg-muted order-1 sm:order-2 mb-4 sm:mb-0"
-                  onClick={() => setViewingImageUrl(generatedMealData.image_url || null)}
+                  onClick={() => setViewingImageUrl(generatedMeal.image_url || null)}
                 >
                   <img
-                    src={generatedMealData.image_url}
-                    alt={`Image of ${generatedMealData.name}`}
+                    src={generatedMeal.image_url}
+                    alt={`Image of ${generatedMeal.name}`}
                     className="h-full w-full object-contain rounded-md"
                     onError={(e) => (e.currentTarget.style.display = 'none')}
                   />
@@ -473,7 +451,7 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
             <div>
               <h3 className="text-lg font-semibold mb-2">Ingredients:</h3>
               <ul className="list-disc list-inside space-y-1">
-                {generatedMealData.ingredients.map((ing, index) => (
+                {generatedMeal.ingredients.map((ing, index) => (
                   <li key={index} className="text-muted-foreground">
                     {typeof ing.quantity === 'number' ? ing.quantity : `"${ing.quantity}"`} {ing.unit} {ing.name} {ing.description && `(${ing.description})`}
                   </li>
@@ -482,7 +460,7 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
             </div>
             <div>
               <h3 className="text-lg font-semibold mb-2">Instructions:</h3>
-              <p className="text-muted-foreground whitespace-pre-line">{generatedMealData.instructions}</p>
+              <p className="text-muted-foreground whitespace-pre-line">{generatedMeal.instructions}</p>
             </div>
 
             <div className="pt-4 border-t">
@@ -490,17 +468,17 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
               <Textarea
                 id="gen-refinement-prompt"
                 placeholder="e.g., 'Replace chicken with tofu', 'Make it spicier', 'Add mushrooms'"
-                value={selections.refinementPrompt}
-                onChange={(e) => handleSelectionChange('refinementPrompt', e.target.value)}
+                value={refinementPrompt}
+                onChange={(e) => setRefinementPrompt(e.target.value)}
                 className="mt-2"
                 maxLength={REFINEMENT_MAX_LENGTH}
               />
               <p className="text-xs text-muted-foreground mt-1 text-right">
-                {selections.refinementPrompt.length}/{REFINEMENT_MAX_LENGTH} characters
+                {refinementPrompt.length}/{REFINEMENT_MAX_LENGTH} characters
               </p>
               <Button
                 onClick={handleRefineRecipeClick}
-                disabled={!selections.refinementPrompt.trim() || isGeneratingRecipe || recipeGenerationMutation.isPending || (!isLoadingProfile && !recipeGenerationStatus.isAdmin && recipeGenerationStatus.limitReached && recipeGenerationStatus.generationsUsedThisPeriod >= RECIPE_GENERATION_LIMIT_PER_PERIOD) }
+                disabled={!refinementPrompt.trim() || isGeneratingRecipe || recipeGenerationMutation.isPending || (!isLoadingProfile && !recipeGenerationStatus.isAdmin && recipeGenerationStatus.limitReached && recipeGenerationStatus.generationsUsedThisPeriod >= RECIPE_GENERATION_LIMIT_PER_PERIOD) }
                 className="w-full mt-2"
                 variant="outline" 
               >
@@ -543,7 +521,7 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
                 {isSaving || saveMealMutation.isPending ? 'Saving...' : 'Save to My Meals'}
               </Button>
               <Button
-                onClick={() => onEditGeneratedMeal(generatedMealData)}
+                onClick={() => onEditGeneratedMeal(generatedMeal)}
                 variant="outline"
                 className="w-full" 
                 disabled={isSaving || saveMealMutation.isPending || isGeneratingRecipe || recipeGenerationMutation.isPending || isGeneratingImage || generateImageMutation.isPending}
@@ -574,7 +552,7 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
               src={viewingImageUrl}
               alt="Enlarged meal image"
               className="max-w-full max-h-full object-contain"
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()} // Optional: if you want clicking image itself to NOT close
             />
           )}
         </DialogContent>

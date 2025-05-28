@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { format as formatDateFns, startOfWeek, addDays } from "date-fns";
 import { IMAGE_GENERATION_LIMIT_PER_MONTH, RECIPE_GENERATION_LIMIT_PER_PERIOD, RECIPE_GENERATION_PERIOD_DAYS } from '@/lib/constants';
-import { useIsMobile } from "@/hooks/use-is-mobile"; // Corrected import path
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
 import AppHeader from "@/components/AppHeader";
@@ -38,38 +38,15 @@ export interface CombinedGenerationLimits {
   isLoadingProfile: boolean;
 }
 
-// Define types for GenerateMealFlow state to be lifted
-interface GenerateMealSelections {
-  selectedMealType: string | undefined;
-  selectedKinds: string[];
-  selectedStyles: string[];
-  ingredientPreferences: string;
-  refinementPrompt: string;
-}
-
 const ManageMealEntryPage = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'generate' | 'add'>('generate');
+  const [mealDataForManualForm, setMealDataForManualForm] = useState<GeneratedMeal | null>(null);
   const isMobile = useIsMobile();
   
   const [showPostSavePlanner, setShowPostSavePlanner] = useState(false);
   const [newlySavedMealInfo, setNewlySavedMealInfo] = useState<{id: string, name: string} | null>(null);
   const [plannerWeekStart, setPlannerWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
-
-  // State lifted from GenerateMealFlow
-  const [generateMealSelections, setGenerateMealSelections] = useState<GenerateMealSelections>({
-    selectedMealType: undefined,
-    selectedKinds: [],
-    selectedStyles: [],
-    ingredientPreferences: '',
-    refinementPrompt: '',
-  });
-  const [generatedMeal, setGeneratedMeal] = useState<GeneratedMeal | null>(null);
-
-  // State for MealForm (manual entry / editing generated)
-  // This will hold the data for MealForm, whether it's from a generated meal or typed manually
-  const [currentMealFormData, setCurrentMealFormData] = useState<MealFormValues | null>(null);
-
 
   const queryClient = useQueryClient();
 
@@ -165,36 +142,34 @@ const ManageMealEntryPage = () => {
   }, [userProfile, isLoadingProfile]);
 
   const handleEditGeneratedMeal = (meal: GeneratedMeal) => {
-    const mealFormValues: MealFormValues = {
-      name: meal.name || "",
-      ingredients: meal.ingredients?.map(ing => ({
+    setMealDataForManualForm(meal);
+    setActiveTab('add'); 
+  };
+
+  const mealFormInitialData = useMemo((): MealFormValues | null => {
+    if (!mealDataForManualForm) return null;
+    return {
+      name: mealDataForManualForm.name || "",
+      ingredients: mealDataForManualForm.ingredients?.map(ing => ({
         name: ing.name || "",
         quantity: ing.quantity !== undefined && ing.quantity !== null ? String(ing.quantity) : "",
         unit: ing.unit || "",
         description: ing.description || "",
       })) || [{ name: "", quantity: "", unit: "", description: "" }],
-      instructions: meal.instructions || "",
-      meal_tags: meal.meal_tags || [],
-      image_url: meal.image_url || "",
-      estimated_calories: meal.estimated_calories || "",
-      servings: meal.servings || "",
+      instructions: mealDataForManualForm.instructions || "",
+      meal_tags: mealDataForManualForm.meal_tags || [],
+      image_url: mealDataForManualForm.image_url || "",
+      estimated_calories: mealDataForManualForm.estimated_calories || "",
+      servings: mealDataForManualForm.servings || "",
     };
-    setCurrentMealFormData(mealFormValues);
-    setActiveTab('add'); 
+  }, [mealDataForManualForm]);
+
+  const handleMealFormInitialDataProcessed = () => {
+    setMealDataForManualForm(null);
   };
   
   const handleMealSaveSuccess = (savedMeal: {id: string, name: string}) => {
-    // Reset states related to meal generation and form data
-    setGeneratedMeal(null);
-    setGenerateMealSelections({
-      selectedMealType: undefined,
-      selectedKinds: [],
-      selectedStyles: [],
-      ingredientPreferences: '',
-      refinementPrompt: '',
-    });
-    setCurrentMealFormData(null); // Clear the form data
-
+    setMealDataForManualForm(null);
     setNewlySavedMealInfo(savedMeal);
     setShowPostSavePlanner(true);
   };
@@ -208,12 +183,6 @@ const ManageMealEntryPage = () => {
   const handleWeekNavigate = (direction: "prev" | "next") => {
     setPlannerWeekStart(prev => addDays(prev, direction === "next" ? 7 : -7));
   };
-
-  // Callback for MealForm to update currentMealFormData
-  // This is a simplified version; react-hook-form's watch or getValues might be more robust
-  // For now, let's assume MealForm will manage its own state and only set this on "edit generated"
-  // or if we explicitly want to save draft manual entries.
-  // For this iteration, currentMealFormData is primarily for passing generated data to MealForm.
 
   if (showPostSavePlanner && userId) {
     return (
@@ -276,16 +245,11 @@ const ManageMealEntryPage = () => {
           </TabsList>
           <TabsContent value="add" className="mt-4">
             <MealForm 
-              key={currentMealFormData ? 'edit-mode' : 'add-mode'} // Force re-render if initialData changes significantly
               generationStatus={combinedGenerationLimits.image} 
               isLoadingProfile={combinedGenerationLimits.isLoadingProfile}
               showCaloriesField={combinedGenerationLimits.showCaloriesField}
-              initialData={currentMealFormData} // Pass the form data here
-              onInitialDataProcessed={() => {
-                // Optional: If you want to clear currentMealFormData after MealForm has processed it
-                // This might be useful if you want a "fresh" form next time unless explicitly populated
-                // For now, let's keep it, so if user switches tabs and back, data is still there.
-              }}
+              initialData={mealFormInitialData}
+              onInitialDataProcessed={handleMealFormInitialDataProcessed}
               onSaveSuccess={handleMealSaveSuccess}
             />
           </TabsContent>
@@ -300,11 +264,6 @@ const ManageMealEntryPage = () => {
               } : null}
               onEditGeneratedMeal={handleEditGeneratedMeal}
               onSaveSuccess={handleMealSaveSuccess}
-              // Pass state and setters for GenerateMealFlow's inputs
-              selections={generateMealSelections}
-              onSelectionsChange={setGenerateMealSelections}
-              generatedMealData={generatedMeal}
-              onGeneratedMealDataChange={setGeneratedMeal}
             />
           </TabsContent>
         </Tabs>
