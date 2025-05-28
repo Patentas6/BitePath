@@ -34,7 +34,7 @@ const ingredientSchema = z.object({
     z.literal("").transform(() => undefined), 
     z.null().transform(() => undefined) 
   ]).optional(),
-  unit: z.string().optional().transform(val => val === "" ? undefined : val), // Treat "" as undefined, then optional
+  unit: z.string().optional().transform(val => val === "" ? undefined : val), 
   description: z.string().optional(),
 }).refine(data => {
   if (typeof data.quantity === 'number') {
@@ -89,9 +89,9 @@ const MealForm: React.FC<MealFormProps> = ({
 
   const form = useForm<MealFormValues>({
     resolver: zodResolver(mealFormSchema),
-    defaultValues: { // Updated defaultValues
+    defaultValues: {
       name: "",
-      ingredients: [], // Default to an empty array for ingredients
+      ingredients: [], 
       instructions: "",
       meal_tags: [],
       image_url: "",
@@ -100,14 +100,19 @@ const MealForm: React.FC<MealFormProps> = ({
     },
   });
 
+  const { fields, append, remove, replace } = useFieldArray({ // Added replace
+    control: form.control,
+    name: "ingredients",
+  });
+
   useEffect(() => {
     if (initialData) {
-      // Ensure initialData.ingredients is an array for reset
-      const dataToReset = {
-        ...initialData,
-        ingredients: initialData.ingredients || [], 
-      };
-      form.reset(dataToReset);
+      form.reset(initialData); // Reset the whole form with initialData
+      // Explicitly replace the ingredients field array
+      // initialData.ingredients should already be in the correct format (array of objects with string quantities)
+      // from ManageMealEntryPage's mealFormInitialData
+      replace(initialData.ingredients || []); 
+
       if (initialData.image_url) {
         setShowImageUrlInput(false);
       }
@@ -115,25 +120,22 @@ const MealForm: React.FC<MealFormProps> = ({
         onInitialDataProcessed();
       }
     } else {
-      // No initialData, reset to standard default with one blank ingredient row for user convenience
+      // When initialData is not present (fresh "Add Manually" tab)
       form.reset({
         name: "",
-        ingredients: [{ name: "", quantity: "", unit: "", description: "" }],
+        ingredients: [{ name: "", quantity: "", unit: "", description: "" }], // Default one blank row
         instructions: "",
         meal_tags: [],
         image_url: "",
         estimated_calories: "",
         servings: "",
       });
+      // Ensure the field array also reflects this one blank row
+      replace([{ name: "", quantity: "", unit: "", description: "" }]);
       setShowImageUrlInput(false);
     }
-  }, [initialData, form, onInitialDataProcessed]);
+  }, [initialData, form, onInitialDataProcessed, replace]); // Added replace to dependencies
 
-
-  const { fields, append, remove } = useFieldArray({
-    control: form.control,
-    name: "ingredients",
-  });
 
   const addMealMutation = useMutation({
     mutationFn: async (values: MealFormValues) => {
@@ -183,13 +185,14 @@ const MealForm: React.FC<MealFormProps> = ({
       
       form.reset({ 
         name: "",
-        ingredients: [{ name: "", quantity: "", unit: "", description: "" }], // Reset to one blank row
+        ingredients: [{ name: "", quantity: "", unit: "", description: "" }], 
         instructions: "",
         meal_tags: [],
         image_url: "",
         estimated_calories: "", 
         servings: "", 
       });
+      replace([{ name: "", quantity: "", unit: "", description: "" }]); // Also reset field array
       setShowImageUrlInput(false); 
       queryClient.invalidateQueries({ queryKey: ["meals"] });
       queryClient.invalidateQueries({ queryKey: ['userProfileForAddMealLimits'] });
