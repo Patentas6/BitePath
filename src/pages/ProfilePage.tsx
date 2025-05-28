@@ -41,23 +41,35 @@ const ProfilePage = () => {
   const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [hasFormBeenInitialized, setHasFormBeenInitialized] = useState(false);
 
   useEffect(() => {
     const getSessionAndUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) { setUser(session.user); setUserId(session.user.id); }
-      else { navigate("/auth"); }
+      if (session?.user) { 
+        setUser(session.user); 
+        setUserId(session.user.id); 
+        setHasFormBeenInitialized(false); // Reset flag when user context might change
+      } else { 
+        navigate("/auth"); 
+      }
     };
     getSessionAndUser();
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT" || !session?.user) { 
         setUser(null); 
         setUserId(null); 
+        setHasFormBeenInitialized(false);
+      } else if (session?.user) { 
+        if (userId !== session.user.id) { // User changed
+          setHasFormBeenInitialized(false);
+        }
+        setUser(session.user); 
+        setUserId(session.user.id); 
       }
-      else if (session?.user) { setUser(session.user); setUserId(session.user.id); }
     });
     return () => authListener?.subscription.unsubscribe();
-  }, [navigate]);
+  }, [navigate, userId]); // Added userId to reset flag if it changes
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
@@ -86,6 +98,8 @@ const ProfilePage = () => {
   });
 
   useEffect(() => {
+    if (hasFormBeenInitialized || !userId) return;
+
     if (profile) {
       form.reset({
         first_name: profile.first_name || "",
@@ -94,8 +108,8 @@ const ProfilePage = () => {
         preferred_unit_system: profile.preferred_unit_system || "imperial",
         track_calories: profile.track_calories || false,
       });
-    } else if (!isLoadingProfile && userId) {
-      // This case is for when a user is loaded, profile isn't loading, but profile is null (e.g. new user)
+      setHasFormBeenInitialized(true);
+    } else if (!isLoadingProfile && userId) { // Profile is null/undefined, loading is done, user exists
       form.reset({
         first_name: "",
         last_name: "",
@@ -103,17 +117,15 @@ const ProfilePage = () => {
         preferred_unit_system: "imperial",
         track_calories: false,
       });
+      setHasFormBeenInitialized(true);
     }
   }, [
     userId, 
-    profile?.id, 
-    profile?.first_name,
-    profile?.last_name,
-    profile?.ai_preferences,
-    profile?.preferred_unit_system,
-    profile?.track_calories,
+    profile, // Keep profile object as dependency to react to its changes
     isLoadingProfile, 
-    form.reset 
+    form.reset, 
+    hasFormBeenInitialized, 
+    setHasFormBeenInitialized
   ]);
 
   const updateProfileMutation = useMutation({
@@ -160,7 +172,7 @@ const ProfilePage = () => {
      navigate("/auth", { replace: true });
      return <div className="min-h-screen flex items-center justify-center">Redirecting...</div>;
   }
-  if (isLoadingProfile && !profile) { 
+  if (isLoadingProfile && !profile && !hasFormBeenInitialized) { // Show loading only if form hasn't been initialized yet
     return <div className="min-h-screen flex items-center justify-center">Loading profile...</div>;
   }
   if (profileError) return <div>Error loading profile. Please try refreshing.</div>;
