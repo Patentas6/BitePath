@@ -7,7 +7,7 @@ import { PLANNING_MEAL_TYPES, PlanningMealType } from "@/lib/constants";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { UtensilsCrossed, Edit, Zap, Image as ImageIcon } from "lucide-react"; 
+import { UtensilsCrossed, Edit, Zap, Image as ImageIcon, Users } from "lucide-react"; 
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -45,7 +45,7 @@ const exampleMealsData = [
       name: 'Example: Yogurt & Granola', 
       image_url: '/Breakfasttest.png', 
       estimated_calories: '350 kcal', 
-      servings: '1' 
+      servings: '1 serving' 
     } 
   },
   { 
@@ -55,7 +55,7 @@ const exampleMealsData = [
       name: 'Example: Salad with Chicken', 
       image_url: '/lunchtest.png',
       estimated_calories: '500 kcal', 
-      servings: '1' 
+      servings: '1 serving' 
     } 
   },
   { 
@@ -65,7 +65,7 @@ const exampleMealsData = [
       name: 'Example: Spaghetti Carbonara', 
       image_url: '/dinnertest.png', 
       estimated_calories: '650 kcal',
-      servings: '1' 
+      servings: '2-3 servings' 
     } 
   },
 ];
@@ -225,6 +225,12 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
                        <div className="text-base font-semibold text-foreground mt-1">
                          {plannedMeal.meals?.name || 'Unknown Meal'}
                        </div>
+                       {plannedMeal.meals?.servings && (
+                         <div className="text-xs text-muted-foreground mt-0.5 flex items-center">
+                           <Users size={12} className="mr-1" />
+                           Servings: {plannedMeal.meals.servings}
+                         </div>
+                       )}
                        {userProfile?.track_calories && caloriesPerServing !== null && (
                          <div className="text-xs text-primary mt-0.5 flex items-center">
                            <Zap size={12} className="mr-1" />

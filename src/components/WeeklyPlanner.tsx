@@ -10,7 +10,7 @@ import { useIsMobile } from "@/hooks/use-mobile"; // Added useIsMobile
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, XCircle, Plus, Zap } from "lucide-react"; 
+import { ChevronLeft, ChevronRight, XCircle, Plus, Zap, Users } from "lucide-react"; 
 import AddMealToPlanDialog from "./AddMealToPlanDialog";
 import { calculateCaloriesPerServing } from '@/utils/mealUtils'; 
 
@@ -255,6 +255,15 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart 
                               )}>
                                 {plannedMeal.meals?.name || 'Unknown Meal'}
                               </div>
+                              {plannedMeal.meals?.servings && (
+                                <div className={cn(
+                                  "text-[10px] text-muted-foreground self-start flex items-center mt-0.5",
+                                  isDayPast && "text-gray-500 dark:text-gray-500"
+                                )}>
+                                  <Users size={10} className="mr-0.5" />
+                                  {plannedMeal.meals.servings}
+                                </div>
+                              )}
                               {userProfile?.track_calories && caloriesPerServing !== null && (
                                 <div className={cn(
                                   "text-[10px] text-primary self-start flex items-center mt-0.5",
