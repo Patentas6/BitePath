@@ -16,6 +16,7 @@ import type { User } from "@supabase/supabase-js";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 import { Textarea } from "@/components/ui/textarea";
 import { LogOut } from "lucide-react"; 
+import { cn } from "@/lib/utils";
 
 const profileFormSchema = z.object({
   first_name: z.string().min(1, "First name is required.").max(50, "First name cannot exceed 50 characters."),
@@ -263,12 +264,20 @@ const ProfilePage = () => {
                   control={form.control}
                   name="track_calories"
                   render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                      <div className="space-y-0.5">
-                        <FormLabel className="text-base">
+                    <FormItem 
+                      className="flex flex-row items-center justify-between rounded-lg border p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={(e) => {
+                        // Prevent click on switch itself from triggering this FormItem's onClick
+                        if (e.target === e.currentTarget || (e.target as HTMLElement).closest('[role="switch"]') === null) {
+                           field.onChange(!field.value);
+                        }
+                      }}
+                    >
+                      <div className="space-y-0.5 mr-4">
+                        <FormLabel className="text-base cursor-pointer">
                           Track Calories
                         </FormLabel>
-                        <FormDescription>
+                        <FormDescription className="cursor-pointer">
                           Enable to have AI estimate calories for generated meals and display them in your plans.
                         </FormDescription>
                       </div>
@@ -277,6 +286,8 @@ const ProfilePage = () => {
                           checked={field.value}
                           onCheckedChange={field.onChange}
                           disabled={updateProfileMutation.isPending || isLoadingProfile}
+                          className="data-[state=unchecked]:border data-[state=unchecked]:border-input-border" 
+                          aria-label="Toggle calorie tracking"
                         />
                       </FormControl>
                     </FormItem>
