@@ -2,9 +2,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { showError, showSuccess } from "@/utils/toast";
 import { format, addDays, isSameDay, isToday, isPast, startOfToday, parseISO } from "date-fns";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useRef } from "react"; // Added useEffect, useRef
 import { cn } from "@/lib/utils";
 import { PLANNING_MEAL_TYPES, PlanningMealType } from "@/lib/constants"; 
+import { useIsMobile } from "@/hooks/use-mobile"; // Added useIsMobile
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -40,9 +41,12 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedDateForDialog, setSelectedDateForDialog] = useState<Date | null>(null);
   const [selectedMealTypeForDialog, setSelectedMealTypeForDialog] = useState<PlanningMealType | undefined>(undefined);
+  
+  const scrollContainerRef = useRef<HTMLDivElement>(null); // Ref for the scrollable container
+  const isMobile = useIsMobile(); // Hook to check for mobile screen size
 
   const queryClient = useQueryClient();
-  const todayDate = startOfToday(); // Renamed to avoid conflict with isToday function
+  const todayDate = startOfToday(); 
 
   const { data: userProfile, isLoading: isLoadingProfile } = useQuery<UserProfileData | null>({
     queryKey: ['userProfileForWeeklyPlanner', userId],
@@ -115,6 +119,30 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart 
     return Array.from({ length: 7 }).map((_, i) => addDays(currentWeekStart, i));
   }, [currentWeekStart]);
 
+  useEffect(() => {
+    if (isMobile && !isLoadingMealPlans && scrollContainerRef.current && daysOfWeek.length > 0) {
+      const todayFormatted = format(todayDate, 'yyyy-MM-dd');
+      const todayElement = scrollContainerRef.current.querySelector(`[data-date="${todayFormatted}"]`) as HTMLElement | null;
+
+      if (todayElement) {
+        const firstDayOfCurrentWeek = daysOfWeek[0];
+        const lastDayOfCurrentWeek = daysOfWeek[6];
+        // Check if today is actually within the current displayed week
+        if (todayDate >= firstDayOfCurrentWeek && todayDate <= lastDayOfCurrentWeek) {
+          const containerLeft = scrollContainerRef.current.getBoundingClientRect().left;
+          const todayLeft = todayElement.getBoundingClientRect().left;
+          const scrollPosition = todayElement.offsetLeft - scrollContainerRef.current.offsetLeft; // More reliable offset
+          
+          scrollContainerRef.current.scrollTo({
+            left: scrollPosition,
+            behavior: 'auto' 
+          });
+        }
+      }
+    }
+  }, [isMobile, isLoadingMealPlans, daysOfWeek, currentWeekStart, todayDate]);
+
+
   const handleAddOrChangeMealClick = (day: Date, mealType?: PlanningMealType) => {
     if (isPast(day) && !isToday(day)) {
         console.log("Cannot plan for a past date (excluding today).");
@@ -167,8 +195,7 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart 
   return (
     <>
       <div className="bg-muted p-2 sm:p-4 rounded-lg shadow">
-        <div className="overflow-x-auto pb-2">
-          {/* Days Container: Flex for mobile scroll, Grid for sm+ */}
+        <div className="overflow-x-auto pb-2" ref={scrollContainerRef}> {/* Added ref here */}
           <div className="flex space-x-2 sm:grid sm:grid-cols-7 sm:gap-2 sm:space-x-0">
             {daysOfWeek.map(day => {
               const isDayPast = isPast(day) && !isToday(day);
@@ -177,16 +204,15 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart 
               const dailyTotal = dailyTotalsByDatePerServing.get(dateKey);
 
               return (
-                // Day Column
                 <div
                   key={day.toISOString()}
+                  data-date={dateKey} // Added data-date attribute
                   className={cn(
-                    "flex-shrink-0 w-[48%] sm:w-auto", // w-[48%] for mobile flex (2 days), sm:w-auto for grid item
-                    "flex flex-col",                   // Vertical layout for header + slots
+                    "flex-shrink-0 w-[48%] sm:w-auto", 
+                    "flex flex-col",                   
                     isDayPast && "opacity-60"
                   )}
                 >
-                  {/* Day Header Part */}
                   <div
                     className={cn(
                       "flex flex-col items-center p-1 rounded-md mb-1 sm:mb-2",
@@ -202,8 +228,6 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ userId, currentWeekStart 
                       </div>
                     )}
                   </div>
-
-                  {/* Meal Slots for this day */}
                   <div className="flex flex-col space-y-1">
                     {MEAL_TYPE_DISPLAY_ORDER.map(mealType => {
                       const plannedMeal = mealsForDayMap?.get(mealType);
