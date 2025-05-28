@@ -104,14 +104,16 @@ const AppHeader = () => {
           to="/manage-meal-entry" 
           data-tourid="tour-new-meal-button" 
           className={cn(
-            "flex flex-col items-center justify-center p-1 w-1/5 h-full"
-            // Active state for the container link itself is not strictly needed if icon/text handle it
+            "flex flex-col items-center justify-center p-1 w-1/5 h-full",
+             // The parent Link's hover:text-primary will apply to both icon and text
+            isActive("/manage-meal-entry") ? "text-primary" : "text-muted-foreground hover:text-primary"
           )}
         >
-          <PlusCircle className={cn("h-7 w-7 text-foreground", isActive("/manage-meal-entry") ? "text-primary" : "text-foreground")} />
+          <PlusCircle className={cn(
+            "h-5 w-5 mb-0.5" // Adjusted size, color will be inherited or set by parent's active state
+          )} />
           <span className={cn(
-            "truncate text-xs mt-0.5", // Added mt-0.5 for spacing like other labels
-            isActive("/manage-meal-entry") ? "text-primary" : "text-muted-foreground hover:text-primary"
+            "truncate text-xs mt-0.5" // Color will be inherited from parent Link
           )}>
             New
           </span>
