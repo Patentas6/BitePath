@@ -104,11 +104,17 @@ const AppHeader = () => {
           to="/manage-meal-entry" 
           data-tourid="tour-new-meal-button" 
           className={cn(
-            "flex flex-col items-center justify-center text-xs p-1 w-1/5 h-full",
-            isActive("/manage-meal-entry") ? "text-primary" : "text-muted-foreground hover:text-primary"
+            "flex flex-col items-center justify-center p-1 w-1/5 h-full"
+            // Active state for the container link itself is not strictly needed if icon/text handle it
           )}
         >
-          <PlusCircle className={cn("h-7 w-7", isActive("/manage-meal-entry") ? "text-primary" : "text-primary")} />
+          <PlusCircle className={cn("h-7 w-7 text-foreground", isActive("/manage-meal-entry") ? "text-primary" : "text-foreground")} />
+          <span className={cn(
+            "truncate text-xs mt-0.5", // Added mt-0.5 for spacing like other labels
+            isActive("/manage-meal-entry") ? "text-primary" : "text-muted-foreground hover:text-primary"
+          )}>
+            New
+          </span>
         </Link>
         <Link 
           to="/planning" 
