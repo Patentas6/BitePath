@@ -30,19 +30,19 @@ export const UNITS = ['piece', 'g', 'kg', 'ml', 'l', 'tsp', 'tbsp', 'cup', 'oz',
 const ingredientSchema = z.object({
   name: z.string().min(1, { message: "Ingredient name is required." }),
   quantity: z.union([
-    z.coerce.number().positive({ message: "Quantity must be a positive number." }),
     z.literal("").transform(() => undefined), 
-    z.null().transform(() => undefined) 
-  ]).optional(),
+    z.null().transform(() => undefined),     
+    z.coerce.number().positive({ message: "Quantity must be a positive number." }) 
+  ]).optional(), 
   unit: z.string().optional().transform(val => val === "" ? undefined : val), 
   description: z.string().optional(),
 }).refine(data => {
-  if (typeof data.quantity === 'number') {
+  if (typeof data.quantity === 'number') { 
     return typeof data.unit === 'string' && data.unit.trim() !== "";
   }
-  return true;
+  return true; 
 }, {
-  message: "Unit is required if quantity is specified.",
+  message: "Unit is required if a valid quantity is specified.",
   path: ["unit"], 
 });
 
@@ -141,11 +141,8 @@ const MealForm: React.FC<MealFormProps> = ({
 
       const ingredientsToSave = values.ingredients?.map(ing => ({
         name: ing.name,
-        // If ing.quantity (from Zod) is undefined, set DB quantity to null. Otherwise, use the number.
         quantity: ing.quantity !== undefined ? ing.quantity : null,
-        // If quantity is undefined (will be null for DB), set unit to null for DB.
-        // Otherwise, use ing.unit (Zod ensures it's a string if quantity is a number) or "" if somehow undefined.
-        unit: ing.quantity !== undefined ? (ing.unit || "") : null,
+        unit: ing.quantity !== undefined ? (ing.unit || "") : null, // Ensure unit is null if quantity is null
         description: ing.description,
       })).filter(ing => ing.name.trim() !== ""); 
 

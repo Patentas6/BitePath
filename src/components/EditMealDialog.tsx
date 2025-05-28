@@ -36,19 +36,19 @@ import { UNITS } from "./MealForm";
 const ingredientSchema = z.object({
   name: z.string().min(1, { message: "Ingredient name is required." }),
   quantity: z.union([
-    z.coerce.number().positive({ message: "Quantity must be a positive number." }),
     z.literal("").transform(() => undefined), 
-    z.null().transform(() => undefined) 
-  ]).optional(),
+    z.null().transform(() => undefined),     
+    z.coerce.number().positive({ message: "Quantity must be a positive number." }) 
+  ]).optional(), 
   unit: z.string().optional().transform(val => val === "" ? undefined : val),
   description: z.string().optional(),
 }).refine(data => {
-  if (typeof data.quantity === 'number') {
+  if (typeof data.quantity === 'number') { 
     return typeof data.unit === 'string' && data.unit.trim() !== "";
   }
-  return true;
+  return true; 
 }, {
-  message: "Unit is required if quantity is specified.",
+  message: "Unit is required if a valid quantity is specified.",
   path: ["unit"],
 });
 
@@ -153,7 +153,7 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
       const ingredientsToSave = values.ingredients?.map(ing => ({
         name: ing.name,
         quantity: ing.quantity !== undefined ? ing.quantity : null,
-        unit: ing.quantity !== undefined ? (ing.unit || "") : null,
+        unit: ing.quantity !== undefined ? (ing.unit || "") : null, // Ensure unit is null if quantity is null
         description: ing.description,
       })).filter(ing => ing.name.trim() !== "");
 
