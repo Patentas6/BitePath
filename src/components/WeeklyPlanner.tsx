@@ -294,24 +294,27 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({
                               )}>
                                 {plannedMeal.meals?.name || 'Unknown Meal'}
                               </div>
-                              {plannedMeal.meals?.servings && (
+                              
+                              {(plannedMeal.meals?.servings || (userProfile?.track_calories && caloriesPerServing !== null)) && (
                                 <div className={cn(
-                                  "text-[10px] text-muted-foreground self-start flex items-center mt-0.5",
+                                  "flex items-center space-x-2 self-start text-[10px] mt-0.5",
                                   isDayPast && "text-gray-500 dark:text-gray-500"
                                 )}>
-                                  <Users size={10} className="mr-0.5" />
-                                  {plannedMeal.meals.servings}
+                                  {plannedMeal.meals?.servings && (
+                                    <div className={cn("flex items-center", isDayPast ? "text-gray-500 dark:text-gray-500" : "text-muted-foreground")}>
+                                      <Users size={10} className="mr-0.5" />
+                                      {plannedMeal.meals.servings}
+                                    </div>
+                                  )}
+                                  {userProfile?.track_calories && caloriesPerServing !== null && (
+                                    <div className={cn("flex items-center", isDayPast ? "text-gray-500 dark:text-gray-500" : "text-primary")}>
+                                      <Zap size={10} className="mr-0.5" />
+                                      {caloriesPerServing} kcal/s
+                                    </div>
+                                  )}
                                 </div>
                               )}
-                              {userProfile?.track_calories && caloriesPerServing !== null && (
-                                <div className={cn(
-                                  "text-[10px] text-primary self-start flex items-center mt-0.5",
-                                  isDayPast && "text-gray-500 dark:text-gray-500"
-                                )}>
-                                  <Zap size={10} className="mr-0.5" />
-                                  {caloriesPerServing} kcal / serv
-                                </div>
-                              )}
+
                               {!isDayPast && (
                                 <button
                                   onClick={(e) => handleRemoveMeal(plannedMeal.id, e)}
