@@ -416,12 +416,16 @@ const MealList = () => {
       )}
 
       <Dialog open={!!viewingImageUrl} onOpenChange={(open) => !open && setViewingImageUrl(null)}>
-        <DialogContent className="max-w-screen-md w-[90vw] h-[90vh] p-0 flex items-center justify-center bg-transparent border-none">
+        <DialogContent 
+          className="max-w-screen-md w-[90vw] h-[90vh] p-0 flex items-center justify-center bg-transparent border-none"
+          onClick={() => setViewingImageUrl(null)}
+        >
           {viewingImageUrl && (
             <img
               src={viewingImageUrl}
               alt="Enlarged meal image"
               className="max-w-full max-h-full object-contain" 
+              onClick={(e) => e.stopPropagation()} // Optional: if you want clicking image itself to NOT close
             />
           )}
         </DialogContent>
