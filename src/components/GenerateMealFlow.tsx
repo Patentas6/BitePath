@@ -43,7 +43,7 @@ interface GenerateMealFlowProps {
   isLoadingProfile: boolean;
   userProfile: UserProfileDataForAI | null;
   onEditGeneratedMeal: (meal: GeneratedMeal) => void; 
-  onSaveSuccess: (savedMeal: {id: string, name: string}) => void; // Added prop
+  onSaveSuccess: (savedMeal: {id: string, name: string}) => void;
 }
 
 const mealTypes = ["Breakfast", "Lunch", "Dinner", "Snack"];
@@ -59,7 +59,7 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
   isLoadingProfile,
   userProfile,
   onEditGeneratedMeal,
-  onSaveSuccess, // Destructure new prop
+  onSaveSuccess,
 }) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -411,8 +411,8 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
       {generatedMeal && (
         <Card ref={recipeCardRef}> 
           <CardHeader>
-            <div className="flex justify-between items-start gap-4">
-              <div className="flex-grow">
+            <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+              <div className="flex-grow order-2 sm:order-1"> {/* Text content first on small screens */}
                 <CardTitle>{generatedMeal.name}</CardTitle>
                 <CardDescription>
                   {generatedMeal.image_url ? "Generated Recipe & Image" : "Generated Recipe Text"}
@@ -434,7 +434,7 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
               </div>
               {generatedMeal.image_url && (
                 <div
-                  className="cursor-pointer w-full h-60 sm:h-64 md:h-72 flex-shrink-0 rounded-md bg-muted"
+                  className="cursor-pointer w-full h-48 sm:w-48 sm:h-48 md:w-56 md:h-56 flex-shrink-0 rounded-md bg-muted order-1 sm:order-2 mb-4 sm:mb-0"
                   onClick={() => setViewingImageUrl(generatedMeal.image_url || null)}
                 >
                   <img
