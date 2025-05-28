@@ -282,25 +282,24 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
       
       const detailsParts: string[] = [];
       let combinedDetailsClass = "text-foreground";
-      const processedUnitsForThisItemDisplay = new Set<string>(); // Tracks units already added to detailsParts for THIS aggItem display
 
       aggItem.unitQuantities.forEach(uq => {
         const formatted = formatQuantityAndUnitForDisplay(uq.totalQuantity, uq.unit);
-        const displayUnitLower = formatted.unit.toLowerCase();
-
-        if (displayUnitLower === "to taste") {
-          if (!processedUnitsForThisItemDisplay.has("to taste")) {
-            detailsParts.push("to taste");
-            processedUnitsForThisItemDisplay.add("to taste");
+        
+        if (formatted.unit.toLowerCase() === "to taste") {
+          if (!detailsParts.some(part => part.toLowerCase() === "to taste")) {
+            detailsParts.push(formatted.unit); 
           }
+        } else if (PIECE_UNITS.includes(formatted.unit.toLowerCase()) && formatted.quantity > 0) {
+          detailsParts.push(`${formatted.quantity}`);
         } else if (formatted.quantity > 0 && formatted.unit) {
           detailsParts.push(`${formatted.quantity} ${formatted.unit}`);
         } else if (formatted.unit) { 
           detailsParts.push(formatted.unit);
         }
         
-        if (SPICE_MEASUREMENT_UNITS.includes(displayUnitLower)) {
-          combinedDetailsClass = "text-gray-500 dark:text-gray-400";
+        if (SPICE_MEASUREMENT_UNITS.includes(uq.unit.toLowerCase())) {
+            combinedDetailsClass = "text-gray-500 dark:text-gray-400";
         }
       });
       
@@ -551,7 +550,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
               const allItemsInCategoryStruck = itemsInCategory.every(item => struckItems.has(item.uniqueKey));
               return (
                 <div key={category} className="mb-4">
-                  <h3 className={`text-md font-semibold text-gray-800 dark:text-gray-200 border-b pb-1 mb-2 ${allItemsInCategoryStruck ? 'line-through text-gray-400 dark:text-gray-600' : ''}`}>
+                  <h3 className={`text-md font-semibold text-gray-800 dark:text-gray-200 border-b pb-1 mb-2 ${allItemsInCategoryStruck ? 'line-through text-gray-400 dark:text-gray-600 opacity-70' : ''}`}>
                     {category}
                   </h3>
                   <ul className="space-y-1 text-sm">
@@ -559,7 +558,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
                       <li
                         key={item.uniqueKey}
                         onClick={() => handleItemClick(item.uniqueKey)}
-                        className={`cursor-pointer p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${struckItems.has(item.uniqueKey) ? 'line-through text-gray-400 dark:text-gray-600' : ''}`}
+                        className={`cursor-pointer p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${struckItems.has(item.uniqueKey) ? 'line-through text-gray-400 dark:text-gray-600 opacity-70' : ''}`}
                         title={item.originalItemsTooltip}
                       >
                         <span className={struckItems.has(item.uniqueKey) ? '' : item.itemNameClass}>{item.itemName}</span>
