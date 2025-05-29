@@ -17,7 +17,9 @@ const SHARED_LOCAL_STORAGE_KEY = 'bitepath-struckSharedGroceryItems';
 const MANUAL_ITEMS_LOCAL_STORAGE_KEY = 'bitepath-manualGroceryItems';
 
 interface PlannedMealWithIngredients {
+  id: string; // meal_plan_id
   plan_date: string;
+  meal_type: string | null;
   meals: {
     name: string;
     ingredients: string | null;
@@ -49,7 +51,9 @@ interface CategorizedDisplayListItem {
 }
 
 interface MealWiseDisplayItem {
+  mealPlanId: string; // Use meal_plan_id as the unique identifier for the meal instance
   mealName: string;
+  mealType: string | null;
   planDate: string;
   ingredients: CategorizedDisplayListItem[];
 }
@@ -156,7 +160,7 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
       if (!userId) return [];
       const { data, error } = await supabase
         .from("meal_plans")
-        .select("plan_date, meals ( name, ingredients )")
+        .select("id, plan_date, meal_type, meals ( name, ingredients )") // Added id (meal_plan_id) and meal_type
         .eq("user_id", userId)
         .eq("plan_date", todayStr);
       if (error) throw error;
@@ -201,11 +205,17 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
 
     plannedMealsData.forEach(pm => {
       if (!pm.meals || !pm.meals.ingredients) return;
-      const mealKey = `${pm.plan_date}-${pm.meals.name}`; // Should be unique for today's list
-      let mealEntry = mealsMap.get(mealKey);
+      const mealPlanId = pm.id; // Use the meal_plan.id as the unique key for the meal instance
+      let mealEntry = mealsMap.get(mealPlanId);
       if (!mealEntry) {
-        mealEntry = { mealName: pm.meals.name, planDate: pm.plan_date, ingredients: [] };
-        mealsMap.set(mealKey, mealEntry);
+        mealEntry = { 
+          mealPlanId: mealPlanId,
+          mealName: pm.meals.name, 
+          mealType: pm.meal_type,
+          planDate: pm.plan_date, 
+          ingredients: [] 
+        };
+        mealsMap.set(mealPlanId, mealEntry);
       }
 
       try {
@@ -222,13 +232,13 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
           if (!ing.name) return;
 
           if (ing.description?.trim().toLowerCase() === 'to taste' || !ing.unit || ing.quantity === null || ing.quantity === undefined) {
-            const uniqueKeyForStriking = `mealwise-today:${pm.meals!.name}:${ing.name.trim().toLowerCase()}:to-taste-${mealEntry!.ingredients.length}`;
+            const uniqueKeyForStriking = `mealwise-today:${mealPlanId}:${ing.name.trim().toLowerCase()}:to-taste-${mealEntry!.ingredients.length}`;
             mealEntry!.ingredients.push({
               itemName: ing.name.trim(),
               itemNameClass: "text-foreground",
               detailsPart: ing.description?.trim().toLowerCase() === 'to taste' ? "to taste" : (ing.description || ""),
               detailsClass: "text-gray-500 dark:text-gray-400",
-              originalItemsTooltip: `${ing.name} (${ing.description || 'details not specified'}) (from: ${pm.meals!.name})`,
+              originalItemsTooltip: `${ing.name} (${ing.description || 'details not specified'}) (from: ${pm.meals!.name} - ${pm.meal_type || 'Meal'})`,
               uniqueKey: uniqueKeyForStriking,
             });
             return;
@@ -269,8 +279,8 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
               detailsPartStr = formatted.unit;
           }
 
-          const uniqueKeyForStriking = `mealwise-today:${pm.meals!.name}:${aggIng.name.trim().toLowerCase()}:${aggIng.unit.trim().toLowerCase()}`;
-          const combinedTooltip = `Total: ${detailsPartStr} ${aggIng.name}. From: ${aggIng.originalTooltips.join('; ')} (Meal: ${pm.meals!.name})`;
+          const uniqueKeyForStriking = `mealwise-today:${mealPlanId}:${aggIng.name.trim().toLowerCase()}:${aggIng.unit.trim().toLowerCase()}`;
+          const combinedTooltip = `Total: ${detailsPartStr} ${aggIng.name}. From: ${aggIng.originalTooltips.join('; ')} (Meal: ${pm.meals!.name} - ${pm.meal_type || 'Meal'})`;
 
           mealEntry!.ingredients.push({
             itemName: aggIng.name,
@@ -288,7 +298,7 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
         mealEntry.ingredients.sort((a, b) => a.itemName.localeCompare(b.itemName));
     });
 
-    return Array.from(mealsMap.values());
+    return Array.from(mealsMap.values()).sort((a,b) => (a.mealType || '').localeCompare(b.mealType || '') || a.mealName.localeCompare(b.mealName));
   }, [plannedMealsData, displaySystem]);
 
   useEffect(() => {
@@ -422,14 +432,14 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
         ) : (
           <>
             {mealWiseDisplayList.map(mealItem => (
-              <div key={`${mealItem.planDate}-${mealItem.mealName}`} className="mb-4">
+              <div key={mealItem.mealPlanId} className="mb-4">
                 <h3 className="text-md font-semibold text-gray-800 dark:text-gray-200 border-b pb-1 mb-2">
-                  {mealItem.mealName}
+                  {mealItem.mealName} ({mealItem.mealType || 'Meal'})
                 </h3>
                 <ul className="space-y-1 text-sm pl-2">
                   {mealItem.ingredients.map((item, index) => (
                     <li
-                      key={`${item.uniqueKey}-${index}`} // Index still needed if uniqueKey isn't perfectly unique post-aggregation
+                      key={`${item.uniqueKey}-${index}`} 
                       onClick={() => handleItemClick(item.uniqueKey)}
                       className={`cursor-pointer p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${struckItems.has(item.uniqueKey) ? 'line-through text-gray-400 dark:text-gray-600' : ''}`}
                       title={item.originalItemsTooltip}
