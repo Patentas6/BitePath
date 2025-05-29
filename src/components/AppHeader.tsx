@@ -4,7 +4,7 @@ import { useNavigate, Link, useLocation } from "react-router-dom"; // Import use
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import type { User } from "@supabase/supabase-js";
-import { UserCircle, BookOpenText, Brain, SquarePen, CalendarDays, Home, PlusCircle } from "lucide-react";
+import { UserCircle, BookOpenText, ShoppingCart, Home, PlusCircle } from "lucide-react"; // Changed CalendarDays to ShoppingCart
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 import { useIsMobile } from "@/hooks/use-mobile"; 
 import { cn } from "@/lib/utils"; // Import cn
@@ -126,7 +126,7 @@ const AppHeader = () => {
             isActive("/planning") ? "text-primary" : "text-muted-foreground hover:text-primary"
           )}
         >
-          <CalendarDays className="h-5 w-5 mb-0.5" />
+          <ShoppingCart className="h-5 w-5 mb-0.5" /> {/* Changed Icon */}
           <span className="truncate">Plan</span>
         </Link>
         <Link 
@@ -190,7 +190,7 @@ const AppHeader = () => {
         </Button>
         <Button variant="default" size="sm" asChild data-tourid="tour-planning-button" className="px-2 sm:px-3">
           <Link to="/planning">
-            <CalendarDays className="h-4 w-4 sm:mr-2" />
+            <ShoppingCart className="h-4 w-4 sm:mr-2" /> {/* Changed Icon */}
             <span className="hidden sm:inline">Plan & Shop</span>
           </Link>
         </Button>

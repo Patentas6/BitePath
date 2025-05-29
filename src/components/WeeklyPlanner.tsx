@@ -279,9 +279,10 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({
                           key={mealType}
                           onClick={() => !isDayPast && handleAddOrChangeMealClick(day, mealType)}
                           className={cn(
-                            "border rounded-md p-2 text-xs flex flex-col justify-between overflow-hidden relative transition-colors h-[80px] sm:h-[70px]", 
+                            "border rounded-md p-2 text-xs flex flex-col justify-between overflow-hidden relative transition-colors", 
+                            "h-[96px] sm:h-[70px]", // Adjusted mobile height
                             isDayPast ? "bg-gray-100 dark:bg-gray-700/50 cursor-not-allowed" : "bg-card hover:bg-card/80 cursor-pointer",
-                            preSelectedMealId && !isDayPast && "ring-2 ring-primary animate-pulse" // Highlight if pre-selected
+                            preSelectedMealId && !isDayPast && "ring-2 ring-primary animate-pulse" 
                           )}
                         >
                           {plannedMeal ? (
@@ -295,7 +296,7 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({
                               <div className={cn(
                                 "text-xs font-semibold self-start flex-grow mt-0.5", 
                                 isDayPast ? "line-through text-gray-500 dark:text-gray-500" : "text-foreground",
-                                !isMobile && "truncate" // Apply truncate only on non-mobile
+                                isMobile ? "line-clamp-2" : "truncate" // Allow 2 lines on mobile
                               )}>
                                 {plannedMeal.meals?.name || 'Unknown Meal'}
                               </div>
@@ -308,7 +309,7 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({
                                   {servingsNumber && (
                                     <span className="flex items-center">
                                       <Users size={9} className="mr-0.5 flex-shrink-0" />
-                                      {isMobile ? servingsNumber : plannedMeal.meals?.servings}
+                                      {servingsNumber} {/* Show only number for servings on mobile */}
                                     </span>
                                   )}
                                   {userProfile?.track_calories && caloriesPerServing !== null && servingsNumber && (
