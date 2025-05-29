@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, XCircle, Plus, Zap, Users } from "lucide-react"; 
 import AddMealToPlanDialog from "./AddMealToPlanDialog";
-import { calculateCaloriesPerServing } from '@/utils/mealUtils'; 
+import { calculateCaloriesPerServing, parseFirstNumber } from '@/utils/mealUtils'; 
 
 interface MealPlan {
   id: string;
@@ -270,6 +270,10 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({
                     {MEAL_TYPE_DISPLAY_ORDER.map(mealType => {
                       const plannedMeal = mealsForDayMap?.get(mealType);
                       const caloriesPerServing = calculateCaloriesPerServing(plannedMeal?.meals?.estimated_calories, plannedMeal?.meals?.servings);
+                      const servingsText = plannedMeal?.meals?.servings;
+                      const servingsNumber = servingsText ? (parseFirstNumber(servingsText) ?? servingsText) : null;
+
+
                       return (
                         <div
                           key={mealType}
@@ -289,24 +293,25 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({
                                 {plannedMeal.meal_type || mealType}
                               </div>
                               <div className={cn(
-                                "text-xs font-semibold truncate self-start flex-grow mt-0.5", 
-                                isDayPast ? "line-through text-gray-500 dark:text-gray-500" : "text-foreground"
+                                "text-xs font-semibold self-start flex-grow mt-0.5", 
+                                isDayPast ? "line-through text-gray-500 dark:text-gray-500" : "text-foreground",
+                                !isMobile && "truncate" // Apply truncate only on non-mobile
                               )}>
                                 {plannedMeal.meals?.name || 'Unknown Meal'}
                               </div>
                               
-                              {(plannedMeal.meals?.servings || (userProfile?.track_calories && caloriesPerServing !== null)) && (
+                              {(servingsNumber || (userProfile?.track_calories && caloriesPerServing !== null)) && (
                                 <div className={cn(
                                   "text-[9px] mt-auto flex items-center space-x-1 whitespace-nowrap overflow-hidden",
                                   isDayPast ? "text-gray-500 dark:text-gray-500" : "text-muted-foreground"
                                 )}>
-                                  {plannedMeal.meals?.servings && (
+                                  {servingsNumber && (
                                     <span className="flex items-center">
                                       <Users size={9} className="mr-0.5 flex-shrink-0" />
-                                      {plannedMeal.meals.servings}
+                                      {isMobile ? servingsNumber : plannedMeal.meals?.servings}
                                     </span>
                                   )}
-                                  {userProfile?.track_calories && caloriesPerServing !== null && plannedMeal.meals?.servings && (
+                                  {userProfile?.track_calories && caloriesPerServing !== null && servingsNumber && (
                                     <span>|</span>
                                   )}
                                   {userProfile?.track_calories && caloriesPerServing !== null && (

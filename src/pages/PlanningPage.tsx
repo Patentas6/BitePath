@@ -49,9 +49,25 @@ const PlanningPage = () => {
         </div>
 
         <div className="flex justify-between items-center mb-4">
-          <Button variant="default" size="sm" onClick={() => handleWeekNavigate("prev")}><ChevronLeft className="h-4 w-4 mr-1" /> Previous</Button>
-          <h3 className="text-lg font-semibold text-center text-foreground">{format(currentWeekStart, 'MMM dd')} - {format(addDays(currentWeekStart, 6), 'MMM dd, yyyy')}</h3>
-          <Button variant="default" size="sm" onClick={() => handleWeekNavigate("next")}>Next <ChevronRight className="h-4 w-4 ml-1" /></Button>
+          <Button 
+            variant="default" 
+            size={isMobile ? "icon" : "sm"} 
+            onClick={() => handleWeekNavigate("prev")}
+            aria-label="Previous week"
+          >
+            <ChevronLeft className={cn("h-4 w-4", !isMobile && "mr-1")} /> {!isMobile && "Previous"}
+          </Button>
+          <h3 className="text-base sm:text-lg font-semibold text-center text-foreground px-2">
+            {format(currentWeekStart, 'MMM dd')} - {format(addDays(currentWeekStart, 6), isMobile ? 'MMM dd' : 'MMM dd, yyyy')}
+          </h3>
+          <Button 
+            variant="default" 
+            size={isMobile ? "icon" : "sm"} 
+            onClick={() => handleWeekNavigate("next")}
+            aria-label="Next week"
+          >
+            {!isMobile && "Next"} <ChevronRight className={cn("h-4 w-4", !isMobile && "ml-1")} />
+          </Button>
         </div>
         <div className="space-y-6">
           <div>
