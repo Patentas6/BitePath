@@ -39,7 +39,7 @@ interface ManualGroceryItem {
   unit: string;
 }
 
-interface CategorizedDisplayListItem { // Still needed for mealWiseDisplayList structure
+interface CategorizedDisplayListItem {
   itemName: string;
   itemNameClass: string;
   detailsPart: string;
@@ -59,7 +59,7 @@ const SPICE_MEASUREMENT_UNITS: ReadonlyArray<string> = ['tsp', 'teaspoon', 'teas
 
 interface GroceryListProps {
   userId: string;
-  currentWeekStart?: Date; // This prop is passed but not directly used for date range selection anymore
+  currentWeekStart?: Date; 
 }
 
 const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
@@ -167,7 +167,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
     const mealsMap = new Map<string, MealWiseDisplayItem>();
 
     plannedMealsData.forEach(pm => {
-      if (!pm.meals) return;
+      if (!pm.meals || !pm.meals.ingredients) return;
       const mealKey = `${pm.plan_date}-${pm.meals.name}`;
       let mealEntry = mealsMap.get(mealKey);
       if (!mealEntry) {
@@ -175,47 +175,86 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
         mealsMap.set(mealKey, mealEntry);
       }
 
-      if (pm.meals.ingredients && typeof pm.meals.ingredients === 'string') {
-        try {
-          const parsedIngredients: ParsedIngredientItem[] = JSON.parse(pm.meals.ingredients);
-          parsedIngredients.forEach((ing, index) => {
-            if (!ing.name) return;
-            let detailsPartStr = "";
-            let itemDetailsClass = "text-foreground";
+      try {
+        const parsedIngredients: ParsedIngredientItem[] = JSON.parse(pm.meals.ingredients);
+        const aggregatedIngredients = new Map<string, {
+          name: string;
+          totalQuantity: number;
+          unit: string;
+          descriptions: string[];
+          originalTooltips: string[];
+        }>();
 
-            if (ing.description?.trim().toLowerCase() === 'to taste') {
-              detailsPartStr = "to taste";
-              itemDetailsClass = "text-gray-500 dark:text-gray-400";
-            } else if (ing.quantity !== null && ing.quantity !== undefined && ing.unit) {
-              const quantityNum = typeof ing.quantity === 'string' ? parseFloat(ing.quantity) : Number(ing.quantity);
-              if (isNaN(quantityNum)) return;
+        parsedIngredients.forEach((ing) => {
+          if (!ing.name) return;
 
-              const formatted = formatQuantityAndUnitForDisplay(quantityNum, ing.unit);
-              itemDetailsClass = formatted.detailsClass;
-              if (PIECE_UNITS.includes(formatted.unit.toLowerCase()) && formatted.quantity > 0) {
-                  detailsPartStr = `${formatted.quantity}`;
-              } else if (formatted.quantity > 0 && formatted.unit) {
-                  detailsPartStr = `${formatted.quantity} ${formatted.unit}`;
-              } else if (formatted.unit) {
-                  detailsPartStr = formatted.unit;
-              }
-            }
-
-            const uniqueKeyForStriking = `mealwise:${pm.meals!.name}:${ing.name.trim().toLowerCase()}:${(ing.unit || "").trim().toLowerCase()}-${index}`;
-            const originalTooltip = `${ing.description === 'to taste' ? '' : (ing.quantity || '') + ' '}${ing.description === 'to taste' ? '' : (ing.unit || '')} ${ing.name} ${ing.description ? `(${ing.description})` : ''} (from: ${pm.meals!.name})`.trim();
-
+          if (ing.description?.trim().toLowerCase() === 'to taste' || !ing.unit || ing.quantity === null || ing.quantity === undefined) {
+            const uniqueKeyForStriking = `mealwise:${pm.meals!.name}:${ing.name.trim().toLowerCase()}:to-taste-${mealEntry!.ingredients.length}`;
             mealEntry!.ingredients.push({
-              itemName: ing.name,
+              itemName: ing.name.trim(),
               itemNameClass: "text-foreground",
-              detailsPart: detailsPartStr,
-              detailsClass: itemDetailsClass,
-              originalItemsTooltip: originalTooltip,
+              detailsPart: ing.description?.trim().toLowerCase() === 'to taste' ? "to taste" : (ing.description || ""),
+              detailsClass: "text-gray-500 dark:text-gray-400",
+              originalItemsTooltip: `${ing.name} (${ing.description || 'details not specified'}) (from: ${pm.meals!.name})`,
               uniqueKey: uniqueKeyForStriking,
             });
+            return;
+          }
+          
+          const quantityNum = typeof ing.quantity === 'string' ? parseFloat(ing.quantity) : Number(ing.quantity);
+          if (isNaN(quantityNum) || quantityNum < 0) return;
+
+          const aggKey = `${ing.name.trim().toLowerCase()}_${ing.unit.trim().toLowerCase()}`;
+          const originalTooltipForItem = `${ing.quantity || ''} ${ing.unit || ''} ${ing.name.trim()} ${ing.description ? `(${ing.description})` : ''}`.trim();
+
+          if (aggregatedIngredients.has(aggKey)) {
+            const existing = aggregatedIngredients.get(aggKey)!;
+            existing.totalQuantity += quantityNum;
+            if (ing.description && !existing.descriptions.includes(ing.description)) {
+              existing.descriptions.push(ing.description);
+            }
+            existing.originalTooltips.push(originalTooltipForItem);
+          } else {
+            aggregatedIngredients.set(aggKey, {
+              name: ing.name.trim(),
+              totalQuantity: quantityNum,
+              unit: ing.unit.trim(),
+              descriptions: ing.description ? [ing.description] : [],
+              originalTooltips: [originalTooltipForItem],
+            });
+          }
+        });
+
+        aggregatedIngredients.forEach((aggIng) => {
+          const formatted = formatQuantityAndUnitForDisplay(aggIng.totalQuantity, aggIng.unit);
+          let detailsPartStr = "";
+          if (PIECE_UNITS.includes(formatted.unit.toLowerCase()) && formatted.quantity > 0) {
+              detailsPartStr = `${formatted.quantity}`;
+          } else if (formatted.quantity > 0 && formatted.unit) {
+              detailsPartStr = `${formatted.quantity} ${formatted.unit}`;
+          } else if (formatted.unit) {
+              detailsPartStr = formatted.unit;
+          }
+
+          const uniqueKeyForStriking = `mealwise:${pm.meals!.name}:${aggIng.name.trim().toLowerCase()}:${aggIng.unit.trim().toLowerCase()}`;
+          const combinedTooltip = `Total: ${detailsPartStr} ${aggIng.name}. From: ${aggIng.originalTooltips.join('; ')} (Meal: ${pm.meals!.name})`;
+
+          mealEntry!.ingredients.push({
+            itemName: aggIng.name,
+            itemNameClass: "text-foreground",
+            detailsPart: detailsPartStr,
+            detailsClass: formatted.detailsClass,
+            originalItemsTooltip: combinedTooltip,
+            uniqueKey: uniqueKeyForStriking,
           });
-        } catch (e) { console.warn("Error parsing ingredients for meal-wise view:", e); }
-      }
+        });
+      } catch (e) { console.warn("Error parsing ingredients for meal-wise view:", e); }
     });
+
+    mealsMap.forEach(mealEntry => {
+        mealEntry.ingredients.sort((a, b) => a.itemName.localeCompare(b.itemName));
+    });
+
     return Array.from(mealsMap.values()).sort((a,b) => new Date(a.planDate).getTime() - new Date(b.planDate).getTime() || a.mealName.localeCompare(b.mealName));
   }, [plannedMealsData, displaySystem]);
 
@@ -335,7 +374,6 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
                    <SelectItem value="30">Next 30 Days</SelectItem>
                  </SelectContent>
                </Select>
-               {/* View mode toggle button removed */}
            </div>
          </div>
 
@@ -355,7 +393,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
                 <ul className="space-y-1 text-sm pl-2">
                   {mealItem.ingredients.map((item, index) => (
                     <li
-                      key={`${item.uniqueKey}-${index}`}
+                      key={`${item.uniqueKey}-${index}`} // Index still needed if uniqueKey isn't perfectly unique post-aggregation (e.g. "to taste" items)
                       onClick={() => handleItemClick(item.uniqueKey)}
                       className={`cursor-pointer p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${struckItems.has(item.uniqueKey) ? 'line-through text-gray-400 dark:text-gray-600' : ''}`}
                       title={item.originalItemsTooltip}
