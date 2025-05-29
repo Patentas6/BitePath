@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { showError, showSuccess } from "@/utils/toast";
+import { useNavigate } from "react-router-dom";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -49,7 +50,7 @@ const MealList = () => {
   const [mealToDelete, setMealToDelete] = useState<MealForEditing | null>(null);
   const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null); 
   const [userId, setUserId] = useState<string | null>(null);
-
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -280,13 +281,17 @@ const MealList = () => {
                 const shouldShowCalories = canTrackCalories && caloriesPerServing !== null;
                 
                 return (
-                  <div key={meal.id} className="border p-3 sm:p-4 rounded-lg shadow-sm bg-card hover:shadow-md transition-shadow duration-150 flex flex-col">
+                  <div 
+                    key={meal.id} 
+                    className="border p-3 sm:p-4 rounded-lg shadow-sm bg-card hover:shadow-md transition-shadow duration-150 flex flex-col cursor-pointer"
+                    onClick={() => navigate(`/meal/${meal.id}`)}
+                  >
                     {/* Top section: Image (mobile full-width) and Main Info + Desktop Buttons */}
                     <div className="flex flex-col sm:flex-row items-start">
                       {meal.image_url && (
                          <div
-                           className="w-full sm:w-24 md:w-28 h-40 sm:h-24 md:h-28 object-cover rounded-md mb-2 sm:mb-0 sm:mr-4 flex-shrink-0 cursor-pointer flex items-center justify-center overflow-hidden bg-muted" 
-                           onClick={() => setViewingImageUrl(meal.image_url || null)}
+                           className="w-full sm:w-24 md:w-28 h-40 sm:h-24 md:h-28 object-cover rounded-md mb-2 sm:mb-0 sm:mr-4 flex-shrink-0 flex items-center justify-center overflow-hidden bg-muted" 
+                           onClick={(e) => { e.stopPropagation(); setViewingImageUrl(meal.image_url || null); }}
                          >
                            <img
                              src={meal.image_url}
@@ -322,7 +327,7 @@ const MealList = () => {
                       <div className="hidden sm:flex flex-col space-y-2 ml-2 flex-shrink-0">
                         <Button 
                           variant="outline" 
-                          onClick={() => handleEditClick(meal)} 
+                          onClick={(e) => { e.stopPropagation(); handleEditClick(meal); }} 
                           aria-label="Edit meal"
                           className="h-10 w-10 sm:h-12 sm:w-12 md:h-14 md:w-14 p-0" 
                         >
@@ -330,7 +335,7 @@ const MealList = () => {
                         </Button>
                         <Button 
                           variant="destructive" 
-                          onClick={() => handleDeleteClick(meal)} 
+                          onClick={(e) => { e.stopPropagation(); handleDeleteClick(meal); }} 
                           aria-label="Delete meal"
                           className="h-10 w-10 sm:h-12 sm:w-12 md:h-14 md:w-14 p-0" 
                         >
@@ -366,7 +371,7 @@ const MealList = () => {
                       <Button 
                         variant="outline" 
                         size="icon"
-                        onClick={() => handleEditClick(meal)} 
+                        onClick={(e) => { e.stopPropagation(); handleEditClick(meal); }} 
                         aria-label="Edit meal"
                         className="flex-1 h-10"
                       >
@@ -375,7 +380,7 @@ const MealList = () => {
                       <Button 
                         variant="destructive" 
                         size="icon"
-                        onClick={() => handleDeleteClick(meal)} 
+                        onClick={(e) => { e.stopPropagation(); handleDeleteClick(meal); }} 
                         aria-label="Delete meal"
                         className="flex-1 h-10"
                       >
@@ -427,7 +432,7 @@ const MealList = () => {
               src={viewingImageUrl}
               alt="Enlarged meal image"
               className="max-w-full max-h-full object-contain" 
-              onClick={(e) => e.stopPropagation()} // Optional: if you want clicking image itself to NOT close
+              onClick={(e) => e.stopPropagation()} 
             />
           )}
         </DialogContent>
