@@ -372,39 +372,44 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
       let overallDetailsClass = "text-foreground";
       const allSourcesForTooltip = new Set<string>();
       
-      ingData.unitsData.forEach((unitData, unitKey) => {
-        const { totalQuantity, originalSources, descriptions } = unitData;
-        originalSources.forEach(src => allSourcesForTooltip.add(src));
-        const uniqueDescriptions = Array.from(descriptions).join(', ');
+      if (ingData.unitsData) { // Safeguard
+        ingData.unitsData.forEach((unitData, unitKey) => {
+          const { totalQuantity, originalSources, descriptions } = unitData;
+          originalSources.forEach(src => allSourcesForTooltip.add(src));
+          const uniqueDescriptions = Array.from(descriptions).join(', ');
 
-        if (unitKey === "to taste") {
-          detailsParts.push("to taste");
-          overallDetailsClass = "text-gray-500 dark:text-gray-400";
-        } else {
-          let displayUnitForFormat = unitKey;
-          if (unitKey === "count") {
-             const originalEntry = plannedMealsData.flatMap(pm => pm.meals?.ingredients ? JSON.parse(pm.meals.ingredients) as ParsedIngredientItem[] : [])
-                                .find(pi => pi.name?.trim().toLowerCase() === ingNameLower && 
-                                            (PIECE_UNITS.includes((pi.unit || "count").trim().toLowerCase()) || 
-                                            (COUNTABLE_ITEM_KEYWORDS.some(k => ingNameLower.includes(k)) && (pi.unit || "count").trim().toLowerCase() === "count")));
-             displayUnitForFormat = originalEntry?.unit || "items";
-          }
-
-          const formatted = formatQuantityAndUnitForDisplay(totalQuantity, displayUnitForFormat, ingData.displayName);
-          let currentDetail = "";
-          if (unitKey === "count") {
-            currentDetail = String(formatted.quantity);
+          if (unitKey === "to taste") {
+            detailsParts.push("to taste");
+            overallDetailsClass = "text-gray-500 dark:text-gray-400";
           } else {
-            currentDetail = `${formatted.quantity} ${formatted.unit}`.trim();
+            let displayUnitForFormat = unitKey;
+            if (unitKey === "count") {
+              const originalEntry = plannedMealsData.flatMap(pm => pm.meals?.ingredients ? JSON.parse(pm.meals.ingredients) as ParsedIngredientItem[] : [])
+                                  .find(pi => pi.name?.trim().toLowerCase() === ingNameLower && 
+                                              (PIECE_UNITS.includes((pi.unit || "count").trim().toLowerCase()) || 
+                                              (COUNTABLE_ITEM_KEYWORDS.some(k => ingNameLower.includes(k)) && (pi.unit || "count").trim().toLowerCase() === "count")));
+              displayUnitForFormat = originalEntry?.unit || "items";
+            }
+
+            const formatted = formatQuantityAndUnitForDisplay(totalQuantity, displayUnitForFormat, ingData.displayName);
+            let currentDetail = "";
+            if (unitKey === "count") {
+              currentDetail = String(formatted.quantity);
+            } else {
+              currentDetail = `${formatted.quantity} ${formatted.unit}`.trim();
+            }
+            
+            if (uniqueDescriptions) {
+              currentDetail += ` (${uniqueDescriptions})`;
+            }
+            detailsParts.push(currentDetail);
+            if (formatted.detailsClass !== "text-foreground") overallDetailsClass = formatted.detailsClass;
           }
-          
-          if (uniqueDescriptions) {
-            currentDetail += ` (${uniqueDescriptions})`;
-          }
-          detailsParts.push(currentDetail);
-          if (formatted.detailsClass !== "text-foreground") overallDetailsClass = formatted.detailsClass;
-        }
-      });
+        });
+      } else {
+        console.warn(`[TodaysGroceryList] ingData.unitsData is undefined for ingredient: ${ingData.displayName} (key: ${ingNameLower}). Skipping this ingredient in category view.`);
+      }
+
 
       const uniqueKey = `category-today:${category}:${ingNameLower}`;
       ingredientsByCategory.get(category)!.push({
