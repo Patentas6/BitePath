@@ -297,20 +297,23 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({
                               
                               {(plannedMeal.meals?.servings || (userProfile?.track_calories && caloriesPerServing !== null)) && (
                                 <div className={cn(
-                                  "flex items-center space-x-2 self-start text-[10px] mt-0.5",
-                                  isDayPast && "text-gray-500 dark:text-gray-500"
+                                  "text-[9px] mt-auto flex items-center space-x-1 whitespace-nowrap overflow-hidden",
+                                  isDayPast ? "text-gray-500 dark:text-gray-500" : "text-muted-foreground"
                                 )}>
                                   {plannedMeal.meals?.servings && (
-                                    <div className={cn("flex items-center", isDayPast ? "text-gray-500 dark:text-gray-500" : "text-muted-foreground")}>
-                                      <Users size={10} className="mr-0.5" />
+                                    <span className="flex items-center">
+                                      <Users size={9} className="mr-0.5 flex-shrink-0" />
                                       {plannedMeal.meals.servings}
-                                    </div>
+                                    </span>
+                                  )}
+                                  {userProfile?.track_calories && caloriesPerServing !== null && plannedMeal.meals?.servings && (
+                                    <span>|</span>
                                   )}
                                   {userProfile?.track_calories && caloriesPerServing !== null && (
-                                    <div className={cn("flex items-center", isDayPast ? "text-gray-500 dark:text-gray-500" : "text-primary")}>
-                                      <Zap size={10} className="mr-0.5" />
+                                    <span className={cn("flex items-center", isDayPast ? "text-gray-500 dark:text-gray-500" : "text-primary")}>
+                                      <Zap size={9} className="mr-0.5 flex-shrink-0" />
                                       {caloriesPerServing} kcal/s
-                                    </div>
+                                    </span>
                                   )}
                                 </div>
                               )}
