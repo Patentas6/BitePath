@@ -59,7 +59,9 @@ interface CategorizedDisplayItem {
   ingredients: AggregatedDisplayListItem[];
 }
 
-const PIECE_UNITS: ReadonlyArray<string> = ['piece', 'pieces', 'item', 'items', 'unit', 'units'];
+const PIECE_UNITS: ReadonlyArray<string> = ['piece', 'pieces', 'item', 'items', 'unit', 'units', 'large', 'medium', 'small', 'clove', 'cloves', 'head', 'heads', 'bunch', 'bunches', 'sprig', 'sprigs'];
+const COUNTABLE_ITEM_KEYWORDS = ['egg', 'apple', 'banana', 'orange', 'potato', 'onion', 'garlic clove', 'lemon', 'lime']; // Add more as needed
+
 const SPICE_MEASUREMENT_UNITS: ReadonlyArray<string> = ['tsp', 'teaspoon', 'teaspoons', 'tbsp', 'tablespoon', 'tablespoons', 'pinch', 'pinches', 'dash', 'dashes'];
 
 const PRODUCE_KEYWORDS = ['apple', 'apricot', 'artichoke', 'asparagus', 'avocado', 'banana', 'basil', 'bean', 'beans', 'beet', 'bell pepper', 'berry', 'berries', 'bok choy', 'broccoli', 'brussels sprout', 'cabbage', 'cantaloupe', 'carrot', 'cauliflower', 'celery', 'chard', 'cherry', 'chile', 'cilantro', 'citrus', 'collard greens', 'corn', 'cucumber', 'date', 'dill', 'eggplant', 'endive', 'fennel', 'fig', 'fruit', 'fruits', 'garlic', 'ginger', 'grape', 'grapefruit', 'green bean', 'greens', 'herb', 'herbs', 'honeydew', 'kale', 'kiwi', 'kohlrabi', 'leek', 'lemon', 'lettuce', 'lime', 'mango', 'melon', 'mint', 'mushroom', 'nectarine', 'okra', 'onion', 'orange', 'oregano', 'papaya', 'parsley', 'parsnip', 'pea', 'peach', 'pear', 'pepper', 'pineapple', 'plum', 'pomegranate', 'potato', 'pumpkin', 'radicchio', 'radish', 'raspberry', 'rhubarb', 'rosemary', 'rutabaga', 'scallion', 'shallot', 'spinach', 'squash', 'strawberry', 'sweet potato', 'swiss chard', 'tangerine', 'thyme', 'tomatillo', 'tomato', 'turnip', 'vegetable', 'vegetables', 'watermelon', 'yam', 'zucchini'];
@@ -155,222 +157,276 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
   const formatQuantityAndUnitForDisplay = (
     quantity: number,
     unit: string,
-  ): { quantity: number, unit: string, detailsClass: string } => {
+    itemName?: string // Optional item name for context (e.g., for "large eggs")
+  ): { quantity: number | string, unit: string, detailsClass: string } => {
     let currentQuantityNum = quantity;
     let currentUnit = unit;
     let detailsClass = "text-foreground";
-
+  
     if (displaySystem === 'metric') {
-        const converted = convertToPreferredSystem(currentQuantityNum, unit, 'metric');
-        if (converted) {
-            currentQuantityNum = converted.quantity;
-            currentUnit = converted.unit;
-        }
+      const converted = convertToPreferredSystem(currentQuantityNum, unit, 'metric');
+      if (converted) {
+        currentQuantityNum = converted.quantity;
+        currentUnit = converted.unit;
+      }
     }
-
+  
     if (SPICE_MEASUREMENT_UNITS.includes(currentUnit.toLowerCase())) {
-        detailsClass = "text-gray-500 dark:text-gray-400";
+      detailsClass = "text-gray-500 dark:text-gray-400";
     }
-
+  
     const roundedDisplayQty = (currentQuantityNum % 1 === 0) ? Math.round(currentQuantityNum) : parseFloat(currentQuantityNum.toFixed(1));
     let unitStr = currentUnit;
-    if (roundedDisplayQty > 1 && !['L', 'ml', 'g', 'kg'].includes(unitStr) && !unitStr.endsWith('s') && unitStr.length > 0) {
-        if (unitStr.endsWith('y') && !['day', 'key', 'way', 'toy', 'boy', 'guy'].includes(unitStr.toLowerCase())) {
-            unitStr = unitStr.slice(0, -1) + 'ies';
-        } else { unitStr += "s"; }
+  
+    // Handle pluralization carefully
+    if (roundedDisplayQty > 1 && !['L', 'ml', 'g', 'kg'].includes(unitStr) && unitStr.length > 0) {
+      if (PIECE_UNITS.includes(unitStr.toLowerCase())) {
+        // For piece units, often the number itself is enough, or the unit doesn't pluralize (e.g. "large")
+        // Or if it's like "piece", it becomes "pieces"
+        if (unitStr.toLowerCase() === 'piece') unitStr = 'pieces';
+        // else keep as is (e.g. "large")
+      } else if (unitStr.endsWith('y') && !['day', 'key', 'way', 'toy', 'boy', 'guy'].includes(unitStr.toLowerCase())) {
+        unitStr = unitStr.slice(0, -1) + 'ies';
+      } else if (!unitStr.endsWith('s')) {
+        unitStr += "s";
+      }
     }
-    return { quantity: roundedDisplayQty, unit: unitStr, detailsClass };
+    
+    // If the unit is a descriptor like "large" for "eggs", just return the quantity.
+    if (itemName?.toLowerCase().includes("egg") && ["large", "medium", "small"].includes(unitStr.toLowerCase())) {
+        return { quantity: String(roundedDisplayQty), unit: "", detailsClass };
+    }
+
+    return { quantity: String(roundedDisplayQty), unit: unitStr, detailsClass };
   };
 
   const globallyAggregatedIngredients = useMemo(() => {
-    if (!plannedMealsData) return [];
+    if (!plannedMealsData) return new Map();
     
-    const ingredientsByMealName = new Map<string, Map<string, {
-      name: string;
-      totalQuantity: number;
-      unit: string;
-      descriptions: Set<string>;
-      originalSources: string[];
-    }>>();
+    const ingredientsMap = new Map<string, { // Key: ingredient name (lowercase)
+      displayName: string; // Original casing
+      unitsData: Map<string, { // Key: unit (lowercase, normalized for counts)
+        totalQuantity: number;
+        originalSources: Set<string>;
+        descriptions: Set<string>;
+      }>;
+    }>();
 
     plannedMealsData.forEach(pm => {
       if (!pm.meals || !pm.meals.name || !pm.meals.ingredients) return;
-      const mealName = pm.meals.name;
       const mealSourceInfo = `${pm.meals.name} (${pm.meal_type || 'Meal'} - ${format(parseISO(pm.plan_date), 'MMM dd')})`;
-
-      if (!ingredientsByMealName.has(mealName)) {
-        ingredientsByMealName.set(mealName, new Map());
-      }
-      const mealIngredientMap = ingredientsByMealName.get(mealName)!;
 
       try {
         const parsedIngredients: ParsedIngredientItem[] = JSON.parse(pm.meals.ingredients);
         parsedIngredients.forEach(ing => {
-          if (!ing.name) return;
+          if (!ing.name || ing.name.trim() === "") return;
+          const ingNameLower = ing.name.trim().toLowerCase();
+          const ingDisplayName = ing.name.trim();
 
-          const isToTaste = ing.description?.trim().toLowerCase() === 'to taste' || !ing.unit || ing.quantity === null || ing.quantity === undefined;
-          const aggKey = isToTaste 
-            ? `${ing.name.trim().toLowerCase()}:to-taste` 
-            : `${ing.name.trim().toLowerCase()}_${ing.unit!.trim().toLowerCase()}`;
-          
+          if (!ingredientsMap.has(ingNameLower)) {
+            ingredientsMap.set(ingNameLower, { displayName: ingDisplayName, unitsData: new Map() });
+          }
+          const ingRecord = ingredientsMap.get(ingNameLower)!;
+
+          const isToTaste = ing.description?.trim().toLowerCase() === 'to taste';
+          let unitKey = isToTaste ? "to taste" : (ing.unit || "count").trim().toLowerCase();
           let quantityNum = 0;
+
           if (!isToTaste) {
             quantityNum = typeof ing.quantity === 'string' ? parseFloat(ing.quantity) : Number(ing.quantity);
-            if (isNaN(quantityNum) || quantityNum < 0) return;
+            if (isNaN(quantityNum) || quantityNum < 0) quantityNum = 0; // Treat invalid as 0 for summation
+            
+            if (PIECE_UNITS.includes(unitKey) || (quantityNum > 0 && unitKey === "count" && COUNTABLE_ITEM_KEYWORDS.some(k => ingNameLower.includes(k)))) {
+              unitKey = "count"; // Normalize various piece/count units
+            }
           }
-
-          if (mealIngredientMap.has(aggKey)) {
-            const existing = mealIngredientMap.get(aggKey)!;
-            if (!isToTaste) existing.totalQuantity += quantityNum;
-            if (ing.description) existing.descriptions.add(ing.description);
-            existing.originalSources.push(mealSourceInfo);
+          
+          const unitMapEntry = ingRecord.unitsData.get(unitKey);
+          if (unitMapEntry) {
+            if (!isToTaste) unitMapEntry.totalQuantity += quantityNum;
+            unitMapEntry.originalSources.add(mealSourceInfo);
+            if (ing.description) unitMapEntry.descriptions.add(ing.description);
           } else {
-            mealIngredientMap.set(aggKey, {
-              name: ing.name.trim(),
-              totalQuantity: isToTaste ? 0 : quantityNum,
-              unit: isToTaste ? "to taste" : ing.unit!.trim(),
+            ingRecord.unitsData.set(unitKey, {
+              totalQuantity: quantityNum,
+              originalSources: new Set([mealSourceInfo]),
               descriptions: ing.description ? new Set([ing.description]) : new Set(),
-              originalSources: [mealSourceInfo],
             });
           }
         });
-      } catch (e) { console.warn(`Error parsing ingredients for meal "${mealName}":`, e); }
+      } catch (e) { console.warn(`Error parsing ingredients for meal "${pm.meals.name}":`, e); }
     });
-    return ingredientsByMealName;
+    return ingredientsMap;
   }, [plannedMealsData]);
 
 
   const mealWiseDisplayList: AggregatedMealDisplayItem[] = useMemo(() => {
+    // This view will now also use the globally aggregated data but present it under each meal name
+    // For simplicity and to match the user's latest request for global aggregation,
+    // this view might become redundant or need to show *which portion* of the global total
+    // comes from *this specific meal instance*.
+    // For now, let's keep the structure but ensure it reflects the global sum for each ingredient *within that meal's recipe*.
+    // The previous `globallyAggregatedIngredients` was already doing this per meal name.
+    // Let's adapt it to the new `globallyAggregatedIngredients` structure.
+
     const displayList: AggregatedMealDisplayItem[] = [];
-    globallyAggregatedIngredients.forEach((ingredientMap, mealName) => {
-      const mealDisplayItem: AggregatedMealDisplayItem = { mealName, ingredients: [] };
-      ingredientMap.forEach(aggIng => {
-        let detailsPartStr = "";
-        let formattedDetailsClass = "text-foreground";
-
-        if (aggIng.unit.toLowerCase() === 'to taste' || aggIng.totalQuantity === 0 && aggIng.unit.toLowerCase() !== 'to taste') {
-          detailsPartStr = "to taste";
-          formattedDetailsClass = "text-gray-500 dark:text-gray-400";
-        } else {
-          const formatted = formatQuantityAndUnitForDisplay(aggIng.totalQuantity, aggIng.unit);
-          formattedDetailsClass = formatted.detailsClass;
-          if (PIECE_UNITS.includes(formatted.unit.toLowerCase()) && formatted.quantity > 0) {
-            detailsPartStr = `${formatted.quantity}`;
-          } else if (formatted.quantity > 0 && formatted.unit) {
-            detailsPartStr = `${formatted.quantity} ${formatted.unit}`;
-          } else if (formatted.unit) {
-            detailsPartStr = formatted.unit;
-          }
-        }
-        
-        const uniqueDescriptions = Array.from(aggIng.descriptions).join(', ');
-        if (uniqueDescriptions && aggIng.unit.toLowerCase() !== 'to taste') {
-          detailsPartStr += ` (${uniqueDescriptions})`;
-        }
-        
-        const uniqueKeyForStriking = `global-agg:${mealName}:${aggIng.name.trim().toLowerCase()}:${aggIng.unit.trim().toLowerCase()}`;
-        const combinedTooltip = `Total: ${detailsPartStr || aggIng.totalQuantity} ${aggIng.unit} ${aggIng.name}. From: ${Array.from(new Set(aggIng.originalSources)).join('; ')}.`;
-
-        mealDisplayItem.ingredients.push({
-          itemName: aggIng.name,
-          itemNameClass: "text-foreground",
-          detailsPart: detailsPartStr.trim(),
-          detailsClass: formattedDetailsClass,
-          originalItemsTooltip: combinedTooltip,
-          uniqueKey: uniqueKeyForStriking,
-        });
-      });
-      mealDisplayItem.ingredients.sort((a, b) => a.itemName.localeCompare(b.itemName));
-      displayList.push(mealDisplayItem);
+    globallyAggregatedIngredients.forEach((ingData, mealNameKey) => { // mealNameKey is actually ingNameLower here
+        // This mapping is incorrect for "By Meal". We need to iterate plannedMealsData again
+        // or change `globallyAggregatedIngredients` to be `Map<mealName, Map<ingredientKey, data>>`
+        // Let's stick to the user's request: "By Meal" shows total for "Berry Chia Pudding"
     });
-    return displayList.sort((a,b) => a.mealName.localeCompare(b.mealName));
-  }, [globallyAggregatedIngredients, displaySystem]);
+
+    // Corrected approach for "By Meal" view using the new global aggregation:
+    // The `globallyAggregatedIngredients` is now Map<ingredientName, {displayName, unitsData}>
+    // To show "By Meal", we need to reconstruct what each meal *contributed*.
+    // This is complex. Let's simplify: "By Meal" will show the *recipe* for each planned meal instance.
+    // And "By Category" will show the *globally aggregated total*.
+
+    // Reverting "By Meal" to show ingredients per planned instance, but with internal aggregation.
+    const mealInstanceMap = new Map<string, AggregatedMealDisplayItem>();
+
+    plannedMealsData.forEach(pm => {
+        if (!pm.meals || !pm.meals.name || !pm.meals.ingredients) return;
+        const mealInstanceKey = `${pm.id}_${pm.meals.name}`; // Unique key for each planned meal instance
+        
+        const mealDisplayItem: AggregatedMealDisplayItem = {
+            mealName: `${pm.meals.name} (${pm.meal_type || 'Meal'} - ${format(parseISO(pm.plan_date), 'MMM dd')})`,
+            ingredients: []
+        };
+
+        try {
+            const parsedIngredients: ParsedIngredientItem[] = JSON.parse(pm.meals.ingredients);
+            const instanceAggregatedIngredients = new Map<string, {
+                name: string; totalQuantity: number; unit: string; descriptions: Set<string>;
+            }>();
+
+            parsedIngredients.forEach(ing => {
+                if (!ing.name) return;
+                const isToTaste = ing.description?.trim().toLowerCase() === 'to taste' || !ing.unit || ing.quantity === null || ing.quantity === undefined;
+                const aggKey = isToTaste ? `${ing.name.trim().toLowerCase()}:to-taste` : `${ing.name.trim().toLowerCase()}_${(ing.unit || "count").trim().toLowerCase()}`;
+                let quantityNum = 0;
+                if (!isToTaste) {
+                    quantityNum = typeof ing.quantity === 'string' ? parseFloat(ing.quantity) : Number(ing.quantity);
+                    if (isNaN(quantityNum) || quantityNum < 0) quantityNum = 0;
+                }
+
+                if (instanceAggregatedIngredients.has(aggKey)) {
+                    const existing = instanceAggregatedIngredients.get(aggKey)!;
+                    if(!isToTaste) existing.totalQuantity += quantityNum;
+                    if(ing.description) existing.descriptions.add(ing.description);
+                } else {
+                    instanceAggregatedIngredients.set(aggKey, {
+                        name: ing.name.trim(),
+                        totalQuantity: quantityNum,
+                        unit: isToTaste ? "to taste" : (ing.unit || "count").trim(),
+                        descriptions: ing.description ? new Set([ing.description]) : new Set(),
+                    });
+                }
+            });
+            
+            instanceAggregatedIngredients.forEach(aggIng => {
+                const formatted = formatQuantityAndUnitForDisplay(aggIng.totalQuantity, aggIng.unit, aggIng.name);
+                let detailsPartStr = aggIng.unit.toLowerCase() === 'to taste' ? "to taste" : `${formatted.quantity} ${formatted.unit}`.trim();
+                 if (aggIng.unit.toLowerCase() === "count" && aggIng.name.toLowerCase().includes("egg")) { // Special for eggs
+                    detailsPartStr = String(formatted.quantity);
+                }
+
+
+                const uniqueDescriptions = Array.from(aggIng.descriptions).join(', ');
+                if (uniqueDescriptions && aggIng.unit.toLowerCase() !== 'to taste') {
+                    detailsPartStr += ` (${uniqueDescriptions})`;
+                }
+                const uniqueKey = `mealInstance:${mealInstanceKey}:${aggIng.name.toLowerCase()}:${aggIng.unit.toLowerCase()}`;
+                mealDisplayItem.ingredients.push({
+                    itemName: aggIng.name,
+                    itemNameClass: "text-foreground",
+                    detailsPart: detailsPartStr,
+                    detailsClass: formatted.detailsClass,
+                    originalItemsTooltip: `From ${pm.meals!.name}`,
+                    uniqueKey: uniqueKey,
+                });
+            });
+            mealDisplayItem.ingredients.sort((a,b) => a.itemName.localeCompare(b.itemName));
+            mealInstanceMap.set(mealInstanceKey, mealDisplayItem);
+
+        } catch (e) { console.warn("Error processing meal instance for 'By Meal' view", e); }
+    });
+    return Array.from(mealInstanceMap.values()).sort((a,b) => a.mealName.localeCompare(b.mealName));
+
+  }, [plannedMealsData, displaySystem]);
 
   const categorizedDisplayList: CategorizedDisplayItem[] = useMemo(() => {
-    if (groceryViewMode !== 'byCategory') return [];
-
-    const ingredientsByCategory = new Map<string, Map<string, {
-        displayName: string;
-        unitsData: { quantity: number; unit: string; originalSources: string[] }[];
-        allOriginalSources: Set<string>;
-    }>>();
-
-    globallyAggregatedIngredients.forEach((ingredientMap) => {
-        ingredientMap.forEach(aggIng => {
-            const category = getIngredientCategory(aggIng.name);
-            if (!ingredientsByCategory.has(category)) {
-                ingredientsByCategory.set(category, new Map());
-            }
-            const categoryIngredientMap = ingredientsByCategory.get(category)!;
-            const ingKey = aggIng.name.toLowerCase();
-
-            if (!categoryIngredientMap.has(ingKey)) {
-                categoryIngredientMap.set(ingKey, {
-                    displayName: aggIng.name,
-                    unitsData: [],
-                    allOriginalSources: new Set(),
-                });
-            }
-            const ingInfo = categoryIngredientMap.get(ingKey)!;
-            ingInfo.unitsData.push({
-                quantity: aggIng.totalQuantity,
-                unit: aggIng.unit,
-                originalSources: aggIng.originalSources,
-            });
-            aggIng.originalSources.forEach(src => ingInfo.allOriginalSources.add(src));
-        });
-    });
+    if (groceryViewMode !== 'byCategory' || !globallyAggregatedIngredients) return [];
     
+    const ingredientsByCategory = new Map<string, AggregatedDisplayListItem[]>();
+
+    globallyAggregatedIngredients.forEach((ingData, ingNameLower) => {
+      const category = getIngredientCategory(ingData.displayName);
+      if (!ingredientsByCategory.has(category)) {
+        ingredientsByCategory.set(category, []);
+      }
+      
+      const detailsParts: string[] = [];
+      let overallDetailsClass = "text-foreground";
+      const allSourcesForTooltip = new Set<string>();
+      
+      ingData.unitsData.forEach((unitData, unitKey) => {
+        const { totalQuantity, originalSources, descriptions } = unitData;
+        originalSources.forEach(src => allSourcesForTooltip.add(src));
+        const uniqueDescriptions = Array.from(descriptions).join(', ');
+
+        if (unitKey === "to taste") {
+          detailsParts.push("to taste");
+          overallDetailsClass = "text-gray-500 dark:text-gray-400";
+        } else {
+          // Use original unit from one of the entries for display formatting if unitKey is normalized 'count'
+          let displayUnitForFormat = unitKey;
+          if (unitKey === "count") {
+             const originalEntry = plannedMealsData.flatMap(pm => pm.meals?.ingredients ? JSON.parse(pm.meals.ingredients) as ParsedIngredientItem[] : [])
+                                .find(pi => pi.name?.trim().toLowerCase() === ingNameLower && 
+                                            (PIECE_UNITS.includes((pi.unit || "count").trim().toLowerCase()) || 
+                                            (COUNTABLE_ITEM_KEYWORDS.some(k => ingNameLower.includes(k)) && (pi.unit || "count").trim().toLowerCase() === "count")));
+             displayUnitForFormat = originalEntry?.unit || "items";
+          }
+
+          const formatted = formatQuantityAndUnitForDisplay(totalQuantity, displayUnitForFormat, ingData.displayName);
+          let currentDetail = "";
+          if (unitKey === "count") {
+            currentDetail = String(formatted.quantity); // Just the number for counts, item name implies the item
+          } else {
+            currentDetail = `${formatted.quantity} ${formatted.unit}`.trim();
+          }
+          
+          if (uniqueDescriptions) {
+            currentDetail += ` (${uniqueDescriptions})`;
+          }
+          detailsParts.push(currentDetail);
+          if (formatted.detailsClass !== "text-foreground") overallDetailsClass = formatted.detailsClass;
+        }
+      });
+
+      const uniqueKey = `category:${category}:${ingNameLower}`;
+      ingredientsByCategory.get(category)!.push({
+        itemName: ingData.displayName,
+        itemNameClass: "text-foreground",
+        detailsPart: detailsParts.join(' + '),
+        detailsClass: overallDetailsClass,
+        originalItemsTooltip: `From: ${Array.from(allSourcesForTooltip).join('; ')}`,
+        uniqueKey: uniqueKey,
+      });
+    });
+
     const displayList: CategorizedDisplayItem[] = [];
     const categoryOrder = ["Produce", "Meat & Poultry", "Dairy & Eggs", "Pantry", "Other"];
-
-    categoryOrder.forEach(categoryName => {
-        if (ingredientsByCategory.has(categoryName)) {
-            const categoryDisplayItem: CategorizedDisplayItem = { categoryName, ingredients: [] };
-            const ingredientMapForCategory = ingredientsByCategory.get(categoryName)!;
-            
-            Array.from(ingredientMapForCategory.values()).sort((a,b) => a.displayName.localeCompare(b.displayName)).forEach(ingInfo => {
-                let detailsParts: string[] = [];
-                let overallDetailsClass = "text-foreground"; // Default
-                
-                ingInfo.unitsData.forEach(unitData => {
-                    if (unitData.unit.toLowerCase() === 'to taste' || unitData.quantity === 0) {
-                        detailsParts.push("to taste");
-                        overallDetailsClass = "text-gray-500 dark:text-gray-400"; // If any part is "to taste", mark it
-                    } else {
-                        const formatted = formatQuantityAndUnitForDisplay(unitData.quantity, unitData.unit);
-                        if (PIECE_UNITS.includes(formatted.unit.toLowerCase()) && formatted.quantity > 0) {
-                            detailsParts.push(`${formatted.quantity}`);
-                        } else if (formatted.quantity > 0 && formatted.unit) {
-                            detailsParts.push(`${formatted.quantity} ${formatted.unit}`);
-                        } else if (formatted.unit) {
-                            detailsParts.push(formatted.unit);
-                        }
-                        if (formatted.detailsClass !== "text-foreground") {
-                           overallDetailsClass = formatted.detailsClass; // Prioritize special class like spice
-                        }
-                    }
-                });
-
-                const uniqueKeyForStriking = `category-agg:${categoryName}:${ingInfo.displayName.toLowerCase()}`;
-                const combinedTooltip = `From: ${Array.from(ingInfo.allOriginalSources).join('; ')}.`;
-
-                categoryDisplayItem.ingredients.push({
-                    itemName: ingInfo.displayName,
-                    itemNameClass: "text-foreground",
-                    detailsPart: detailsParts.join(' + ') || "Amount not specified",
-                    detailsClass: overallDetailsClass,
-                    originalItemsTooltip: combinedTooltip,
-                    uniqueKey: uniqueKeyForStriking,
-                });
-            });
-            if (categoryDisplayItem.ingredients.length > 0) {
-                 displayList.push(categoryDisplayItem);
-            }
-        }
+    categoryOrder.forEach(catName => {
+      if (ingredientsByCategory.has(catName)) {
+        const items = ingredientsByCategory.get(catName)!;
+        items.sort((a,b) => a.itemName.localeCompare(b.itemName));
+        displayList.push({ categoryName: catName, ingredients: items });
+      }
     });
     return displayList;
-  }, [globallyAggregatedIngredients, displaySystem, groceryViewMode]);
+  }, [groceryViewMode, globallyAggregatedIngredients, displaySystem, plannedMealsData]);
 
 
   useEffect(() => {
@@ -555,16 +611,20 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
                   {manualItems.map(item => {
                     const formatted = formatQuantityAndUnitForDisplay(
                         typeof item.quantity === 'string' ? parseFloat(item.quantity) || 0 : Number(item.quantity),
-                        item.unit
+                        item.unit,
+                        item.name
                     );
                     let detailsPartStr = "";
-                    if (PIECE_UNITS.includes(formatted.unit.toLowerCase()) && formatted.quantity > 0) {
+                     if (item.name.toLowerCase().includes("egg") && ["large", "medium", "small", "piece", "pieces", "item", "items", "unit", "units"].includes(formatted.unit.toLowerCase())) {
+                        detailsPartStr = String(formatted.quantity);
+                    } else if (PIECE_UNITS.includes(formatted.unit.toLowerCase()) && parseFloat(String(formatted.quantity)) > 0) {
                         detailsPartStr = `${formatted.quantity}`;
-                    } else if (formatted.quantity > 0 && formatted.unit) {
+                    } else if (parseFloat(String(formatted.quantity)) > 0 && formatted.unit) {
                         detailsPartStr = `${formatted.quantity} ${formatted.unit}`;
                     } else if (formatted.unit) {
                         detailsPartStr = formatted.unit;
                     }
+
 
                     const uniqueKey = `manual:${item.id}`;
                     return (
