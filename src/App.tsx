@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
+import { useIsMobile } from "@/hooks/use-mobile"; // Import useIsMobile
 
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -18,94 +19,99 @@ import ManageMealEntryPage from "./pages/ManageMealEntryPage";
 import GroceryListPage from "./pages/GroceryListPage"; 
 import PlanningPage from "./pages/PlanningPage";
 import DiscoverMealsPage from "./pages/DiscoverMealsPage"; 
-import MealDetailPage from "./pages/MealDetailPage"; // Import the new page
+import MealDetailPage from "./pages/MealDetailPage";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-    <QueryClientProvider client={queryClient}>
-      <Toaster />
-      <Sonner />
-      <TooltipProvider>
-        <BrowserRouter>
-          <>
-            <BetaDisclaimerBanner />
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/auth" element={<Auth />} />
-              <Route
-                path="/dashboard"
-                element={
-                  <ProtectedRoute>
-                    <Dashboard />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/profile"
-                element={
-                  <ProtectedRoute>
-                    <ProfilePage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/meals"
-                element={
-                  <ProtectedRoute>
-                    <MealsPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/meal/:mealId" // Add new route for meal details
-                element={
-                  <ProtectedRoute>
-                    <MealDetailPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/manage-meal-entry" 
-                element={
-                  <ProtectedRoute>
-                    <ManageMealEntryPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/grocery-list" 
-                element={
-                  <ProtectedRoute>
-                    <GroceryListPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/planning"
-                element={
-                  <ProtectedRoute>
-                    <PlanningPage />
-                  </ProtectedRoute>
-                }
-              />
-               <Route
-                path="/discover-meals"
-                element={
-                  <ProtectedRoute>
-                    <DiscoverMealsPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route path="/feedback" element={<FeedbackPage />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </>
-        </BrowserRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
-  </ThemeProvider>
-);
+const App = () => {
+  const isMobile = useIsMobile(); // Determine if the view is mobile
+
+  return (
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <QueryClientProvider client={queryClient}>
+        <Toaster /> {/* This is the default shadcn/ui toast system */}
+        {/* Conditionally position Sonner toasts */}
+        <Sonner position={isMobile ? "top-center" : "bottom-right"} /> 
+        <TooltipProvider>
+          <BrowserRouter>
+            <>
+              <BetaDisclaimerBanner />
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/auth" element={<Auth />} />
+                <Route
+                  path="/dashboard"
+                  element={
+                    <ProtectedRoute>
+                      <Dashboard />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/profile"
+                  element={
+                    <ProtectedRoute>
+                      <ProfilePage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/meals"
+                  element={
+                    <ProtectedRoute>
+                      <MealsPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/meal/:mealId" 
+                  element={
+                    <ProtectedRoute>
+                      <MealDetailPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/manage-meal-entry" 
+                  element={
+                    <ProtectedRoute>
+                      <ManageMealEntryPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/grocery-list" 
+                  element={
+                    <ProtectedRoute>
+                      <GroceryListPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/planning"
+                  element={
+                    <ProtectedRoute>
+                      <PlanningPage />
+                    </ProtectedRoute>
+                  }
+                />
+                 <Route
+                  path="/discover-meals"
+                  element={
+                    <ProtectedRoute>
+                      <DiscoverMealsPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route path="/feedback" element={<FeedbackPage />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </>
+          </BrowserRouter>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
+  );
+};
 
 export default App;
