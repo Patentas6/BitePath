@@ -19,35 +19,37 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Trash2, Brain, XCircle, Info, Link2, Zap, Users } from "lucide-react"; 
+import { PlusCircle, Trash2, Brain, XCircle, Info, Link2, Zap, Users } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useState, useEffect } from "react";
 
-export const UNITS = ['piece', 'g', 'kg', 'ml', 'l', 'tsp', 'tbsp', 'cup', 'oz', 'lb', 'pinch', 'dash', 'clove', 'can', 'bottle', 'package', 'slice', 'item', 'sprig', 'head', 'bunch', 'to taste'] as const;
+export const UNITS = ['piece', 'g', 'kg', 'ml', 'l', 'tsp', 'tbsp', 'cup', 'oz', 'lb', 'pinch', 'dash', 'clove', 'can', 'bottle', 'package', 'slice', 'item', 'sprig', 'head', 'bunch'] as const;
 
 const ingredientSchema = z.object({
   name: z.string().min(1, { message: "Ingredient name is required." }),
-  quantity: z.string() 
-    .transform((val) => val.trim() === "" ? undefined : parseFloat(val)) 
-    .refine((val) => val === undefined || (typeof val === 'number' && !isNaN(val) && val >= 0), { // Allow 0
+  quantity: z.string()
+    .transform((val) => val.trim() === "" ? undefined : parseFloat(val))
+    .refine((val) => val === undefined || (typeof val === 'number' && !isNaN(val) && val >= 0), {
       message: "Quantity must be a non-negative number if provided.",
     })
-    .optional(), 
-  unit: z.string().optional().transform(val => val === "" ? undefined : val), 
+    .optional(),
+  unit: z.string().optional().transform(val => val === "" ? undefined : val),
   description: z.string().optional(),
 }).refine(data => {
-  if (typeof data.quantity === 'number') {
-    if (data.quantity === 0) { 
-      return data.unit === undefined || data.unit.trim().toLowerCase() === "to taste" || data.unit.trim() === "";
-    }
-    return typeof data.unit === 'string' && data.unit.trim() !== "" && data.unit.trim().toLowerCase() !== "to taste";
+  const hasQuantity = data.quantity !== undefined;
+  const hasUnit = data.unit !== undefined && data.unit.trim() !== "";
+  const isToTasteDesc = data.description?.trim().toLowerCase() === 'to taste';
+
+  if (isToTasteDesc) {
+    return !hasQuantity && !hasUnit;
   }
-  return true; 
+  if (hasQuantity && !hasUnit) return false;
+  return true;
 }, {
-  message: "Unit is required for non-zero quantities. For 'to taste', set quantity to 0 and unit to 'to taste' or leave empty.",
-  path: ["unit"], 
+  message: "If quantity is specified, unit is required. For 'to taste', leave quantity & unit empty and write 'to taste' in description.",
+  path: ["unit"],
 });
 
 
@@ -59,8 +61,8 @@ const mealFormSchema = z.object({
   instructions: z.string().optional(),
   meal_tags: z.array(z.string()).optional(),
   image_url: z.string().optional(),
-  estimated_calories: z.string().optional(), 
-  servings: z.string().optional(), 
+  estimated_calories: z.string().optional(),
+  servings: z.string().optional(),
 });
 
 
@@ -73,15 +75,15 @@ export interface GenerationStatusInfo {
 interface MealFormProps {
   generationStatus?: GenerationStatusInfo;
   isLoadingProfile?: boolean;
-  showCaloriesField?: boolean; 
+  showCaloriesField?: boolean;
   initialData?: MealFormValues | null;
   onInitialDataProcessed?: () => void;
   onSaveSuccess?: (savedMeal: {id: string, name: string}) => void;
 }
 
-const MealForm: React.FC<MealFormProps> = ({ 
-  generationStatus, 
-  isLoadingProfile, 
+const MealForm: React.FC<MealFormProps> = ({
+  generationStatus,
+  isLoadingProfile,
   showCaloriesField,
   initialData,
   onInitialDataProcessed,
@@ -95,12 +97,12 @@ const MealForm: React.FC<MealFormProps> = ({
     resolver: zodResolver(mealFormSchema),
     defaultValues: {
       name: "",
-      ingredients: [], 
+      ingredients: [],
       instructions: "",
       meal_tags: [],
       image_url: "",
-      estimated_calories: "", 
-      servings: "", 
+      estimated_calories: "",
+      servings: "",
     },
   });
 
@@ -111,8 +113,8 @@ const MealForm: React.FC<MealFormProps> = ({
 
   useEffect(() => {
     if (initialData) {
-      form.reset(initialData); 
-      replace(initialData.ingredients || []); 
+      form.reset(initialData);
+      replace(initialData.ingredients || []);
 
       if (initialData.image_url) {
         setShowImageUrlInput(false);
@@ -123,7 +125,7 @@ const MealForm: React.FC<MealFormProps> = ({
     } else {
       form.reset({
         name: "",
-        ingredients: [{ name: "", quantity: "", unit: "", description: "" }], 
+        ingredients: [{ name: "", quantity: "", unit: "", description: "" }],
         instructions: "",
         meal_tags: [],
         image_url: "",
@@ -133,7 +135,7 @@ const MealForm: React.FC<MealFormProps> = ({
       replace([{ name: "", quantity: "", unit: "", description: "" }]);
       setShowImageUrlInput(false);
     }
-  }, [initialData, form, onInitialDataProcessed, replace]); 
+  }, [initialData, form, onInitialDataProcessed, replace]);
 
 
   const addMealMutation = useMutation({
@@ -146,9 +148,9 @@ const MealForm: React.FC<MealFormProps> = ({
       const ingredientsToSave = values.ingredients?.map(ing => ({
         name: ing.name,
         quantity: ing.quantity !== undefined ? ing.quantity : null,
-        unit: ing.quantity !== undefined ? (ing.unit || "") : null,
+        unit: (ing.quantity !== undefined && ing.unit) ? ing.unit : null, // Store null if no quantity or no unit
         description: ing.description,
-      })).filter(ing => ing.name.trim() !== ""); 
+      })).filter(ing => ing.name.trim() !== "");
 
       const ingredientsJSON = ingredientsToSave && ingredientsToSave.length > 0 ? JSON.stringify(ingredientsToSave) : null;
 
@@ -163,7 +165,7 @@ const MealForm: React.FC<MealFormProps> = ({
             meal_tags: values.meal_tags,
             image_url: values.image_url,
             estimated_calories: showCaloriesField ? values.estimated_calories : null,
-            servings: values.servings, 
+            servings: values.servings,
           },
         ])
         .select();
@@ -171,7 +173,7 @@ const MealForm: React.FC<MealFormProps> = ({
       if (error) {
         throw error;
       }
-      return { data, values }; 
+      return { data, values };
     },
     onSuccess: ({ data, values }) => {
       showSuccess("Meal added successfully!");
@@ -181,18 +183,18 @@ const MealForm: React.FC<MealFormProps> = ({
       } else if (onSaveSuccess) {
         onSaveSuccess({ id: 'unknown', name: values.name });
       }
-      
-      form.reset({ 
+
+      form.reset({
         name: "",
-        ingredients: [{ name: "", quantity: "", unit: "", description: "" }], 
+        ingredients: [{ name: "", quantity: "", unit: "", description: "" }],
         instructions: "",
         meal_tags: [],
         image_url: "",
-        estimated_calories: "", 
-        servings: "", 
+        estimated_calories: "",
+        servings: "",
       });
-      replace([{ name: "", quantity: "", unit: "", description: "" }]); 
-      setShowImageUrlInput(false); 
+      replace([{ name: "", quantity: "", unit: "", description: "" }]);
+      setShowImageUrlInput(false);
       queryClient.invalidateQueries({ queryKey: ["meals"] });
       queryClient.invalidateQueries({ queryKey: ['userProfileForAddMealLimits'] });
       queryClient.invalidateQueries({ queryKey: ['userProfileForGenerationLimits'] });
@@ -217,23 +219,23 @@ const MealForm: React.FC<MealFormProps> = ({
       const loadingToastId = showLoading("Generating image...");
       try {
         const { data, error } = await supabase.functions.invoke('generate-meal', {
-          body: { mealData: mealData }, 
+          body: { mealData: mealData },
         });
         dismissToast(loadingToastId);
         if (error) throw error;
         if (data?.error) throw new Error(data.error);
-        return data as { image_url?: string }; 
+        return data as { image_url?: string };
       } catch (error: any) {
         dismissToast(loadingToastId);
         console.error('Error generating image:', error);
         showError(`Failed to generate image: ${error.message || 'Please try again.'}`);
-        throw error; 
+        throw error;
       }
     },
     onSuccess: (data) => {
       if (data?.image_url) {
-        form.setValue('image_url', data.image_url); 
-        setShowImageUrlInput(false); 
+        form.setValue('image_url', data.image_url);
+        setShowImageUrlInput(false);
         showSuccess("Image generated!");
         queryClient.invalidateQueries({ queryKey: ['userProfileForAddMealLimits'] });
         queryClient.invalidateQueries({ queryKey: ['userProfileForGenerationLimits'] });
@@ -262,11 +264,11 @@ const MealForm: React.FC<MealFormProps> = ({
   };
 
   const handleClearImage = () => {
-    form.setValue('image_url', ''); 
-    setShowImageUrlInput(false); 
+    form.setValue('image_url', '');
+    setShowImageUrlInput(false);
   };
 
-  const currentImageUrl = form.watch('image_url'); 
+  const currentImageUrl = form.watch('image_url');
 
   return (
     <>
@@ -368,7 +370,7 @@ const MealForm: React.FC<MealFormProps> = ({
                             <FormItem className="md:col-span-1">
                               <FormLabel className="text-xs">Qty (Optional)</FormLabel>
                               <FormControl>
-                                <Input type="text" placeholder="e.g., 2 or 0" {...itemField} value={itemField.value ?? ""} />
+                                <Input type="text" placeholder="e.g., 2" {...itemField} value={itemField.value ?? ""} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -379,7 +381,7 @@ const MealForm: React.FC<MealFormProps> = ({
                           name={`ingredients.${index}.unit`}
                           render={({ field: itemField }) => (
                             <FormItem className="md:col-span-2">
-                              <FormLabel className="text-xs">Unit</FormLabel>
+                              <FormLabel className="text-xs">Unit (Optional)</FormLabel>
                               <Select onValueChange={itemField.onChange} value={itemField.value || undefined} >
                                 <FormControl>
                                   <SelectTrigger>
@@ -399,9 +401,9 @@ const MealForm: React.FC<MealFormProps> = ({
                           name={`ingredients.${index}.description`}
                           render={({ field: itemField }) => (
                             <FormItem className="md:col-span-3">
-                              <FormLabel className="text-xs">Description (Optional)</FormLabel>
+                              <FormLabel className="text-xs">Desc. (e.g., to taste)</FormLabel>
                               <FormControl>
-                                <Input placeholder="e.g., minced, finely chopped" {...itemField} />
+                                <Input placeholder="e.g., minced, to taste" {...itemField} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -445,7 +447,7 @@ const MealForm: React.FC<MealFormProps> = ({
                 </FormItem>
               )}
             />
-            
+
             <FormField
               control={form.control}
               name="servings"
@@ -510,7 +512,7 @@ const MealForm: React.FC<MealFormProps> = ({
                               variant="ghost"
                               size="sm"
                               className="absolute top-1 right-1 h-7 w-7 p-0 text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20"
-                              onClick={(e) => { e.stopPropagation(); handleClearImage(); }} 
+                              onClick={(e) => { e.stopPropagation(); handleClearImage(); }}
                               aria-label="Clear image"
                             >
                               <XCircle className="h-4 w-4" />
@@ -520,14 +522,14 @@ const MealForm: React.FC<MealFormProps> = ({
                         <>
                           <Button
                             type="button"
-                            onClick={handleGenerateImageClick} 
+                            onClick={handleGenerateImageClick}
                             disabled={
-                              !form.watch('name') || 
-                              generateImageMutation.isPending || 
-                              isLoadingProfile || 
+                              !form.watch('name') ||
+                              generateImageMutation.isPending ||
+                              isLoadingProfile ||
                               (generationStatus && !generationStatus.isAdmin && generationStatus.limitReached)
                             }
-                            className="w-full" 
+                            className="w-full"
                           >
                             <Brain className="mr-2 h-4 w-4" /> Generate Image with AI
                           </Button>
@@ -542,9 +544,9 @@ const MealForm: React.FC<MealFormProps> = ({
                           </div>
 
                           <div className="text-center">
-                            <Button 
-                              type="button" 
-                              variant="link" 
+                            <Button
+                              type="button"
+                              variant="link"
                               className="text-sm p-0 h-auto"
                               onClick={() => setShowImageUrlInput(!showImageUrlInput)}
                             >
@@ -557,7 +559,7 @@ const MealForm: React.FC<MealFormProps> = ({
                             <Input
                               placeholder="Paste image URL"
                               {...field}
-                              value={field.value || ''} 
+                              value={field.value || ''}
                             />
                           )}
                         </>
@@ -578,7 +580,7 @@ const MealForm: React.FC<MealFormProps> = ({
       </Card>
 
       <Dialog open={!!viewingImageUrl} onOpenChange={(open) => !open && setViewingImageUrl(null)}>
-        <DialogContent 
+        <DialogContent
           className="max-w-screen-md w-[90vw] h-[90vh] p-0 flex items-center justify-center bg-transparent border-none"
           onClick={() => setViewingImageUrl(null)}
         >
@@ -586,8 +588,8 @@ const MealForm: React.FC<MealFormProps> = ({
             <img
               src={viewingImageUrl}
               alt="Enlarged meal image"
-              className="max-w-full max-h-full object-contain" 
-              onClick={(e) => e.stopPropagation()} 
+              className="max-w-full max-h-full object-contain"
+              onClick={(e) => e.stopPropagation()}
             />
           )}
         </DialogContent>
