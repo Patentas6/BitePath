@@ -562,17 +562,8 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
                         className={`cursor-pointer p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${struckItems.has(item.uniqueKey) ? 'line-through text-gray-400 dark:text-gray-600 opacity-70' : ''}`}
                         title={item.originalItemsTooltip}
                       >
-                        {item.detailsPart === "to taste" ? (
-                          <span className={struckItems.has(item.uniqueKey) ? '' : item.itemNameClass}>
-                            {item.itemName}{' '}
-                            <span className={struckItems.has(item.uniqueKey) ? '' : item.detailsClass}>(to taste)</span>
-                          </span>
-                        ) : (
-                          <>
-                            <span className={struckItems.has(item.uniqueKey) ? '' : item.itemNameClass}>{item.itemName}</span>
-                            {item.detailsPart && <span className={struckItems.has(item.uniqueKey) ? '' : item.detailsClass}>: {item.detailsPart}</span>}
-                          </>
-                        )}
+                        <span className={struckItems.has(item.uniqueKey) ? '' : item.itemNameClass}>{item.itemName}</span>
+                        {item.detailsPart && <span className={struckItems.has(item.uniqueKey) ? '' : item.detailsClass}>: {item.detailsPart}</span>}
                       </li>
                     ))}
                   </ul>
@@ -596,17 +587,8 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
                       className={`cursor-pointer p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${struckItems.has(item.uniqueKey) ? 'line-through text-gray-400 dark:text-gray-600' : ''}`}
                       title={item.originalItemsTooltip}
                     >
-                      {item.detailsPart === "to taste" ? (
-                        <span className={struckItems.has(item.uniqueKey) ? '' : item.itemNameClass}>
-                          {item.itemName}{' '}
-                          <span className={struckItems.has(item.uniqueKey) ? '' : item.detailsClass}>(to taste)</span>
-                        </span>
-                      ) : (
-                        <>
-                          <span className={struckItems.has(item.uniqueKey) ? '' : item.itemNameClass}>{item.itemName}</span>
-                          {item.detailsPart && <span className={struckItems.has(item.uniqueKey) ? '' : item.detailsClass}>: {item.detailsPart}</span>}
-                        </>
-                      )}
+                      <span className={struckItems.has(item.uniqueKey) ? '' : item.itemNameClass}>{item.itemName}</span>
+                      {item.detailsPart && <span className={struckItems.has(item.uniqueKey) ? '' : item.detailsClass}>: {item.detailsPart}</span>}
                     </li>
                   ))}
                 </ul>
@@ -640,17 +622,8 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
                         className={`cursor-pointer p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${struckItems.has(uniqueKey) ? 'line-through text-gray-400 dark:text-gray-600' : ''}`}
                         title="Manually added item"
                       >
-                        {detailsPartStr === "to taste" ? (
-                          <span className={struckItems.has(uniqueKey) ? '' : "text-foreground"}>
-                            {item.name}{' '}
-                            <span className={struckItems.has(uniqueKey) ? '' : formatted.detailsClass}>(to taste)</span>
-                          </span>
-                        ) : (
-                          <>
-                            <span className={struckItems.has(uniqueKey) ? '' : "text-foreground"}>{item.name}</span>
-                            {detailsPartStr && <span className={struckItems.has(uniqueKey) ? '' : formatted.detailsClass}>: {detailsPartStr}</span>}
-                          </>
-                        )}
+                        <span className={struckItems.has(uniqueKey) ? '' : "text-foreground"}>{item.name}</span>
+                        {detailsPartStr && <span className={struckItems.has(uniqueKey) ? '' : formatted.detailsClass}>: {detailsPartStr}</span>}
                       </li>
                     );
                   })}
