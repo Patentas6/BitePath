@@ -244,8 +244,18 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
           const unitMapEntry = ingRecord.unitsData.get(unitKey);
           if (unitMapEntry) {
             if (!isToTaste) unitMapEntry.totalQuantity += quantityNum;
-            unitMapEntry.originalSources.add(mealSourceInfo);
-            if (ing.description) unitMapEntry.descriptions.add(ing.description);
+            if (unitMapEntry.originalSources) { // Ensure originalSources exists
+                unitMapEntry.originalSources.add(mealSourceInfo);
+            } else {
+                unitMapEntry.originalSources = new Set([mealSourceInfo]); // Initialize if not
+            }
+            if (ing.description) {
+                if (unitMapEntry.descriptions) { // Ensure descriptions exists
+                    unitMapEntry.descriptions.add(ing.description);
+                } else {
+                    unitMapEntry.descriptions = new Set([ing.description]); // Initialize if not
+                }
+            }
           } else {
             ingRecord.unitsData.set(unitKey, {
               totalQuantity: quantityNum,
@@ -261,33 +271,11 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
 
 
   const mealWiseDisplayList: AggregatedMealDisplayItem[] = useMemo(() => {
-    // This view will now also use the globally aggregated data but present it under each meal name
-    // For simplicity and to match the user's latest request for global aggregation,
-    // this view might become redundant or need to show *which portion* of the global total
-    // comes from *this specific meal instance*.
-    // For now, let's keep the structure but ensure it reflects the global sum for each ingredient *within that meal's recipe*.
-    // The previous `globallyAggregatedIngredients` was already doing this per meal name.
-    // Let's adapt it to the new `globallyAggregatedIngredients` structure.
-
-    const displayList: AggregatedMealDisplayItem[] = [];
-    globallyAggregatedIngredients.forEach((ingData, mealNameKey) => { // mealNameKey is actually ingNameLower here
-        // This mapping is incorrect for "By Meal". We need to iterate plannedMealsData again
-        // or change `globallyAggregatedIngredients` to be `Map<mealName, Map<ingredientKey, data>>`
-        // Let's stick to the user's request: "By Meal" shows total for "Berry Chia Pudding"
-    });
-
-    // Corrected approach for "By Meal" view using the new global aggregation:
-    // The `globallyAggregatedIngredients` is now Map<ingredientName, {displayName, unitsData}>
-    // To show "By Meal", we need to reconstruct what each meal *contributed*.
-    // This is complex. Let's simplify: "By Meal" will show the *recipe* for each planned meal instance.
-    // And "By Category" will show the *globally aggregated total*.
-
-    // Reverting "By Meal" to show ingredients per planned instance, but with internal aggregation.
     const mealInstanceMap = new Map<string, AggregatedMealDisplayItem>();
 
     plannedMealsData.forEach(pm => {
         if (!pm.meals || !pm.meals.name || !pm.meals.ingredients) return;
-        const mealInstanceKey = `${pm.id}_${pm.meals.name}`; // Unique key for each planned meal instance
+        const mealInstanceKey = `${pm.id}_${pm.meals.name}`; 
         
         const mealDisplayItem: AggregatedMealDisplayItem = {
             mealName: `${pm.meals.name} (${pm.meal_type || 'Meal'} - ${format(parseISO(pm.plan_date), 'MMM dd')})`,
@@ -327,7 +315,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
             instanceAggregatedIngredients.forEach(aggIng => {
                 const formatted = formatQuantityAndUnitForDisplay(aggIng.totalQuantity, aggIng.unit, aggIng.name);
                 let detailsPartStr = aggIng.unit.toLowerCase() === 'to taste' ? "to taste" : `${formatted.quantity} ${formatted.unit}`.trim();
-                 if (aggIng.unit.toLowerCase() === "count" && aggIng.name.toLowerCase().includes("egg")) { // Special for eggs
+                 if (aggIng.unit.toLowerCase() === "count" && aggIng.name.toLowerCase().includes("egg")) { 
                     detailsPartStr = String(formatted.quantity);
                 }
 
@@ -370,40 +358,53 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
       let overallDetailsClass = "text-foreground";
       const allSourcesForTooltip = new Set<string>();
       
-      ingData.unitsData.forEach((unitData, unitKey) => {
-        const { totalQuantity, originalSources, descriptions } = unitData;
-        originalSources.forEach(src => allSourcesForTooltip.add(src));
-        const uniqueDescriptions = Array.from(descriptions).join(', ');
-
-        if (unitKey === "to taste") {
-          detailsParts.push("to taste");
-          overallDetailsClass = "text-gray-500 dark:text-gray-400";
-        } else {
-          // Use original unit from one of the entries for display formatting if unitKey is normalized 'count'
-          let displayUnitForFormat = unitKey;
-          if (unitKey === "count") {
-             const originalEntry = plannedMealsData.flatMap(pm => pm.meals?.ingredients ? JSON.parse(pm.meals.ingredients) as ParsedIngredientItem[] : [])
-                                .find(pi => pi.name?.trim().toLowerCase() === ingNameLower && 
-                                            (PIECE_UNITS.includes((pi.unit || "count").trim().toLowerCase()) || 
-                                            (COUNTABLE_ITEM_KEYWORDS.some(k => ingNameLower.includes(k)) && (pi.unit || "count").trim().toLowerCase() === "count")));
-             displayUnitForFormat = originalEntry?.unit || "items";
+      if (ingData.unitsData && typeof ingData.unitsData.forEach === 'function') {
+        ingData.unitsData.forEach((unitData, unitKey) => {
+          if (!unitData) {
+            console.warn(`[GroceryList] unitData is undefined for ingredient: ${ingData.displayName}, unitKey: ${unitKey}. Skipping this unitData.`);
+            return; 
           }
+          const { totalQuantity, originalSources, descriptions } = unitData;
 
-          const formatted = formatQuantityAndUnitForDisplay(totalQuantity, displayUnitForFormat, ingData.displayName);
-          let currentDetail = "";
-          if (unitKey === "count") {
-            currentDetail = String(formatted.quantity); // Just the number for counts, item name implies the item
+          if (originalSources && typeof originalSources.forEach === 'function') {
+            originalSources.forEach(src => allSourcesForTooltip.add(src));
           } else {
-            currentDetail = `${formatted.quantity} ${formatted.unit}`.trim();
+            console.warn(`[GroceryList] unitData.originalSources is not iterable for ${ingData.displayName} - ${unitKey}`);
           }
           
-          if (uniqueDescriptions) {
-            currentDetail += ` (${uniqueDescriptions})`;
+          const uniqueDescriptions = (descriptions && descriptions.size > 0) ? Array.from(descriptions).join(', ') : '';
+
+          if (unitKey === "to taste") {
+            detailsParts.push("to taste");
+            overallDetailsClass = "text-gray-500 dark:text-gray-400";
+          } else {
+            let displayUnitForFormat = unitKey;
+            if (unitKey === "count") {
+               const originalEntry = plannedMealsData.flatMap(pm => pm.meals?.ingredients ? JSON.parse(pm.meals.ingredients) as ParsedIngredientItem[] : [])
+                                  .find(pi => pi.name?.trim().toLowerCase() === ingNameLower && 
+                                              (PIECE_UNITS.includes((pi.unit || "count").trim().toLowerCase()) || 
+                                              (COUNTABLE_ITEM_KEYWORDS.some(k => ingNameLower.includes(k)) && (pi.unit || "count").trim().toLowerCase() === "count")));
+               displayUnitForFormat = originalEntry?.unit || "items";
+            }
+
+            const formatted = formatQuantityAndUnitForDisplay(totalQuantity, displayUnitForFormat, ingData.displayName);
+            let currentDetail = "";
+            if (unitKey === "count") {
+              currentDetail = String(formatted.quantity); 
+            } else {
+              currentDetail = `${formatted.quantity} ${formatted.unit}`.trim();
+            }
+            
+            if (uniqueDescriptions) {
+              currentDetail += ` (${uniqueDescriptions})`;
+            }
+            detailsParts.push(currentDetail);
+            if (formatted.detailsClass !== "text-foreground") overallDetailsClass = formatted.detailsClass;
           }
-          detailsParts.push(currentDetail);
-          if (formatted.detailsClass !== "text-foreground") overallDetailsClass = formatted.detailsClass;
-        }
-      });
+        });
+      } else {
+        console.warn(`[GroceryList] ingData.unitsData is not iterable or undefined for ingredient: ${ingData.displayName} (key: ${ingNameLower}). Skipping this ingredient in category view.`);
+      }
 
       const uniqueKey = `category:${category}:${ingNameLower}`;
       ingredientsByCategory.get(category)!.push({

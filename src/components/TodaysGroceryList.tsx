@@ -271,8 +271,18 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
           const unitMapEntry = ingRecord.unitsData.get(unitKey);
           if (unitMapEntry) {
             if (!isToTaste) unitMapEntry.totalQuantity += quantityNum;
-            unitMapEntry.originalSources.add(mealSourceInfo);
-            if (ing.description) unitMapEntry.descriptions.add(ing.description);
+            if (unitMapEntry.originalSources) { // Ensure originalSources exists
+                unitMapEntry.originalSources.add(mealSourceInfo);
+            } else {
+                unitMapEntry.originalSources = new Set([mealSourceInfo]); // Initialize if not
+            }
+            if (ing.description) {
+                if (unitMapEntry.descriptions) { // Ensure descriptions exists
+                    unitMapEntry.descriptions.add(ing.description);
+                } else {
+                    unitMapEntry.descriptions = new Set([ing.description]); // Initialize if not
+                }
+            }
           } else {
             ingRecord.unitsData.set(unitKey, {
               totalQuantity: quantityNum,
@@ -372,11 +382,21 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
       let overallDetailsClass = "text-foreground";
       const allSourcesForTooltip = new Set<string>();
       
-      if (ingData.unitsData) { // Safeguard
+      if (ingData.unitsData && typeof ingData.unitsData.forEach === 'function') {
         ingData.unitsData.forEach((unitData, unitKey) => {
+          if (!unitData) {
+            console.warn(`[TodaysGroceryList] unitData is undefined for ingredient: ${ingData.displayName}, unitKey: ${unitKey}. Skipping this unitData.`);
+            return; 
+          }
           const { totalQuantity, originalSources, descriptions } = unitData;
-          originalSources.forEach(src => allSourcesForTooltip.add(src));
-          const uniqueDescriptions = Array.from(descriptions).join(', ');
+
+          if (originalSources && typeof originalSources.forEach === 'function') {
+            originalSources.forEach(src => allSourcesForTooltip.add(src));
+          } else {
+            console.warn(`[TodaysGroceryList] unitData.originalSources is not iterable for ${ingData.displayName} - ${unitKey}`);
+          }
+          
+          const uniqueDescriptions = (descriptions && descriptions.size > 0) ? Array.from(descriptions).join(', ') : '';
 
           if (unitKey === "to taste") {
             detailsParts.push("to taste");
@@ -407,7 +427,7 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
           }
         });
       } else {
-        console.warn(`[TodaysGroceryList] ingData.unitsData is undefined for ingredient: ${ingData.displayName} (key: ${ingNameLower}). Skipping this ingredient in category view.`);
+        console.warn(`[TodaysGroceryList] ingData.unitsData is not iterable or undefined for ingredient: ${ingData.displayName} (key: ${ingNameLower}). Skipping this ingredient in category view.`);
       }
 
 
