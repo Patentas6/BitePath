@@ -244,16 +244,16 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
           const unitMapEntry = ingRecord.unitsData.get(unitKey);
           if (unitMapEntry) {
             if (!isToTaste) unitMapEntry.totalQuantity += quantityNum;
-            if (unitMapEntry.originalSources) { // Ensure originalSources exists
+            if (unitMapEntry.originalSources) { 
                 unitMapEntry.originalSources.add(mealSourceInfo);
             } else {
-                unitMapEntry.originalSources = new Set([mealSourceInfo]); // Initialize if not
+                unitMapEntry.originalSources = new Set([mealSourceInfo]); 
             }
             if (ing.description) {
-                if (unitMapEntry.descriptions) { // Ensure descriptions exists
+                if (unitMapEntry.descriptions) { 
                     unitMapEntry.descriptions.add(ing.description);
                 } else {
-                    unitMapEntry.descriptions = new Set([ing.description]); // Initialize if not
+                    unitMapEntry.descriptions = new Set([ing.description]); 
                 }
             }
           } else {
@@ -361,18 +361,18 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
       if (ingData.unitsData && typeof ingData.unitsData.forEach === 'function') {
         ingData.unitsData.forEach((unitData, unitKey) => {
           if (!unitData) {
-            console.warn(`[GroceryList] unitData is undefined for ingredient: ${ingData.displayName}, unitKey: ${unitKey}. Skipping this unitData.`);
+            console.warn(`[GroceryList] unitData is undefined for ingredient: ${ingData.displayName}, unitKey: ${unitKey}. Skipping this unit entry.`);
             return; 
           }
           const { totalQuantity, originalSources, descriptions } = unitData;
 
-          if (originalSources && typeof originalSources.forEach === 'function') {
+          if (originalSources instanceof Set && typeof originalSources.forEach === 'function') {
             originalSources.forEach(src => allSourcesForTooltip.add(src));
           } else {
-            console.warn(`[GroceryList] unitData.originalSources is not iterable for ${ingData.displayName} - ${unitKey}`);
+            console.warn(`[GroceryList] unitData.originalSources is not a valid Set for ${ingData.displayName} - ${unitKey}. Value:`, originalSources);
           }
           
-          const uniqueDescriptions = (descriptions && descriptions.size > 0) ? Array.from(descriptions).join(', ') : '';
+          const uniqueDescriptions = (descriptions instanceof Set && descriptions.size > 0) ? Array.from(descriptions).join(', ') : '';
 
           if (unitKey === "to taste") {
             detailsParts.push("to taste");
