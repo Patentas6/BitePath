@@ -13,6 +13,12 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import AddMealToPlanDialog from "./AddMealToPlanDialog"; 
 import { calculateCaloriesPerServing } from '@/utils/mealUtils'; 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface MealPlan {
   id: string;
@@ -160,7 +166,7 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
   const displayPlans = showExampleData ? exampleMealsData : sortedMealPlans;
   const currentTotalCalories = showExampleData ? exampleTotalCalories : dailyTotalCaloriesPerServing;
 
-  const firstAvailableSlotForToday = MEAL_TYPE_DISPLAY_ORDER.find(
+  const availableSlotsForToday = MEAL_TYPE_DISPLAY_ORDER.filter(
     type => !sortedMealPlans.some(p => p.meal_type === type)
   );
 
@@ -276,18 +282,22 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
             </ul>
           )}
         </CardContent>
-        {!showExampleData && sortedMealPlans.length < MEAL_TYPE_DISPLAY_ORDER.length && firstAvailableSlotForToday && (
+        {!showExampleData && availableSlotsForToday.length > 0 && (
           <CardFooter className="pt-4 mt-auto">
-            <Button
-              onClick={() => {
-                if (firstAvailableSlotForToday) {
-                  handleChangeMealClick(today, firstAvailableSlotForToday);
-                }
-              }}
-              className="w-full"
-            >
-              <PlusCircle className="mr-2 h-4 w-4" /> Add Meal to Today
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button className="w-full">
+                  <PlusCircle className="mr-2 h-4 w-4" /> Add Meal to Today
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[--radix-dropdown-menu-trigger-width]">
+                {availableSlotsForToday.map(slotType => (
+                  <DropdownMenuItem key={slotType} onClick={() => handleChangeMealClick(today, slotType)}>
+                    Add to {slotType}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </CardFooter>
         )}
       </Card>
