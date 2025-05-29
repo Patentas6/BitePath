@@ -365,19 +365,21 @@ const MealList = () => {
                     <div className="flex sm:hidden space-x-2 mt-3 pt-3 border-t">
                       <Button 
                         variant="outline" 
+                        size="icon"
                         onClick={() => handleEditClick(meal)} 
                         aria-label="Edit meal"
                         className="flex-1 h-10"
                       >
-                        <Edit3 className="h-5 w-5 mr-2" /> Edit
+                        <Edit3 className="h-5 w-5" />
                       </Button>
                       <Button 
                         variant="destructive" 
+                        size="icon"
                         onClick={() => handleDeleteClick(meal)} 
                         aria-label="Delete meal"
                         className="flex-1 h-10"
                       >
-                        <Trash2 className="h-5 w-5 mr-2" /> Delete
+                        <Trash2 className="h-5 w-5" />
                       </Button>
                     </div>
                   </div>

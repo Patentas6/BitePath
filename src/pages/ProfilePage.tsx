@@ -246,7 +246,9 @@ const ProfilePage = () => {
                         />
                       </FormControl>
                       <FormDescription>
-                        Tell the AI about your dietary needs, allergies, or general preferences for meal generation.
+                        Tell the AI about your dietary needs, allergies, or general preferences. 
+                        These profile preferences are automatically considered by the AI when generating meals.
+                        You can add more specific requests for individual meals on the generation page.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>

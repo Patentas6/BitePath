@@ -377,10 +377,7 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
                 maxLength={PREFERENCES_MAX_LENGTH}
               />
               <div className="text-xs text-muted-foreground mt-2 p-2 bg-muted/50 rounded-md space-y-1">
-                <div className="flex items-start">
-                  <Info size={14} className="inline mr-1.5 relative -top-px flex-shrink-0 mt-0.5" />
-                  <span>Your general AI preferences from your profile are automatically included by the AI. Add more specific requests here for this meal.</span>
-                </div>
+                {/* Removed the specific text about profile preferences being auto-included */}
                 <div>
                   <strong className="block mt-1">Pro Tips:</strong>
                   <ul className="list-disc list-inside pl-1 space-y-0.5">

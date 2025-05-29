@@ -196,7 +196,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Add / Change Meal</DialogTitle> 
           <DialogDescription>
@@ -204,7 +204,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 py-4">
+        <div className="grid gap-4 py-4 overflow-y-auto flex-grow pr-2">
           <div>
             <Label className="text-sm font-medium">Filter by tags:</Label>
             <div className="flex flex-wrap gap-2 mt-2">
@@ -242,7 +242,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
                       if (!isComboboxOpen && value) setIsComboboxOpen(true); 
                     }}
                   />
-                  <CommandList>
+                  <CommandList className="max-h-[200px] sm:max-h-[250px]"> {/* Constrain height for scrolling */}
                     {isLoadingMeals ? (
                       <div className="p-2 text-sm text-muted-foreground">Loading meals...</div>
                     ) : mealsError ? (
@@ -290,7 +290,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
             </Popover>
           </div>
         </div>
-        <DialogFooter>
+        <DialogFooter className="mt-auto pt-4 border-t"> {/* Ensure footer is at the bottom */}
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={addMealToPlanMutation.isPending}>
             Cancel
           </Button>
