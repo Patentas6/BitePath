@@ -5,9 +5,9 @@ import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { PLANNING_MEAL_TYPES, PlanningMealType } from "@/lib/constants";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { UtensilsCrossed, Edit, Zap, Image as ImageIcon, Users } from "lucide-react"; 
+import { UtensilsCrossed, Edit, Zap, Image as ImageIcon, Users, PlusCircle } from "lucide-react"; 
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -20,7 +20,7 @@ interface MealPlan {
   plan_date: string;
   meal_type?: string | null; 
   meals: {
-    id: string; // Ensure meal id is available if needed for linking
+    id: string; 
     name: string;
     image_url?: string | null;
     estimated_calories?: string | null; 
@@ -41,7 +41,7 @@ const MEAL_TYPE_DISPLAY_ORDER: PlanningMealType[] = ["Breakfast", "Brunch Snack"
 const exampleMealsData = [
   { 
     id: 'ex-bf', 
-    meal_id: 'example-breakfast-id', // Add example meal_id
+    meal_id: 'example-breakfast-id', 
     meal_type: 'Breakfast', 
     meals: { 
       id: 'example-breakfast-id',
@@ -53,7 +53,7 @@ const exampleMealsData = [
   },
   { 
     id: 'ex-ln', 
-    meal_id: 'example-lunch-id', // Add example meal_id
+    meal_id: 'example-lunch-id', 
     meal_type: 'Lunch', 
     meals: { 
       id: 'example-lunch-id',
@@ -65,7 +65,7 @@ const exampleMealsData = [
   },
   { 
     id: 'ex-dn', 
-    meal_id: 'example-dinner-id', // Add example meal_id
+    meal_id: 'example-dinner-id', 
     meal_type: 'Dinner', 
     meals: { 
       id: 'example-dinner-id',
@@ -109,7 +109,7 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
       if (!userId) return [];
       const { data, error } = await supabase
         .from("meal_plans")
-        .select("id, meal_id, plan_date, meal_type, meals ( id, name, image_url, estimated_calories, servings )") // Ensure meals.id is selected
+        .select("id, meal_id, plan_date, meal_type, meals ( id, name, image_url, estimated_calories, servings )") 
         .eq("user_id", userId)
         .eq("plan_date", todayStr);
       if (error) throw error;
@@ -160,6 +160,10 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
   const displayPlans = showExampleData ? exampleMealsData : sortedMealPlans;
   const currentTotalCalories = showExampleData ? exampleTotalCalories : dailyTotalCaloriesPerServing;
 
+  const firstAvailableSlotForToday = MEAL_TYPE_DISPLAY_ORDER.find(
+    type => !sortedMealPlans.some(p => p.meal_type === type)
+  );
+
   return (
     <>
       <Card className="hover:shadow-lg transition-shadow duration-200 flex flex-col">
@@ -190,8 +194,13 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
             <ul className="space-y-3">
               {displayPlans.map(plannedMeal => {
                 const caloriesPerServing = calculateCaloriesPerServing(plannedMeal.meals?.estimated_calories, plannedMeal.meals?.servings);
-                const mealDetailLink = plannedMeal.meals?.id ? `/meal/${plannedMeal.meals.id}` : '#';
+                const mealDetailLink = !showExampleData && plannedMeal.meals?.id ? `/meal/${plannedMeal.meals.id}` : '#';
                 
+                const MealContentWrapper = showExampleData ? 'div' : Link;
+                const mealContentWrapperProps = showExampleData 
+                  ? { className: "flex-grow w-full sm:w-auto block p-1 -m-1" }
+                  : { to: mealDetailLink, className: "flex-grow w-full sm:w-auto block hover:bg-muted/30 rounded-md p-1 -m-1 transition-colors" };
+
                 return (
                   <li 
                     key={plannedMeal.id} 
@@ -202,7 +211,10 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
                   >
                      {plannedMeal.meals?.image_url ? (
                       <div
-                        className="w-full h-40 sm:w-24 sm:h-24 object-cover rounded-md mb-2 sm:mb-0 sm:mr-3 flex-shrink-0 cursor-pointer flex items-center justify-center overflow-hidden bg-muted" 
+                        className={cn(
+                          "w-full h-40 sm:w-24 sm:h-24 object-cover rounded-md mb-2 sm:mb-0 sm:mr-3 flex-shrink-0 flex items-center justify-center overflow-hidden bg-muted",
+                          !showExampleData && "cursor-pointer"
+                        )}
                         onClick={() => !showExampleData && plannedMeal.meals?.image_url && setViewingImageUrl(plannedMeal.meals.image_url)}
                       >
                         <img
@@ -216,7 +228,7 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
                             if (parent) {
                               const iconContainer = document.createElement('div');
                               iconContainer.className = "w-full h-40 sm:w-24 sm:h-24 rounded-md flex-shrink-0 flex items-center justify-center bg-muted text-muted-foreground";
-                              iconContainer.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>'; // ImageIcon
+                              iconContainer.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>'; 
                               parent.appendChild(iconContainer);
                             }
                           }}
@@ -227,7 +239,7 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
                          <ImageIcon size={32} />
                        </div>
                      )}
-                     <Link to={mealDetailLink} className="flex-grow w-full sm:w-auto block hover:bg-muted/30 rounded-md p-1 -m-1 transition-colors">
+                     <MealContentWrapper {...mealContentWrapperProps}>
                        <div className="font-medium text-gray-600 dark:text-gray-400 text-sm">
                          {plannedMeal.meal_type || 'Meal'}
                        </div>
@@ -246,7 +258,7 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
                            Est. {caloriesPerServing} kcal per serving
                          </div>
                        )}
-                     </Link>
+                     </MealContentWrapper>
                      {!showExampleData && (
                        <Button 
                           variant="outline" 
@@ -264,6 +276,20 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
             </ul>
           )}
         </CardContent>
+        {!showExampleData && sortedMealPlans.length < MEAL_TYPE_DISPLAY_ORDER.length && firstAvailableSlotForToday && (
+          <CardFooter className="pt-4 mt-auto">
+            <Button
+              onClick={() => {
+                if (firstAvailableSlotForToday) {
+                  handleChangeMealClick(today, firstAvailableSlotForToday);
+                }
+              }}
+              className="w-full"
+            >
+              <PlusCircle className="mr-2 h-4 w-4" /> Add Meal to Today
+            </Button>
+          </CardFooter>
+        )}
       </Card>
 
       {mealToChange && (
@@ -289,7 +315,7 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
               src={viewingImageUrl}
               alt="Enlarged meal image"
               className="max-w-full max-h-full object-contain"
-              onClick={(e) => e.stopPropagation()} // Optional: if you want clicking image itself to NOT close
+              onClick={(e) => e.stopPropagation()} 
             />
           )}
         </DialogContent>

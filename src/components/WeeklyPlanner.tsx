@@ -33,8 +33,8 @@ interface UserProfileData {
 interface WeeklyPlannerProps {
   userId: string;
   currentWeekStart: Date;
-  preSelectedMealId?: string | null; // New prop
-  onMealPreSelectedAndPlanned?: () => void; // New prop
+  preSelectedMealId?: string | null; 
+  onMealPreSelectedAndPlanned?: () => void; 
 }
 
 const MEAL_TYPE_DISPLAY_ORDER: PlanningMealType[] = ["Breakfast", "Brunch Snack", "Lunch", "Afternoon Snack", "Dinner"];
@@ -117,14 +117,12 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({
       
       const plan_date_str = format(plan_date_obj, "yyyy-MM-dd");
 
-      // Delete existing entry for the slot first
       const { error: deleteError } = await supabase
         .from("meal_plans")
         .delete()
         .match({ user_id: userId, plan_date: plan_date_str, meal_type: meal_type_str });
       if (deleteError) console.warn("Error deleting existing meal plan entry for direct add:", deleteError.message);
       
-      // Insert the new meal
       const { data, error: insertError } = await supabase
         .from("meal_plans")
         .insert([{ user_id: userId, meal_id: meal_id, plan_date: plan_date_str, meal_type: meal_type_str }])
@@ -134,11 +132,11 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({
     },
     onSuccess: () => {
       showSuccess("Meal added to plan!");
-      refetchMealPlans(); // Refetch current week's plans
+      refetchMealPlans(); 
       queryClient.invalidateQueries({ queryKey: ["groceryListSource"] });
       queryClient.invalidateQueries({ queryKey: ["todaysGroceryListSource"] });
       queryClient.invalidateQueries({ queryKey: ["todaysMealPlans"] });
-      onMealPreSelectedAndPlanned?.(); // Call the callback to close the planner view
+      onMealPreSelectedAndPlanned?.(); 
     },
     onError: (error) => {
       console.error("Error directly adding meal to plan:", error);
@@ -178,13 +176,13 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({
       return;
     }
 
-    if (preSelectedMealId && mealType) { // If a meal is pre-selected and a valid mealType is clicked
+    if (preSelectedMealId && mealType) { 
       directAddMealToPlanMutation.mutate({
         meal_id: preSelectedMealId,
         plan_date_obj: day,
         meal_type_str: mealType,
       });
-    } else { // Otherwise, open the dialog to select a meal
+    } else { 
       setSelectedDateForDialog(day);
       setSelectedMealTypeForDialog(mealType); 
       setIsDialogOpen(true);
@@ -259,11 +257,18 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({
                   >
                     <div className="font-semibold text-foreground text-sm sm:text-base">{format(day, 'EEE')}</div>
                     <div className="text-xs sm:text-sm text-muted-foreground">{format(day, 'MMM dd')}</div>
-                    {userProfile?.track_calories && dailyTotal && dailyTotal > 0 && (
-                      <div className="text-xs text-primary mt-0.5 flex items-center">
-                        <Zap size={10} className="mr-0.5" />
-                        {dailyTotal} kcal
-                      </div>
+                    {/* Calorie display or placeholder for consistent height */}
+                    {userProfile?.track_calories ? (
+                      (dailyTotal && dailyTotal > 0) ? (
+                        <div className="text-xs text-primary mt-0.5 flex items-center h-[1rem]"> {/* Fixed height for the line */}
+                          <Zap size={10} className="mr-0.5" />
+                          {dailyTotal} kcal
+                        </div>
+                      ) : (
+                        <div className="mt-0.5 h-[1rem]">&nbsp;</div> // Placeholder with same height
+                      )
+                    ) : (
+                      <div className="mt-0.5 h-[1rem]">&nbsp;</div> // Placeholder if not tracking calories
                     )}
                   </div>
                   <div className="flex flex-col space-y-1">
@@ -280,7 +285,7 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({
                           onClick={() => !isDayPast && handleAddOrChangeMealClick(day, mealType)}
                           className={cn(
                             "border rounded-md p-2 text-xs flex flex-col justify-between overflow-hidden relative transition-colors", 
-                            "h-[96px] sm:h-[70px]", // Adjusted mobile height
+                            "h-[96px] sm:h-[70px]", 
                             isDayPast ? "bg-gray-100 dark:bg-gray-700/50 cursor-not-allowed" : "bg-card hover:bg-card/80 cursor-pointer",
                             preSelectedMealId && !isDayPast && "ring-2 ring-primary animate-pulse" 
                           )}
@@ -296,7 +301,7 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({
                               <div className={cn(
                                 "text-xs font-semibold self-start flex-grow mt-0.5", 
                                 isDayPast ? "line-through text-gray-500 dark:text-gray-500" : "text-foreground",
-                                isMobile ? "line-clamp-2" : "truncate" // Allow 2 lines on mobile
+                                isMobile ? "line-clamp-2" : "truncate" 
                               )}>
                                 {plannedMeal.meals?.name || 'Unknown Meal'}
                               </div>
@@ -309,7 +314,7 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({
                                   {servingsNumber && (
                                     <span className="flex items-center">
                                       <Users size={9} className="mr-0.5 flex-shrink-0" />
-                                      {servingsNumber} {/* Show only number for servings on mobile */}
+                                      {servingsNumber} 
                                     </span>
                                   )}
                                   {userProfile?.track_calories && caloriesPerServing !== null && servingsNumber && (
