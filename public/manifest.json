@@ -1,7 +1,7 @@
 {
   "name": "BitePath",
   "short_name": "BitePath",
-  "start_url": "/",
+  "start_url": "/auth",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#000000",
