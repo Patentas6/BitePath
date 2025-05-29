@@ -20,6 +20,7 @@ interface MealPlan {
   plan_date: string;
   meal_type?: string | null; 
   meals: {
+    id: string; // Ensure meal id is available if needed for linking
     name: string;
     image_url?: string | null;
     estimated_calories?: string | null; 
@@ -40,8 +41,10 @@ const MEAL_TYPE_DISPLAY_ORDER: PlanningMealType[] = ["Breakfast", "Brunch Snack"
 const exampleMealsData = [
   { 
     id: 'ex-bf', 
+    meal_id: 'example-breakfast-id', // Add example meal_id
     meal_type: 'Breakfast', 
     meals: { 
+      id: 'example-breakfast-id',
       name: 'Example: Yogurt & Granola', 
       image_url: '/Breakfasttest.png', 
       estimated_calories: '350 kcal', 
@@ -50,8 +53,10 @@ const exampleMealsData = [
   },
   { 
     id: 'ex-ln', 
+    meal_id: 'example-lunch-id', // Add example meal_id
     meal_type: 'Lunch', 
     meals: { 
+      id: 'example-lunch-id',
       name: 'Example: Salad with Chicken', 
       image_url: '/lunchtest.png',
       estimated_calories: '500 kcal', 
@@ -60,8 +65,10 @@ const exampleMealsData = [
   },
   { 
     id: 'ex-dn', 
+    meal_id: 'example-dinner-id', // Add example meal_id
     meal_type: 'Dinner', 
     meals: { 
+      id: 'example-dinner-id',
       name: 'Example: Spaghetti Carbonara', 
       image_url: '/dinnertest.png', 
       estimated_calories: '650 kcal',
@@ -102,7 +109,7 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
       if (!userId) return [];
       const { data, error } = await supabase
         .from("meal_plans")
-        .select("id, meal_id, plan_date, meal_type, meals ( name, image_url, estimated_calories, servings )")
+        .select("id, meal_id, plan_date, meal_type, meals ( id, name, image_url, estimated_calories, servings )") // Ensure meals.id is selected
         .eq("user_id", userId)
         .eq("plan_date", todayStr);
       if (error) throw error;
@@ -183,6 +190,8 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
             <ul className="space-y-3">
               {displayPlans.map(plannedMeal => {
                 const caloriesPerServing = calculateCaloriesPerServing(plannedMeal.meals?.estimated_calories, plannedMeal.meals?.servings);
+                const mealDetailLink = plannedMeal.meals?.id ? `/meal/${plannedMeal.meals.id}` : '#';
+                
                 return (
                   <li 
                     key={plannedMeal.id} 
@@ -218,7 +227,7 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
                          <ImageIcon size={32} />
                        </div>
                      )}
-                     <div className="flex-grow w-full sm:w-auto">
+                     <Link to={mealDetailLink} className="flex-grow w-full sm:w-auto block hover:bg-muted/30 rounded-md p-1 -m-1 transition-colors">
                        <div className="font-medium text-gray-600 dark:text-gray-400 text-sm">
                          {plannedMeal.meal_type || 'Meal'}
                        </div>
@@ -237,7 +246,7 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
                            Est. {caloriesPerServing} kcal per serving
                          </div>
                        )}
-                     </div>
+                     </Link>
                      {!showExampleData && (
                        <Button 
                           variant="outline" 

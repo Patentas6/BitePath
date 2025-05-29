@@ -14,12 +14,11 @@ import ProfilePage from "./pages/ProfilePage";
 import MealsPage from "./pages/MealsPage";
 import BetaDisclaimerBanner from "@/components/BetaDisclaimerBanner";
 import FeedbackPage from "./pages/FeedbackPage";
-import ManageMealEntryPage from "./pages/ManageMealEntryPage"; // New combined page
-// import GenerateMealPage from "./pages/GenerateMealPage"; // Old - to be removed
-// import AddMealPage from "./pages/AddMealPage"; // Old - to be removed
+import ManageMealEntryPage from "./pages/ManageMealEntryPage"; 
 import GroceryListPage from "./pages/GroceryListPage"; 
 import PlanningPage from "./pages/PlanningPage";
 import DiscoverMealsPage from "./pages/DiscoverMealsPage"; 
+import MealDetailPage from "./pages/MealDetailPage"; // Import the new page
 
 const queryClient = new QueryClient();
 
@@ -60,7 +59,15 @@ const App = () => (
                 }
               />
               <Route
-                path="/manage-meal-entry" // New route
+                path="/meal/:mealId" // Add new route for meal details
+                element={
+                  <ProtectedRoute>
+                    <MealDetailPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/manage-meal-entry" 
                 element={
                   <ProtectedRoute>
                     <ManageMealEntryPage />
