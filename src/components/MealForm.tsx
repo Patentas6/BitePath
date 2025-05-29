@@ -25,28 +25,29 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useState, useEffect } from "react";
 
-export const UNITS = ['piece', 'g', 'kg', 'ml', 'l', 'tsp', 'tbsp', 'cup', 'oz', 'lb', 'pinch', 'dash', 'clove', 'can', 'bottle', 'package', 'slice', 'item', 'sprig', 'head', 'bunch'] as const;
+export const UNITS = ['piece', 'g', 'kg', 'ml', 'l', 'tsp', 'tbsp', 'cup', 'oz', 'lb', 'pinch', 'dash', 'clove', 'can', 'bottle', 'package', 'slice', 'item', 'sprig', 'head', 'bunch', 'to taste'] as const;
 
 const ingredientSchema = z.object({
   name: z.string().min(1, { message: "Ingredient name is required." }),
-  quantity: z.union([
-    z.coerce.number().positive({ message: "Quantity must be a positive number." }),
-    z.literal("").transform(() => undefined), 
-    z.null().transform(() => undefined) 
-  ]).optional(),
-  unit: z.string().optional().transform(val => val === "" ? undefined : val), // Treat "" as undefined, then optional
+  quantity: z.string() 
+    .transform((val) => val.trim() === "" ? undefined : parseFloat(val)) 
+    .refine((val) => val === undefined || (typeof val === 'number' && !isNaN(val) && val >= 0), { // Allow 0
+      message: "Quantity must be a non-negative number if provided.",
+    })
+    .optional(), 
+  unit: z.string().optional().transform(val => val === "" ? undefined : val), 
   description: z.string().optional(),
 }).refine(data => {
-  // If quantity is a number (meaning it was successfully parsed and is not undefined),
-  // then unit must also be defined (i.e., not undefined and not an empty string after initial transform).
   if (typeof data.quantity === 'number') {
-    return typeof data.unit === 'string' && data.unit.trim() !== "";
+    if (data.quantity === 0) { 
+      return data.unit === undefined || data.unit.trim().toLowerCase() === "to taste" || data.unit.trim() === "";
+    }
+    return typeof data.unit === 'string' && data.unit.trim() !== "" && data.unit.trim().toLowerCase() !== "to taste";
   }
-  // If quantity is undefined, then there's no requirement on unit.
-  return true;
+  return true; 
 }, {
-  message: "Unit is required if quantity is specified.",
-  path: ["unit"], // Apply error to unit field
+  message: "Unit is required for non-zero quantities. For 'to taste', set quantity to 0 and unit to 'to taste' or leave empty.",
+  path: ["unit"], 
 });
 
 
@@ -94,7 +95,7 @@ const MealForm: React.FC<MealFormProps> = ({
     resolver: zodResolver(mealFormSchema),
     defaultValues: {
       name: "",
-      ingredients: [{ name: "", quantity: "", unit: "", description: "" }], // Default to one empty row
+      ingredients: [], 
       instructions: "",
       meal_tags: [],
       image_url: "",
@@ -103,42 +104,37 @@ const MealForm: React.FC<MealFormProps> = ({
     },
   });
 
-  useEffect(() => {
-    if (initialData) {
-      // Ensure ingredients is an array, even if empty, for reset.
-      // If initialData.ingredients is empty or not provided, reset with an empty array for ingredients.
-      // Otherwise, use the provided ingredients.
-      const resetData = {
-        ...initialData,
-        ingredients: initialData.ingredients && initialData.ingredients.length > 0 
-          ? initialData.ingredients 
-          : [] // Use empty array to clear default if no ingredients or empty
-      };
-      form.reset(resetData);
-      if (initialData.image_url) {
-        setShowImageUrlInput(false);
-      }
-      onInitialDataProcessed?.();
-    } else {
-      // If initialData becomes null (e.g. user clears/switches context)
-      // Reset to truly default state, which includes one empty ingredient row by default in useForm
-      form.reset({ 
-          name: "",
-          ingredients: [{ name: "", quantity: "", unit: "", description: "" }],
-          instructions: "",
-          meal_tags: [],
-          image_url: "",
-          estimated_calories: "", 
-          servings: "", 
-        });
-    }
-  }, [initialData, form, onInitialDataProcessed]);
-
-
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, replace } = useFieldArray({
     control: form.control,
     name: "ingredients",
   });
+
+  useEffect(() => {
+    if (initialData) {
+      form.reset(initialData); 
+      replace(initialData.ingredients || []); 
+
+      if (initialData.image_url) {
+        setShowImageUrlInput(false);
+      }
+      if (onInitialDataProcessed) {
+        onInitialDataProcessed();
+      }
+    } else {
+      form.reset({
+        name: "",
+        ingredients: [{ name: "", quantity: "", unit: "", description: "" }], 
+        instructions: "",
+        meal_tags: [],
+        image_url: "",
+        estimated_calories: "",
+        servings: "",
+      });
+      replace([{ name: "", quantity: "", unit: "", description: "" }]);
+      setShowImageUrlInput(false);
+    }
+  }, [initialData, form, onInitialDataProcessed, replace]); 
+
 
   const addMealMutation = useMutation({
     mutationFn: async (values: MealFormValues) => {
@@ -149,8 +145,8 @@ const MealForm: React.FC<MealFormProps> = ({
 
       const ingredientsToSave = values.ingredients?.map(ing => ({
         name: ing.name,
-        quantity: (ing.quantity === undefined || ing.quantity === "") ? null : parseFloat(ing.quantity as any),
-        unit: (ing.quantity === undefined || ing.quantity === "") ? "" : ing.unit, // Keep unit if quantity was there, even if now null
+        quantity: ing.quantity !== undefined ? ing.quantity : null,
+        unit: ing.quantity !== undefined ? (ing.unit || "") : null,
         description: ing.description,
       })).filter(ing => ing.name.trim() !== ""); 
 
@@ -188,13 +184,14 @@ const MealForm: React.FC<MealFormProps> = ({
       
       form.reset({ 
         name: "",
-        ingredients: [{ name: "", quantity: "", unit: "", description: "" }],
+        ingredients: [{ name: "", quantity: "", unit: "", description: "" }], 
         instructions: "",
         meal_tags: [],
         image_url: "",
         estimated_calories: "", 
         servings: "", 
       });
+      replace([{ name: "", quantity: "", unit: "", description: "" }]); 
       setShowImageUrlInput(false); 
       queryClient.invalidateQueries({ queryKey: ["meals"] });
       queryClient.invalidateQueries({ queryKey: ['userProfileForAddMealLimits'] });
@@ -371,7 +368,7 @@ const MealForm: React.FC<MealFormProps> = ({
                             <FormItem className="md:col-span-1">
                               <FormLabel className="text-xs">Qty (Optional)</FormLabel>
                               <FormControl>
-                                <Input type="number" placeholder="e.g., 2" {...itemField} value={itemField.value === undefined ? "" : itemField.value} step="any" />
+                                <Input type="text" placeholder="e.g., 2 or 0" {...itemField} value={itemField.value ?? ""} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>

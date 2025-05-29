@@ -35,20 +35,24 @@ import { UNITS } from "./MealForm";
 
 const ingredientSchema = z.object({
   name: z.string().min(1, { message: "Ingredient name is required." }),
-  quantity: z.union([
-    z.coerce.number().positive({ message: "Quantity must be a positive number." }),
-    z.literal("").transform(() => undefined), 
-    z.null().transform(() => undefined) 
-  ]).optional(),
+  quantity: z.string() 
+    .transform((val) => val.trim() === "" ? undefined : parseFloat(val)) 
+    .refine((val) => val === undefined || (typeof val === 'number' && !isNaN(val) && val >= 0), { // Allow 0
+      message: "Quantity must be a non-negative number if provided.",
+    })
+    .optional(), 
   unit: z.string().optional().transform(val => val === "" ? undefined : val),
   description: z.string().optional(),
 }).refine(data => {
   if (typeof data.quantity === 'number') {
-    return typeof data.unit === 'string' && data.unit.trim() !== "";
+    if (data.quantity === 0) { 
+      return data.unit === undefined || data.unit.trim().toLowerCase() === "to taste" || data.unit.trim() === "";
+    }
+    return typeof data.unit === 'string' && data.unit.trim() !== "" && data.unit.trim().toLowerCase() !== "to taste";
   }
-  return true;
+  return true; 
 }, {
-  message: "Unit is required if quantity is specified.",
+  message: "Unit is required for non-zero quantities. For 'to taste', set quantity to 0 and unit to 'to taste' or leave empty.",
   path: ["unit"],
 });
 
@@ -104,14 +108,14 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
 
   useEffect(() => {
     if (meal && open) {
-      let parsedIngredients: any[] = []; // Default to empty array
+      let parsedIngredients: any[] = []; 
       if (meal.ingredients) {
         try {
           const parsed = JSON.parse(meal.ingredients);
-          if (Array.isArray(parsed) && parsed.length > 0) {
+          if (Array.isArray(parsed)) {
             parsedIngredients = parsed.map(item => ({
               name: item.name || "",
-              quantity: item.quantity !== undefined && item.quantity !== null ? String(item.quantity) : "", // Ensure string for form
+              quantity: item.quantity !== undefined && item.quantity !== null ? String(item.quantity) : "",
               unit: item.unit || "",
               description: item.description || "",
             }));
@@ -123,19 +127,12 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
       
       form.reset({
         name: meal.name,
-        // If parsedIngredients is empty, react-hook-form will render 0 rows for the field array
-        ingredients: parsedIngredients.length > 0 ? parsedIngredients : [], 
+        ingredients: parsedIngredients, 
         instructions: meal.instructions || "",
         meal_tags: meal.meal_tags || [],
         estimated_calories: meal.estimated_calories || "", 
         servings: meal.servings || "", 
       });
-       // If after reset, fields is still empty and we intended to have a blank row (e.g. from no ingredients)
-      // This ensures at least one row if `parsedIngredients` was empty.
-      if (parsedIngredients.length === 0 && form.getValues('ingredients').length === 0) {
-        append({ name: "", quantity: "", unit: "", description: "" });
-      }
-
     } else if (!open) {
       form.reset({
         name: "",
@@ -146,7 +143,7 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
         servings: "", 
       });
     }
-  }, [meal, open, form, append]); // Added append to dependency array
+  }, [meal, open, form]);
 
   const editMealMutation = useMutation({
     mutationFn: async (values: MealFormValues) => {
@@ -159,8 +156,8 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
 
       const ingredientsToSave = values.ingredients?.map(ing => ({
         name: ing.name,
-        quantity: (ing.quantity === undefined || ing.quantity === "") ? null : parseFloat(ing.quantity as any),
-        unit: (ing.quantity === undefined || ing.quantity === "") ? "" : ing.unit,
+        quantity: ing.quantity !== undefined ? ing.quantity : null,
+        unit: ing.quantity !== undefined ? (ing.unit || "") : null,
         description: ing.description,
       })).filter(ing => ing.name.trim() !== "");
 
@@ -317,7 +314,7 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
                             <FormItem className="md:col-span-2"> 
                               <FormLabel className="text-xs">Qty (Optional)</FormLabel>
                               <FormControl>
-                                <Input type="number" placeholder="e.g., 2" {...itemField} value={itemField.value === undefined ? "" : itemField.value} step="any"/>
+                                <Input type="text" placeholder="e.g., 2 or 0" {...itemField} value={itemField.value ?? ""} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -455,7 +452,7 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
               src={viewingImageUrl}
               alt="Enlarged meal image"
               className="max-w-full max-h-full object-contain"
-              onClick={(e) => e.stopPropagation()} // Optional: if you want clicking image itself to NOT close
+              onClick={(e) => e.stopPropagation()}
             />
           )}
         </DialogContent>
