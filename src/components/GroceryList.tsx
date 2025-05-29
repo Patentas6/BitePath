@@ -31,7 +31,6 @@ interface ParsedIngredientItem {
   quantity: number | string | null; 
   unit: string | null; 
   description?: string;
-  mealName?: string;
 }
 
 interface ManualGroceryItem {
@@ -41,7 +40,7 @@ interface ManualGroceryItem {
   unit: string;
 }
 
-interface CategorizedDisplayListItem {
+interface AggregatedDisplayListItem {
   itemName: string;
   itemNameClass: string;
   detailsPart: string;
@@ -50,12 +49,10 @@ interface CategorizedDisplayListItem {
   uniqueKey: string;
 }
 
-interface MealWiseDisplayItem {
-  mealPlanId: string; // Use meal_plan_id as the unique identifier for the meal instance
+interface AggregatedMealDisplayItem {
   mealName: string;
-  mealType: string | null;
-  planDate: string;
-  ingredients: CategorizedDisplayListItem[];
+  ingredients: AggregatedDisplayListItem[];
+  // We don't need planDate or mealType here as it's globally aggregated by meal name
 }
 
 const PIECE_UNITS: ReadonlyArray<string> = ['piece', 'pieces', 'item', 'items', 'unit', 'units'];
@@ -126,7 +123,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
       const endDateStr = format(queryEndDate, 'yyyy-MM-dd');
       const { data, error } = await supabase
         .from("meal_plans")
-        .select("id, plan_date, meal_type, meals ( name, ingredients )") // Added id (meal_plan_id) and meal_type
+        .select("id, plan_date, meal_type, meals ( name, ingredients )")
         .eq("user_id", userId)
         .gte("plan_date", startDateStr)
         .lte("plan_date", endDateStr);
@@ -166,106 +163,107 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
     return { quantity: roundedDisplayQty, unit: unitStr, detailsClass };
   };
 
-  const mealWiseDisplayList = useMemo(() => {
+  const aggregatedMealDisplayList = useMemo(() => {
     if (!plannedMealsData) return [];
-    const mealsMap = new Map<string, MealWiseDisplayItem>();
+    
+    // Step 1: Aggregate all ingredients globally by meal name, then by ingredient name+unit
+    const globalAggregatedIngredientsByMeal = new Map<string, Map<string, {
+      name: string;
+      totalQuantity: number;
+      unit: string;
+      descriptions: Set<string>; // Use Set to store unique descriptions
+      originalSources: string[]; // To store "Meal Name (Meal Type - Date)"
+    }>>();
 
     plannedMealsData.forEach(pm => {
-      if (!pm.meals || !pm.meals.ingredients) return;
-      const mealPlanId = pm.id; // Use the meal_plan.id as the unique key for the meal instance
-      let mealEntry = mealsMap.get(mealPlanId);
-      if (!mealEntry) {
-        mealEntry = { 
-          mealPlanId: mealPlanId,
-          mealName: pm.meals.name, 
-          mealType: pm.meal_type,
-          planDate: pm.plan_date, 
-          ingredients: [] 
-        };
-        mealsMap.set(mealPlanId, mealEntry);
+      if (!pm.meals || !pm.meals.name || !pm.meals.ingredients) return;
+      const mealName = pm.meals.name;
+      const mealSourceInfo = `${pm.meals.name} (${pm.meal_type || 'Meal'} - ${format(parseISO(pm.plan_date), 'MMM dd')})`;
+
+      if (!globalAggregatedIngredientsByMeal.has(mealName)) {
+        globalAggregatedIngredientsByMeal.set(mealName, new Map());
       }
+      const mealIngredientMap = globalAggregatedIngredientsByMeal.get(mealName)!;
 
       try {
         const parsedIngredients: ParsedIngredientItem[] = JSON.parse(pm.meals.ingredients);
-        const aggregatedIngredients = new Map<string, {
-          name: string;
-          totalQuantity: number;
-          unit: string;
-          descriptions: string[];
-          originalTooltips: string[];
-        }>();
-
-        parsedIngredients.forEach((ing) => {
+        parsedIngredients.forEach(ing => {
           if (!ing.name) return;
 
-          if (ing.description?.trim().toLowerCase() === 'to taste' || !ing.unit || ing.quantity === null || ing.quantity === undefined) {
-            const uniqueKeyForStriking = `mealwise:${mealPlanId}:${ing.name.trim().toLowerCase()}:to-taste-${mealEntry!.ingredients.length}`;
-            mealEntry!.ingredients.push({
-              itemName: ing.name.trim(),
-              itemNameClass: "text-foreground",
-              detailsPart: ing.description?.trim().toLowerCase() === 'to taste' ? "to taste" : (ing.description || ""),
-              detailsClass: "text-gray-500 dark:text-gray-400",
-              originalItemsTooltip: `${ing.name} (${ing.description || 'details not specified'}) (from: ${pm.meals!.name} - ${pm.meal_type || 'Meal'})`,
-              uniqueKey: uniqueKeyForStriking,
-            });
-            return;
-          }
+          const isToTaste = ing.description?.trim().toLowerCase() === 'to taste' || !ing.unit || ing.quantity === null || ing.quantity === undefined;
+          const aggKey = isToTaste 
+            ? `${ing.name.trim().toLowerCase()}:to-taste` 
+            : `${ing.name.trim().toLowerCase()}_${ing.unit!.trim().toLowerCase()}`;
           
-          const quantityNum = typeof ing.quantity === 'string' ? parseFloat(ing.quantity) : Number(ing.quantity);
-          if (isNaN(quantityNum) || quantityNum < 0) return;
+          let quantityNum = 0;
+          if (!isToTaste) {
+            quantityNum = typeof ing.quantity === 'string' ? parseFloat(ing.quantity) : Number(ing.quantity);
+            if (isNaN(quantityNum) || quantityNum < 0) return; // Skip invalid quantities
+          }
 
-          const aggKey = `${ing.name.trim().toLowerCase()}_${ing.unit.trim().toLowerCase()}`;
-          const originalTooltipForItem = `${ing.quantity || ''} ${ing.unit || ''} ${ing.name.trim()} ${ing.description ? `(${ing.description})` : ''}`.trim();
-
-          if (aggregatedIngredients.has(aggKey)) {
-            const existing = aggregatedIngredients.get(aggKey)!;
-            existing.totalQuantity += quantityNum;
-            if (ing.description && !existing.descriptions.includes(ing.description)) {
-              existing.descriptions.push(ing.description);
-            }
-            existing.originalTooltips.push(originalTooltipForItem);
+          if (mealIngredientMap.has(aggKey)) {
+            const existing = mealIngredientMap.get(aggKey)!;
+            if (!isToTaste) existing.totalQuantity += quantityNum;
+            if (ing.description) existing.descriptions.add(ing.description);
+            existing.originalSources.push(mealSourceInfo);
           } else {
-            aggregatedIngredients.set(aggKey, {
+            mealIngredientMap.set(aggKey, {
               name: ing.name.trim(),
-              totalQuantity: quantityNum,
-              unit: ing.unit.trim(),
-              descriptions: ing.description ? [ing.description] : [],
-              originalTooltips: [originalTooltipForItem],
+              totalQuantity: isToTaste ? 0 : quantityNum, // Store 0 for "to taste" to handle display later
+              unit: isToTaste ? "to taste" : ing.unit!.trim(),
+              descriptions: ing.description ? new Set([ing.description]) : new Set(),
+              originalSources: [mealSourceInfo],
             });
           }
         });
+      } catch (e) { console.warn(`Error parsing ingredients for meal "${mealName}":`, e); }
+    });
 
-        aggregatedIngredients.forEach((aggIng) => {
+    // Step 2: Convert the globally aggregated map into the display list structure
+    const displayList: AggregatedMealDisplayItem[] = [];
+    globalAggregatedIngredientsByMeal.forEach((ingredientMap, mealName) => {
+      const mealDisplayItem: AggregatedMealDisplayItem = { mealName, ingredients: [] };
+      ingredientMap.forEach(aggIng => {
+        let detailsPartStr = "";
+        let formattedDetailsClass = "text-foreground";
+
+        if (aggIng.unit.toLowerCase() === 'to taste' || aggIng.totalQuantity === 0 && aggIng.unit.toLowerCase() !== 'to taste') {
+          detailsPartStr = "to taste";
+          formattedDetailsClass = "text-gray-500 dark:text-gray-400";
+        } else {
           const formatted = formatQuantityAndUnitForDisplay(aggIng.totalQuantity, aggIng.unit);
-          let detailsPartStr = "";
+          formattedDetailsClass = formatted.detailsClass;
           if (PIECE_UNITS.includes(formatted.unit.toLowerCase()) && formatted.quantity > 0) {
-              detailsPartStr = `${formatted.quantity}`;
+            detailsPartStr = `${formatted.quantity}`;
           } else if (formatted.quantity > 0 && formatted.unit) {
-              detailsPartStr = `${formatted.quantity} ${formatted.unit}`;
-          } else if (formatted.unit) {
-              detailsPartStr = formatted.unit;
+            detailsPartStr = `${formatted.quantity} ${formatted.unit}`;
+          } else if (formatted.unit) { // Handles cases like "pinch salt" where quantity might be implied
+            detailsPartStr = formatted.unit;
           }
+        }
+        
+        const uniqueDescriptions = Array.from(aggIng.descriptions).join(', ');
+        if (uniqueDescriptions && aggIng.unit.toLowerCase() !== 'to taste') {
+          detailsPartStr += ` (${uniqueDescriptions})`;
+        }
+        
+        const uniqueKeyForStriking = `global-agg:${mealName}:${aggIng.name.trim().toLowerCase()}:${aggIng.unit.trim().toLowerCase()}`;
+        const combinedTooltip = `Total: ${detailsPartStr || aggIng.totalQuantity} ${aggIng.unit} ${aggIng.name}. From: ${Array.from(new Set(aggIng.originalSources)).join('; ')}.`;
 
-          const uniqueKeyForStriking = `mealwise:${mealPlanId}:${aggIng.name.trim().toLowerCase()}:${aggIng.unit.trim().toLowerCase()}`;
-          const combinedTooltip = `Total: ${detailsPartStr} ${aggIng.name}. From: ${aggIng.originalTooltips.join('; ')} (Meal: ${pm.meals!.name} - ${pm.meal_type || 'Meal'})`;
-
-          mealEntry!.ingredients.push({
-            itemName: aggIng.name,
-            itemNameClass: "text-foreground",
-            detailsPart: detailsPartStr,
-            detailsClass: formatted.detailsClass,
-            originalItemsTooltip: combinedTooltip,
-            uniqueKey: uniqueKeyForStriking,
-          });
+        mealDisplayItem.ingredients.push({
+          itemName: aggIng.name,
+          itemNameClass: "text-foreground",
+          detailsPart: detailsPartStr.trim(),
+          detailsClass: formattedDetailsClass,
+          originalItemsTooltip: combinedTooltip,
+          uniqueKey: uniqueKeyForStriking,
         });
-      } catch (e) { console.warn("Error parsing ingredients for meal-wise view:", e); }
+      });
+      mealDisplayItem.ingredients.sort((a, b) => a.itemName.localeCompare(b.itemName));
+      displayList.push(mealDisplayItem);
     });
-
-    mealsMap.forEach(mealEntry => {
-        mealEntry.ingredients.sort((a, b) => a.itemName.localeCompare(b.itemName));
-    });
-
-    return Array.from(mealsMap.values()).sort((a,b) => new Date(a.planDate).getTime() - new Date(b.planDate).getTime() || (a.mealType || '').localeCompare(b.mealType || '') || a.mealName.localeCompare(b.mealName));
+    
+    return displayList.sort((a,b) => a.mealName.localeCompare(b.mealName));
   }, [plannedMealsData, displaySystem]);
 
 
@@ -276,7 +274,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
         const newGlobalStruckItems = newGlobalValue ? new Set<string>(JSON.parse(newGlobalValue)) : new Set<string>();
 
         const currentDisplayKeys = new Set(
-          mealWiseDisplayList.flatMap(meal => meal.ingredients.map(ing => ing.uniqueKey))
+          aggregatedMealDisplayList.flatMap(meal => meal.ingredients.map(ing => ing.uniqueKey))
                 .concat(manualItems.map(item => `manual:${item.id}`))
         );
 
@@ -299,11 +297,11 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
     };
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
-  }, [mealWiseDisplayList, manualItems]);
+  }, [aggregatedMealDisplayList, manualItems]);
 
   useEffect(() => {
     const currentDisplayKeys = new Set(
-      mealWiseDisplayList.flatMap(meal => meal.ingredients.map(ing => ing.uniqueKey))
+      aggregatedMealDisplayList.flatMap(meal => meal.ingredients.map(ing => ing.uniqueKey))
             .concat(manualItems.map(item => `manual:${item.id}`))
     );
     const globalRaw = localStorage.getItem(SHARED_LOCAL_STORAGE_KEY);
@@ -322,7 +320,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
       }
       return prevLocalStruckItems;
     });
-  }, [mealWiseDisplayList, userId, selectedDays, displaySystem, manualItems, today]);
+  }, [aggregatedMealDisplayList, userId, selectedDays, displaySystem, manualItems, today]);
 
   const handleItemClick = (uniqueKey: string) => {
     const globalRaw = localStorage.getItem(SHARED_LOCAL_STORAGE_KEY);
@@ -352,7 +350,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
   if (plannedMealsError) return <Card className="hover:shadow-lg transition-shadow duration-200"><CardHeader><CardTitle>Grocery List</CardTitle></CardHeader><CardContent><Alert variant="destructive"><AlertTitle>Error</AlertTitle><AlertDescription>Could not load grocery list: {plannedMealsError.message}</AlertDescription></Alert></CardContent></Card>;
 
   const isManualEmpty = manualItems.length === 0;
-  const isEmptyList = mealWiseDisplayList.length === 0 && isManualEmpty;
+  const isEmptyList = aggregatedMealDisplayList.length === 0 && isManualEmpty;
 
   return (
     <Card className="hover:shadow-lg transition-shadow duration-200">
@@ -395,10 +393,10 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
           </div>
         ) : (
           <>
-            {mealWiseDisplayList.map(mealItem => (
-              <div key={mealItem.mealPlanId} className="mb-4">
+            {aggregatedMealDisplayList.map(mealItem => (
+              <div key={mealItem.mealName} className="mb-4">
                 <h3 className="text-md font-semibold text-gray-800 dark:text-gray-200 border-b pb-1 mb-2">
-                  {mealItem.mealName} ({mealItem.mealType || 'Meal'} - {format(parseISO(mealItem.planDate), 'MMM dd')})
+                  {mealItem.mealName}
                 </h3>
                 <ul className="space-y-1 text-sm pl-2">
                   {mealItem.ingredients.map((item, index) => (
