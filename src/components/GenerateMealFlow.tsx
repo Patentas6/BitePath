@@ -17,8 +17,8 @@ import type { CombinedGenerationLimits } from '@/pages/ManageMealEntryPage';
 
 interface GeneratedIngredient {
   name: string;
-  quantity: number | string; 
-  unit: string;
+  quantity: number | string | null; 
+  unit: string | null;
   description?: string;
 }
 
@@ -453,7 +453,11 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
               <ul className="list-disc list-inside space-y-1">
                 {generatedMeal.ingredients.map((ing, index) => (
                   <li key={index} className="text-muted-foreground">
-                    {typeof ing.quantity === 'number' ? ing.quantity : `"${ing.quantity}"`} {ing.unit} {ing.name} {ing.description && `(${ing.description})`}
+                    {ing.description?.toLowerCase() === 'to taste' ? (
+                      `${ing.name} (to taste)`
+                    ) : (
+                      `${typeof ing.quantity === 'number' || (typeof ing.quantity === 'string' && ing.quantity.trim() !== '') ? ing.quantity : ''} ${ing.unit || ''} ${ing.name} ${ing.description ? `(${ing.description})` : ''}`.trim()
+                    )}
                   </li>
                 ))}
               </ul>
