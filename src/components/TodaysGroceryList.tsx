@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { ShoppingCart, PlusCircle } from "lucide-react";
+import { ShoppingCart, PlusCircle, LayoutGrid, List } from "lucide-react";
 import { Link } from "react-router-dom";
 import { convertToPreferredSystem } from "@/utils/conversionUtils";
 import { cn } from "@/lib/utils";
@@ -17,7 +17,7 @@ const SHARED_LOCAL_STORAGE_KEY = 'bitepath-struckSharedGroceryItems';
 const MANUAL_ITEMS_LOCAL_STORAGE_KEY = 'bitepath-manualGroceryItems';
 
 interface PlannedMealWithIngredients {
-  id: string; // meal_plan_id
+  id: string; 
   plan_date: string;
   meal_type: string | null;
   meals: {
@@ -54,6 +54,11 @@ interface AggregatedMealDisplayItem {
   ingredients: AggregatedDisplayListItem[];
 }
 
+interface CategorizedDisplayItem {
+  categoryName: string;
+  ingredients: AggregatedDisplayListItem[];
+}
+
 interface ExampleMealIngredientItem {
   itemName: string;
   detailsPart: string;
@@ -67,6 +72,19 @@ interface ExampleMealDisplayItem {
 const PIECE_UNITS: ReadonlyArray<string> = ['piece', 'pieces', 'item', 'items', 'unit', 'units'];
 const SPICE_MEASUREMENT_UNITS: ReadonlyArray<string> = ['tsp', 'teaspoon', 'teaspoons', 'tbsp', 'tablespoon', 'tablespoons', 'pinch', 'pinches', 'dash', 'dashes'];
 
+const PRODUCE_KEYWORDS = ['apple', 'apricot', 'artichoke', 'asparagus', 'avocado', 'banana', 'basil', 'bean', 'beans', 'beet', 'bell pepper', 'berry', 'berries', 'bok choy', 'broccoli', 'brussels sprout', 'cabbage', 'cantaloupe', 'carrot', 'cauliflower', 'celery', 'chard', 'cherry', 'chile', 'cilantro', 'citrus', 'collard greens', 'corn', 'cucumber', 'date', 'dill', 'eggplant', 'endive', 'fennel', 'fig', 'fruit', 'fruits', 'garlic', 'ginger', 'grape', 'grapefruit', 'green bean', 'greens', 'herb', 'herbs', 'honeydew', 'kale', 'kiwi', 'kohlrabi', 'leek', 'lemon', 'lettuce', 'lime', 'mango', 'melon', 'mint', 'mushroom', 'nectarine', 'okra', 'onion', 'orange', 'oregano', 'papaya', 'parsley', 'parsnip', 'pea', 'peach', 'pear', 'pepper', 'pineapple', 'plum', 'pomegranate', 'potato', 'pumpkin', 'radicchio', 'radish', 'raspberry', 'rhubarb', 'rosemary', 'rutabaga', 'scallion', 'shallot', 'spinach', 'squash', 'strawberry', 'sweet potato', 'swiss chard', 'tangerine', 'thyme', 'tomatillo', 'tomato', 'turnip', 'vegetable', 'vegetables', 'watermelon', 'yam', 'zucchini'];
+const MEAT_POULTRY_KEYWORDS = ['anchovy', 'bacon', 'beef', 'bratwurst', 'bresaola', 'capicola', 'charcuterie', 'chicken', 'chorizo', 'clam', 'cod', 'crab', 'duck', 'fish', 'flounder', 'game', 'giblets', 'goat', 'goose', 'ground beef', 'ground chicken', 'ground pork', 'ground turkey', 'grouper', 'haddock', 'halibut', 'ham', 'hot dog', 'kielbasa', 'lamb', 'liver', 'lobster', 'loin', 'lumpfish', 'mackerel', 'mahi-mahi', 'meat', 'meatball', 'mignon', 'mortadella', 'mussel', 'octopus', 'ostrich', 'oxtail', 'oyster', 'pancetta', 'pastrami', 'pepperoni', 'pheasant', 'pork', 'prosciutto', 'quail', 'rabbit', 'ribeye', 'ribs', 'roast beef', 'salami', 'salmon', 'sardine', 'sausage', 'scallop', 'sea bass', 'seafood', 'shad', 'shellfish', 'shrimp', 'sirloin', 'skate', 'smelt', 'snapper', 'sole', 'squid', 'steak', 'stew meat', 'strip steak', 'sturgeon', 'swordfish', 'tilapia', 'tongue', 'tripe', 'trout', 'tuna', 'turkey', 'veal', 'venison', 'whitefish'];
+const DAIRY_EGGS_KEYWORDS = ['butter', 'buttermilk', 'casein', 'cheese', 'cheddar', 'cottage cheese', 'cream', 'cream cheese', 'creme fraiche', 'curd', 'dairy', 'egg', 'eggs', 'feta', 'ghee', 'goat cheese', 'gouda', 'half-and-half', 'ice cream', 'kefir', 'mascarpone', 'milk', 'mozzarella', 'paneer', 'parmesan', 'provolone', 'ricotta', 'sherbet', 'sour cream', 'whey', 'yogurt', 'yoghurt'];
+const PANTRY_KEYWORDS = ['agave', 'almond flour', 'almond meal', 'amaranth', 'arrowroot', 'baking mix', 'baking powder', 'baking soda', 'barley', 'bean thread', 'bicarbonate of soda', 'biscuit mix', 'bouillon', 'bran', 'bread', 'breadcrumb', 'breadcrumbs', 'broth', 'brown rice', 'brownie mix', 'buckwheat', 'bulgur', 'cake mix', 'canned', 'capellini', 'cereal', 'chia seed', 'chickpea flour', 'chocolate', 'cocoa', 'coconut flour', 'coconut milk', 'coffee', 'condensed milk', 'confectioners sugar', 'cookie mix', 'corn flour', 'corn syrup', 'cornmeal', 'cornstarch', 'couscous', 'cracker', 'crackers', 'crispbread', 'crouton', 'demerara sugar', 'ditalini', 'dried fruit', 'durum', 'edamame', 'elbow macaroni', 'emmer', 'evaporated milk', 'extract', 'farfalle', 'farina', 'farro', 'fettuccine', 'flax seed', 'flour', 'food coloring', 'freekeh', 'fusilli', 'gelatin', 'gnocchi', 'graham cracker', 'granola', 'grits', 'icing sugar', 'instant coffee', 'jam', 'jelly', 'juice', 'kamut', 'ketchup', 'lasagna', 'lentil', 'linguine', 'macaroni', 'maple syrup', 'marmalade', 'marshmallow', 'matzo', 'mayonnaise', 'millet', 'molasses', 'muesli', 'mustard', 'noodle', 'noodles', 'nut', 'nuts', 'oat', 'oatmeal', 'oil', 'olive oil', 'orzo', 'panko', 'pappardelle', 'pasta', 'peanut butter', 'pearl barley', 'pectin', 'penne', 'pickle', 'pie crust', 'pita', 'polenta', 'popcorn', 'poppy seed', 'potato starch', 'powdered sugar', 'preserves', 'pretzel', 'protein powder', 'pudding mix', 'puff pastry', 'quinoa', 'ramen', 'relish', 'rigatoni', 'rice', 'rice flour', 'risotto', 'rolled oat', 'rotelle', 'rotini', 'rye', 'sago', 'salt', 'sauce', 'semolina', 'sesame seed', 'shortening', 'soda', 'sorghum', 'soup mix', 'soy sauce', 'spaghetti', 'spelt', 'spice', 'spices', 'split pea', 'sprinkles', 'steel cut oat', 'stock', 'sugar', 'sunflower seed', 'syrup', 'taco shell', 'tahini', 'tapioca', 'tea', 'teriyaki sauce', 'tofu', 'tomato paste', 'tomato sauce', 'tortellini', 'tortilla', 'triticale', 'tuna can', 'vanilla', 'vermicelli', 'vinegar', 'vital wheat gluten', 'wafer', 'water chestnut', 'wheat', 'wheat germ', 'white rice', 'worcestershire sauce', 'yeast', 'ziti'];
+
+function getIngredientCategory(ingredientName: string): string {
+  const name = ingredientName.toLowerCase().trim();
+  if (PRODUCE_KEYWORDS.some(keyword => name.includes(keyword))) return "Produce";
+  if (MEAT_POULTRY_KEYWORDS.some(keyword => name.includes(keyword))) return "Meat & Poultry";
+  if (DAIRY_EGGS_KEYWORDS.some(keyword => name.includes(keyword))) return "Dairy & Eggs";
+  if (PANTRY_KEYWORDS.some(keyword => name.includes(keyword))) return "Pantry";
+  return "Other";
+}
 
 const exampleMealWiseGroceryData: ExampleMealDisplayItem[] = [
   {
@@ -108,6 +126,7 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
   const todayStr = format(today, 'yyyy-MM-dd');
   const [displaySystem, setDisplaySystem] = useState<'imperial' | 'metric'>('imperial');
   const [isManualAddDialogOpen, setIsManualAddDialogOpen] = useState(false);
+  const [groceryViewMode, setGroceryViewMode] = useState<'byMeal' | 'byCategory'>('byMeal');
 
   const [manualItems, setManualItems] = useState<ManualGroceryItem[]>(() => {
     const saved = localStorage.getItem(MANUAL_ITEMS_LOCAL_STORAGE_KEY);
@@ -195,10 +214,10 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
     return { quantity: roundedDisplayQty, unit: unitStr, detailsClass };
   };
 
-  const aggregatedMealDisplayList = useMemo(() => {
+  const globallyAggregatedIngredients = useMemo(() => {
     if (!plannedMealsData) return [];
     
-    const globalAggregatedIngredientsByMeal = new Map<string, Map<string, {
+    const ingredientsByMealName = new Map<string, Map<string, {
       name: string;
       totalQuantity: number;
       unit: string;
@@ -211,10 +230,10 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
       const mealName = pm.meals.name;
       const mealSourceInfo = `${pm.meals.name} (${pm.meal_type || 'Meal'} - Today)`;
 
-      if (!globalAggregatedIngredientsByMeal.has(mealName)) {
-        globalAggregatedIngredientsByMeal.set(mealName, new Map());
+      if (!ingredientsByMealName.has(mealName)) {
+        ingredientsByMealName.set(mealName, new Map());
       }
-      const mealIngredientMap = globalAggregatedIngredientsByMeal.get(mealName)!;
+      const mealIngredientMap = ingredientsByMealName.get(mealName)!;
 
       try {
         const parsedIngredients: ParsedIngredientItem[] = JSON.parse(pm.meals.ingredients);
@@ -248,9 +267,12 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
         });
       } catch (e) { console.warn(`Error parsing ingredients for meal "${mealName}" (Today's List):`, e); }
     });
+    return ingredientsByMealName;
+  }, [plannedMealsData]);
 
+  const mealWiseDisplayList: AggregatedMealDisplayItem[] = useMemo(() => {
     const displayList: AggregatedMealDisplayItem[] = [];
-    globalAggregatedIngredientsByMeal.forEach((ingredientMap, mealName) => {
+    globallyAggregatedIngredients.forEach((ingredientMap, mealName) => {
       const mealDisplayItem: AggregatedMealDisplayItem = { mealName, ingredients: [] };
       ingredientMap.forEach(aggIng => {
         let detailsPartStr = "";
@@ -291,20 +313,104 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
       mealDisplayItem.ingredients.sort((a, b) => a.itemName.localeCompare(b.itemName));
       displayList.push(mealDisplayItem);
     });
-    
     return displayList.sort((a,b) => a.mealName.localeCompare(b.mealName));
-  }, [plannedMealsData, displaySystem]);
+  }, [globallyAggregatedIngredients, displaySystem]);
+
+  const categorizedDisplayList: CategorizedDisplayItem[] = useMemo(() => {
+    if (groceryViewMode !== 'byCategory') return [];
+
+    const ingredientsByCategory = new Map<string, Map<string, {
+        displayName: string;
+        unitsData: { quantity: number; unit: string; originalSources: string[] }[];
+        allOriginalSources: Set<string>;
+    }>>();
+
+    globallyAggregatedIngredients.forEach((ingredientMap) => {
+        ingredientMap.forEach(aggIng => {
+            const category = getIngredientCategory(aggIng.name);
+            if (!ingredientsByCategory.has(category)) {
+                ingredientsByCategory.set(category, new Map());
+            }
+            const categoryIngredientMap = ingredientsByCategory.get(category)!;
+            const ingKey = aggIng.name.toLowerCase();
+
+            if (!categoryIngredientMap.has(ingKey)) {
+                categoryIngredientMap.set(ingKey, {
+                    displayName: aggIng.name,
+                    unitsData: [],
+                    allOriginalSources: new Set(),
+                });
+            }
+            const ingInfo = categoryIngredientMap.get(ingKey)!;
+            ingInfo.unitsData.push({
+                quantity: aggIng.totalQuantity,
+                unit: aggIng.unit,
+                originalSources: aggIng.originalSources,
+            });
+            aggIng.originalSources.forEach(src => ingInfo.allOriginalSources.add(src));
+        });
+    });
+    
+    const displayList: CategorizedDisplayItem[] = [];
+    const categoryOrder = ["Produce", "Meat & Poultry", "Dairy & Eggs", "Pantry", "Other"];
+
+    categoryOrder.forEach(categoryName => {
+        if (ingredientsByCategory.has(categoryName)) {
+            const categoryDisplayItem: CategorizedDisplayItem = { categoryName, ingredients: [] };
+            const ingredientMapForCategory = ingredientsByCategory.get(categoryName)!;
+            
+            Array.from(ingredientMapForCategory.values()).sort((a,b) => a.displayName.localeCompare(b.displayName)).forEach(ingInfo => {
+                let detailsParts: string[] = [];
+                let overallDetailsClass = "text-foreground";
+                
+                ingInfo.unitsData.forEach(unitData => {
+                    if (unitData.unit.toLowerCase() === 'to taste' || unitData.quantity === 0) {
+                        detailsParts.push("to taste");
+                        overallDetailsClass = "text-gray-500 dark:text-gray-400";
+                    } else {
+                        const formatted = formatQuantityAndUnitForDisplay(unitData.quantity, unitData.unit);
+                        if (PIECE_UNITS.includes(formatted.unit.toLowerCase()) && formatted.quantity > 0) {
+                            detailsParts.push(`${formatted.quantity}`);
+                        } else if (formatted.quantity > 0 && formatted.unit) {
+                            detailsParts.push(`${formatted.quantity} ${formatted.unit}`);
+                        } else if (formatted.unit) {
+                            detailsParts.push(formatted.unit);
+                        }
+                        if (formatted.detailsClass !== "text-foreground") {
+                           overallDetailsClass = formatted.detailsClass;
+                        }
+                    }
+                });
+
+                const uniqueKeyForStriking = `category-agg-today:${categoryName}:${ingInfo.displayName.toLowerCase()}`;
+                const combinedTooltip = `From: ${Array.from(ingInfo.allOriginalSources).join('; ')}.`;
+
+                categoryDisplayItem.ingredients.push({
+                    itemName: ingInfo.displayName,
+                    itemNameClass: "text-foreground",
+                    detailsPart: detailsParts.join(' + ') || "Amount not specified",
+                    detailsClass: overallDetailsClass,
+                    originalItemsTooltip: combinedTooltip,
+                    uniqueKey: uniqueKeyForStriking,
+                });
+            });
+             if (categoryDisplayItem.ingredients.length > 0) {
+                 displayList.push(categoryDisplayItem);
+            }
+        }
+    });
+    return displayList;
+  }, [globallyAggregatedIngredients, displaySystem, groceryViewMode]);
+
 
   useEffect(() => {
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === SHARED_LOCAL_STORAGE_KEY) {
         const newGlobalValue = event.newValue;
         const newGlobalStruckItems = newGlobalValue ? new Set<string>(JSON.parse(newGlobalValue)) : new Set<string>();
-
-        const currentDisplayKeys = new Set(
-           aggregatedMealDisplayList.flatMap(meal => meal.ingredients.map(ing => ing.uniqueKey))
-                .concat(manualItems.map(item => `manual:${item.id}`))
-        );
+        
+        const currentList = groceryViewMode === 'byMeal' ? mealWiseDisplayList.flatMap(m => m.ingredients) : categorizedDisplayList.flatMap(c => c.ingredients);
+        const currentDisplayKeys = new Set(currentList.map(ing => ing.uniqueKey).concat(manualItems.map(item => `manual:${item.id}`)));
 
         setStruckItems(prevLocalStruckItems => {
           const updatedLocalStruckItems = new Set<string>();
@@ -325,13 +431,12 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
     };
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
-  }, [aggregatedMealDisplayList, manualItems]);
+  }, [mealWiseDisplayList, categorizedDisplayList, manualItems, groceryViewMode]);
 
   useEffect(() => {
-    const currentDisplayKeys = new Set(
-      aggregatedMealDisplayList.flatMap(meal => meal.ingredients.map(ing => ing.uniqueKey))
-            .concat(manualItems.map(item => `manual:${item.id}`))
-    );
+    const currentList = groceryViewMode === 'byMeal' ? mealWiseDisplayList.flatMap(m => m.ingredients) : categorizedDisplayList.flatMap(c => c.ingredients);
+    const currentDisplayKeys = new Set(currentList.map(ing => ing.uniqueKey).concat(manualItems.map(item => `manual:${item.id}`)));
+
     const globalRaw = localStorage.getItem(SHARED_LOCAL_STORAGE_KEY);
     const globalStruckItems = globalRaw ? new Set<string>(JSON.parse(globalRaw)) : new Set<string>();
 
@@ -348,7 +453,7 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
       }
       return prevLocalStruckItems;
     });
-  }, [aggregatedMealDisplayList, userId, displaySystem, manualItems]);
+  }, [mealWiseDisplayList, categorizedDisplayList, manualItems, groceryViewMode, userId, displaySystem]);
 
   const handleItemClick = (uniqueKey: string) => {
     const globalRaw = localStorage.getItem(SHARED_LOCAL_STORAGE_KEY);
@@ -375,9 +480,10 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
   };
 
   const isManualEmpty = manualItems.length === 0;
+  const currentListToDisplay = groceryViewMode === 'byMeal' ? mealWiseDisplayList : categorizedDisplayList;
   const actualIsEmptyList = useMemo(() => {
-    return aggregatedMealDisplayList.length === 0 && isManualEmpty;
-  }, [aggregatedMealDisplayList, isManualEmpty]);
+    return currentListToDisplay.length === 0 && isManualEmpty;
+  }, [currentListToDisplay, isManualEmpty]);
 
   const showExampleData = actualIsEmptyList && !isLoading && !error;
 
@@ -388,6 +494,15 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
     <Card className="hover:shadow-lg transition-shadow duration-200 flex flex-col">
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Today's Ingredients ({format(today, 'MMM dd')})</CardTitle>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => setGroceryViewMode(prev => prev === 'byMeal' ? 'byCategory' : 'byMeal')}
+          className="h-8 text-sm"
+        >
+          {groceryViewMode === 'byMeal' ? <LayoutGrid className="mr-2 h-4 w-4" /> : <List className="mr-2 h-4 w-4" />}
+          View by {groceryViewMode === 'byMeal' ? 'Category' : 'Meal'}
+        </Button>
       </CardHeader>
       <CardContent className="flex-grow">
         {showExampleData && (
@@ -425,13 +540,33 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
           </div>
         ) : (
           <>
-            {aggregatedMealDisplayList.map(mealItem => (
+            {groceryViewMode === 'byMeal' && mealWiseDisplayList.map(mealItem => (
               <div key={mealItem.mealName} className="mb-4">
                 <h3 className="text-md font-semibold text-gray-800 dark:text-gray-200 border-b pb-1 mb-2">
                   {mealItem.mealName}
                 </h3>
                 <ul className="space-y-1 text-sm pl-2">
                   {mealItem.ingredients.map((item, index) => (
+                    <li
+                      key={`${item.uniqueKey}-${index}`} 
+                      onClick={() => handleItemClick(item.uniqueKey)}
+                      className={`cursor-pointer p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${struckItems.has(item.uniqueKey) ? 'line-through text-gray-400 dark:text-gray-600' : ''}`}
+                      title={item.originalItemsTooltip}
+                    >
+                      <span className={struckItems.has(item.uniqueKey) ? '' : item.itemNameClass}>{item.itemName}</span>
+                      {item.detailsPart && <span className={struckItems.has(item.uniqueKey) ? '' : item.detailsClass}>: {item.detailsPart}</span>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+             {groceryViewMode === 'byCategory' && categorizedDisplayList.map(categoryItem => (
+              <div key={categoryItem.categoryName} className="mb-4">
+                <h3 className="text-md font-semibold text-gray-800 dark:text-gray-200 border-b pb-1 mb-2">
+                  {categoryItem.categoryName}
+                </h3>
+                <ul className="space-y-1 text-sm pl-2">
+                  {categoryItem.ingredients.map((item, index) => (
                     <li
                       key={`${item.uniqueKey}-${index}`} 
                       onClick={() => handleItemClick(item.uniqueKey)}
