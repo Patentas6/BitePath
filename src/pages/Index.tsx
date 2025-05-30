@@ -178,7 +178,7 @@ const Index = () => {
             Meal Planning, Reimagined. This is <span className="whitespace-nowrap">The <BitePathStyled /></span>.
           </h1>
           <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 mb-8">
-            Plan meals in moments, generate custom recipes with AI, visualize them with unique images, and get your shopping list instantly.
+            Plan meals in moments, get AI-powered recipes & images, and watch your grocery list <strong>automatically appear</strong>
           </p>
           <Button size="lg" asChild>
             <Link to="/auth?mode=signup"><span>Start Planning for Free</span></Link>
