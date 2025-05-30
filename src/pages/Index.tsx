@@ -89,80 +89,85 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="w-full p-4 bg-background shadow-sm sticky top-0 z-50">
-        <div className="container mx-auto flex justify-between items-center">
-          <div className="flex items-center space-x-3">
-            <Link 
-              to="/" 
-              className="text-2xl font-bold group"
-            >
-              <BitePathStyled />
-            </Link>
-            {isMobile && ( 
+        <div className="container mx-auto"> 
+          <div className="flex justify-between items-center"> 
+            <div className="flex items-center space-x-3">
+              <Link 
+                to="/" 
+                className="text-2xl font-bold group"
+              >
+                <BitePathStyled />
+              </Link>
+            </div>
+            <nav className="flex items-center space-x-2 md:space-x-4">
+              {isMobile ? (
+                <Sheet>
+                  <SheetTrigger asChild>
+                    <Button variant="outline" size="icon">
+                      <Menu className="h-6 w-6" />
+                      <span className="sr-only">Open navigation menu</span>
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent side="right" className="w-[280px] sm:w-[320px]">
+                    <div className="flex flex-col space-y-4 p-6">
+                      <SheetClose asChild>
+                        <a href="#features-glimpse" className="text-lg hover:underline">How It Works</a>
+                      </SheetClose>
+                      <SheetClose asChild>
+                        <a href="#testimonials" className="text-lg hover:underline">Testimonials</a>
+                      </SheetClose>
+                      <SheetClose asChild>
+                        <a href="#about-us" className="text-lg hover:underline">About Us</a>
+                      </SheetClose>
+                      <SheetClose asChild>
+                        <Link to="/auth" className="text-lg hover:underline">Login</Link>
+                      </SheetClose>
+                      <SheetClose asChild>
+                         <Button 
+                            variant="default"
+                            className="w-full"
+                            asChild
+                          >
+                            <Link to="/auth?mode=signup">Sign Up</Link>
+                          </Button>
+                      </SheetClose>
+                      <div className="pt-4 border-t border-border">
+                        <ThemeToggleButton />
+                      </div>
+                    </div>
+                  </SheetContent>
+                </Sheet>
+              ) : (
+                <>
+                  <a href="#features-glimpse" className="hover:underline text-sm md:text-base">How It Works</a>
+                  <a href="#testimonials" className="hover:underline text-sm md:text-base">Testimonials</a>
+                  <a href="#about-us" className="hover:underline text-sm md:text-base">About Us</a>
+                  <Link to="/auth" className="hover:underline text-sm md:text-base">Login</Link>
+                  <Button 
+                    size="sm" 
+                    variant="default"
+                    asChild
+                    className="text-xs md:text-sm px-2 md:px-3"
+                  >
+                    <Link to="/auth?mode=signup"><span>Sign Up</span></Link>
+                  </Button>
+                  <ThemeToggleButton />
+                </>
+              )}
+            </nav>
+          </div>
+          {isMobile && ( 
+            <div className="mt-3 flex justify-center">
               <a 
                 href="#get-app" 
-                className="p-2 rounded-md hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
                 aria-label="Download App"
               >
-                <Download className="h-6 w-6" />
+                <Download className="h-5 w-5 mr-2" />
+                Download
               </a>
-            )}
-          </div>
-          <nav className="flex items-center space-x-2 md:space-x-4">
-            {isMobile ? (
-              <Sheet>
-                <SheetTrigger asChild>
-                  <Button variant="outline" size="icon">
-                    <Menu className="h-6 w-6" />
-                    <span className="sr-only">Open navigation menu</span>
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="right" className="w-[280px] sm:w-[320px]">
-                  <div className="flex flex-col space-y-4 p-6">
-                    <SheetClose asChild>
-                      <a href="#features-glimpse" className="text-lg hover:underline">How It Works</a>
-                    </SheetClose>
-                    <SheetClose asChild>
-                      <a href="#testimonials" className="text-lg hover:underline">Testimonials</a>
-                    </SheetClose>
-                    <SheetClose asChild>
-                      <a href="#about-us" className="text-lg hover:underline">About Us</a>
-                    </SheetClose>
-                    <SheetClose asChild>
-                      <Link to="/auth" className="text-lg hover:underline">Login</Link>
-                    </SheetClose>
-                    <SheetClose asChild>
-                       <Button 
-                          variant="default"
-                          className="w-full"
-                          asChild
-                        >
-                          <Link to="/auth?mode=signup">Sign Up</Link>
-                        </Button>
-                    </SheetClose>
-                    <div className="pt-4 border-t border-border">
-                      <ThemeToggleButton />
-                    </div>
-                  </div>
-                </SheetContent>
-              </Sheet>
-            ) : (
-              <>
-                <a href="#features-glimpse" className="hover:underline text-sm md:text-base">How It Works</a>
-                <a href="#testimonials" className="hover:underline text-sm md:text-base">Testimonials</a>
-                <a href="#about-us" className="hover:underline text-sm md:text-base">About Us</a>
-                <Link to="/auth" className="hover:underline text-sm md:text-base">Login</Link>
-                <Button 
-                  size="sm" 
-                  variant="default"
-                  asChild
-                  className="text-xs md:text-sm px-2 md:px-3"
-                >
-                  <Link to="/auth?mode=signup"><span>Sign Up</span></Link>
-                </Button>
-                <ThemeToggleButton />
-              </>
-            )}
-          </nav>
+            </div>
+          )}
         </div>
       </header>
 
