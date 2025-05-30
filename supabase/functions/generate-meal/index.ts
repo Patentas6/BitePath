@@ -414,9 +414,15 @@ The meal should still generally be a ${mealType || 'general'} type.`;
                 const imagePromptText = `A vibrant, appetizing, realistic photo of the meal "${mealNameForImage}". Focus on the finished dish presented nicely on a plate or in a bowl, suitable for a food blog. Ensure main ingredients are clearly visible. Good lighting, sharp focus.`;
 
                 const imagenPayload = {
-                instances: [{ prompt: imagePromptText }],
-                parameters: { sampleCount: 1, aspectRatio: "1:1", outputFormat: "png" }
+                  instances: [{ prompt: imagePromptText }],
+                  parameters: {
+                    sampleCount: 1,
+                    aspectRatio: "1:1",
+                    outputFormat: "png",
+                    sampleImageSize: 1024 // Attempt to control image size
+                  }
                 };
+                console.log("Imagen Payload:", JSON.stringify(imagenPayload)); // Log the payload
 
                 const imagenResponse = await fetch(imagenEndpoint, {
                     method: "POST",
@@ -430,13 +436,23 @@ The meal should still generally be a ${mealType || 'general'} type.`;
                     console.error(`Vertex AI Imagen API error for user ${user.id}: ${imagenResponse.status} ${imagenResponse.statusText}`, errorBody);
                 } else {
                     const imagenData = await imagenResponse.json();
+                    console.log(`Imagen API response for user ${user.id} OK. Status: ${imagenResponse.status}. Full data:`, JSON.stringify(imagenData, null, 2));
+
                     const base64EncodedImage = imagenData.predictions?.[0]?.bytesBase64Encoded;
                     if (base64EncodedImage) {
                         imageUrl = `data:image/png;base64,${base64EncodedImage}`;
+                        console.log(`Successfully extracted base64 image data for user ${user.id}.`); 
+                    } else {
+                        console.warn(`Imagen API response for user ${user.id} OK, but no base64EncodedImage found in predictions. Predictions structure:`, JSON.stringify(imagenData.predictions, null, 2));
                     }
                 }
 
                 if (generatedMealData) generatedMealData.image_url = imageUrl;
+
+                if (!imageUrl && generatedMealData) { 
+                    console.warn(`Image URL is undefined for user ${user.id} after Imagen API call for meal: ${generatedMealData.name}. Check previous logs for errors or missing data.`);
+                }
+
 
                 if (!userIsAdmin) {
                     userImageGenerationCount += 1;
