@@ -418,7 +418,7 @@ The meal should still generally be a ${mealType || 'general'} type.`;
                   parameters: { 
                     sampleCount: 1, 
                     aspectRatio: "1:1", 
-                    outputFormat: "jpeg" 
+                    outputFormat: "png" 
                   }
                 };
 
@@ -436,7 +436,7 @@ The meal should still generally be a ${mealType || 'general'} type.`;
                     const imagenData = await imagenResponse.json();
                     const base64EncodedImage = imagenData.predictions?.[0]?.bytesBase64Encoded;
                     if (base64EncodedImage) {
-                        imageUrl = `data:image/jpeg;base64,${base64EncodedImage}`;
+                        imageUrl = `data:image/png;base64,${base64EncodedImage}`;
                     }
                 }
 

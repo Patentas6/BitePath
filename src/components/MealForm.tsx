@@ -24,6 +24,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useState, useEffect } from "react";
+import { LazyLoadImage } from 'react-lazy-load-image-component';
+import 'react-lazy-load-image-component/src/effects/blur.css';
 
 export const UNITS = ['piece', 'g', 'kg', 'ml', 'l', 'tsp', 'tbsp', 'cup', 'oz', 'lb', 'pinch', 'dash', 'clove', 'can', 'bottle', 'package', 'slice', 'item', 'sprig', 'head', 'bunch'] as const;
 
@@ -498,11 +500,14 @@ const MealForm: React.FC<MealFormProps> = ({
                       {currentImageUrl ? (
                         <div className="relative w-full h-40 flex items-center justify-center overflow-hidden rounded-md bg-muted cursor-pointer"
                              onClick={() => setViewingImageUrl(currentImageUrl)}>
-                          <img
-                            src={currentImageUrl}
+                          <LazyLoadImage
                             alt="Meal preview"
-                            className="h-full object-contain"
-                            onError={(e) => (e.currentTarget.style.display = 'none')}
+                            src={currentImageUrl}
+                            effect="blur"
+                            wrapperClassName="h-full w-full"
+                            className="h-full w-full object-contain"
+                            placeholderSrc="/placeholder-image.png"
+                            onError={(e: any) => (e.currentTarget.style.display = 'none')}
                           />
                            <Button
                               type="button"

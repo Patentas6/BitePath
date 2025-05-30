@@ -25,6 +25,8 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; 
 import { cn } from "@/lib/utils"; 
 import { calculateCaloriesPerServing } from '@/utils/mealUtils'; 
+import { LazyLoadImage } from 'react-lazy-load-image-component';
+import 'react-lazy-load-image-component/src/effects/blur.css';
 
 interface Meal extends MealForEditing {
   meal_tags?: string[] | null;
@@ -286,22 +288,24 @@ const MealList = () => {
                     className="border p-3 sm:p-4 rounded-lg shadow-sm bg-card hover:shadow-md transition-shadow duration-150 flex flex-col cursor-pointer"
                     onClick={() => navigate(`/meal/${meal.id}`)}
                   >
-                    {/* Top section: Image (mobile full-width) and Main Info + Desktop Buttons */}
                     <div className="flex flex-col sm:flex-row items-start">
                       {meal.image_url && (
                          <div
                            className="w-full sm:w-24 md:w-28 h-40 sm:h-24 md:h-28 object-cover rounded-md mb-2 sm:mb-0 sm:mr-4 flex-shrink-0 flex items-center justify-center overflow-hidden bg-muted" 
                            onClick={(e) => { e.stopPropagation(); setViewingImageUrl(meal.image_url || null); }}
                          >
-                           <img
-                             src={meal.image_url}
+                           <LazyLoadImage
                              alt={meal.name}
-                             className="h-full w-full object-cover" 
-                             onError={(e) => (e.currentTarget.style.display = 'none')} 
+                             src={meal.image_url}
+                             effect="blur"
+                             wrapperClassName="h-full w-full"
+                             className="h-full w-full object-cover"
+                             placeholderSrc="/placeholder-image.png"
+                             onError={(e: any) => (e.currentTarget.style.display = 'none')}
                            />
                          </div>
                       )}
-                      <div className="flex-grow min-w-0"> {/* min-w-0 for flex child to truncate */}
+                      <div className="flex-grow min-w-0"> 
                         <h3 className="text-lg sm:text-xl font-semibold text-foreground">{meal.name}</h3>
                         {meal.meal_tags && meal.meal_tags.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-1.5">
@@ -323,7 +327,6 @@ const MealList = () => {
                           </div>
                         )}
                       </div>
-                      {/* Desktop Buttons (only visible on sm+) */}
                       <div className="hidden sm:flex flex-col space-y-2 ml-2 flex-shrink-0">
                         <Button 
                           variant="outline" 
@@ -344,7 +347,6 @@ const MealList = () => {
                       </div>
                     </div>
 
-                    {/* Ingredients & Instructions */}
                     {(meal.ingredients || (meal.instructions && meal.instructions.trim() !== "")) && (
                       <div className="space-y-2 mt-2 pt-2 border-t sm:border-t-0 sm:pt-2 flex-grow"> 
                         {meal.ingredients && (
@@ -366,7 +368,6 @@ const MealList = () => {
                       </div>
                     )}
 
-                    {/* Mobile Buttons (only visible on screens smaller than sm) */}
                     <div className="flex sm:hidden space-x-2 mt-3 pt-3 border-t">
                       <Button 
                         variant="outline" 
