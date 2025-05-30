@@ -10,6 +10,7 @@ import { supabase } from "@/lib/supabase";
 import { Sheet, SheetTrigger, SheetContent, SheetClose } from "@/components/ui/sheet"; 
 import { AndroidBrandIcon } from "@/components/icons/AndroidBrandIcon";
 import { AppleBrandIcon } from "@/components/icons/AppleBrandIcon";
+import { ShareIcon } from "@/components/icons/ShareIcon";
 
 const Index = () => {
   const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
@@ -241,7 +242,7 @@ const Index = () => {
               </CardContent>
               <CardFooter>
                 <p className="text-sm text-muted-foreground">
-                  Then, sign up or log in to start your smart meal planning journey!
+                  Then, click the app you just downloaded and sign up to start your smart meal planning journey!
                 </p>
               </CardFooter>
             </Card>
@@ -258,9 +259,8 @@ const Index = () => {
                 </p>
                 <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
                   <li>Open <BitePathStyled /> in your Safari browser.</li>
-                  <li>Tap the 'Share' button at the bottom of your screen.</li>
+                  <li>Tap the 'Share' button <ShareIcon className="inline-block h-4 w-4 align-text-bottom ml-1" /> at the bottom of your screen.</li>
                   <li>Scroll down and tap 'Add to Home Screen'.</li>
-                  <li>Confirm by tapping 'Add' in the top right.</li>
                 </ol>
                 <p className="text-muted-foreground pt-2">
                   You'll now find <BitePathStyled /> on your Home Screen!
@@ -268,7 +268,7 @@ const Index = () => {
               </CardContent>
               <CardFooter>
                 <p className="text-sm text-muted-foreground">
-                  Open it up, then sign up or log in to dive into smart meal planning!
+                  Open it up, then sign up to dive into smart meal planning!
                 </p>
               </CardFooter>
             </Card>
