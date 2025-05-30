@@ -191,12 +191,20 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
         return null;
       }
       setIsGeneratingImage(true);
+      setGenerationStatusMessage("Preparing image request...");
+      setGenerationProgress(10);
       const loadingToastId = showLoading("Generating image...");
+
+      setTimeout(() => { if(generateImageMutation.isPending) {setGenerationStatusMessage("Contacting image AI..."); setGenerationProgress(30);} }, 1000);
+      setTimeout(() => { if(generateImageMutation.isPending) {setGenerationStatusMessage("AI is painting your image..."); setGenerationProgress(60);} }, 3000); 
+
       try {
         const { data, error: functionError } = await supabase.functions.invoke('generate-meal', {
           body: { mealData: mealToGetImageFor }, 
         });
         dismissToast(loadingToastId);
+        setGenerationProgress(100); 
+
         if (functionError) {
              if (functionError.message.includes("Functions_Relay_Error") && functionError.message.includes("429")) {
                  showError(`Image generation limit reached. This was also caught by the server.`);
@@ -204,12 +212,18 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
                  showError(`Image generation failed: ${functionError.message}`);
              }
              queryClient.invalidateQueries({ queryKey: ['userProfileForMealEntryLimits', userId] });
+             setGenerationStatusMessage(`Image generation failed: ${functionError.message.includes("429") ? "Limit reached." : "Server error."}`);
+             setGenerationProgress(0);
+             setTimeout(() => { setGenerationStatusMessage(null); }, 3000);
              return null;
         }
         if (data?.error) { 
             showError(data.error); 
             if (data.mealData) setGeneratedMeal(prev => ({...prev!, ...data.mealData}));
             queryClient.invalidateQueries({ queryKey: ['userProfileForMealEntryLimits', userId] });
+            setGenerationStatusMessage(`Image generation error: ${data.error}`);
+            setGenerationProgress(0);
+            setTimeout(() => { setGenerationStatusMessage(null); }, 3000);
             return null;
         }
         if (data?.image_url !== undefined) { 
@@ -220,17 +234,26 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
             servings: data.servings !== undefined ? data.servings : prev.servings,
           } : null);
           showSuccess("Image generated!");
+          setGenerationStatusMessage("Image generated successfully!");
           setTimeout(() => { 
             recipeCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }, 100);
+            setGenerationStatusMessage(null); 
+            setGenerationProgress(0);
+          }, 100); 
         } else {
           showError("Image generation did not return an image URL.");
+          setGenerationStatusMessage("No image URL returned.");
+          setGenerationProgress(0);
+          setTimeout(() => { setGenerationStatusMessage(null); }, 3000);
         }
         queryClient.invalidateQueries({ queryKey: ['userProfileForMealEntryLimits', userId] });
         return data;
       } catch (error: any) {
         dismissToast(loadingToastId);
         showError(`Failed to generate image: ${error.message || 'Please try again.'}`);
+        setGenerationStatusMessage("Image generation failed.");
+        setGenerationProgress(0);
+        setTimeout(() => { setGenerationStatusMessage(null); }, 3000);
         throw error;
       } finally {
         setIsGeneratingImage(false);
@@ -417,7 +440,7 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
                 ? generationStatusMessage 
                 : (isGeneratingRecipe || recipeGenerationMutation.isPending ? 'Generating Recipe...' : 'Generate Recipe')}
             </Button>
-            {recipeGenerationMutation.isPending && (
+            {(recipeGenerationMutation.isPending || generateImageMutation.isPending) && (
               <div className="mt-2 text-center">
                 <Progress value={generationProgress} className="w-full h-2 mb-2" />
                 {generationStatusMessage && <p className="text-sm text-muted-foreground">{generationStatusMessage}</p>}
@@ -526,7 +549,9 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
                 variant="secondary" 
               >
                 <ImageIcon className="mr-2 h-4 w-4" />
-                {isGeneratingImage || generateImageMutation.isPending ? 'Generating Image...' : 'Generate Image for this Meal'}
+                {generateImageMutation.isPending && generationStatusMessage
+                  ? generationStatusMessage
+                  : (isGeneratingImage || generateImageMutation.isPending ? 'Generating Image...' : 'Generate Image for this Meal')}
               </Button>
               {!isLoadingProfile && (
                 <div className="flex items-center justify-center text-xs text-muted-foreground">
