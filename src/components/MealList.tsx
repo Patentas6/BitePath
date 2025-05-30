@@ -149,9 +149,7 @@ const MealList = () => {
   }, [meals]);
 
   const filteredMeals = useMemo(() => {
-    if (!meals) {
-      return [];
-    }
+    if (!meals) return [];
     return meals.filter(meal => {
       const nameMatch = meal.name.toLowerCase().includes(searchTerm.toLowerCase());
       const categoryMatch = selectedCategory === 'all' || (meal.meal_tags && meal.meal_tags.includes(selectedCategory));
@@ -197,7 +195,7 @@ const MealList = () => {
   }
 
   if (error) {
-    console.error("[MealList] Error fetching meals, displaying error UI:", error); 
+    console.error("Error fetching meals:", error);
     return (
       <Card className="hover:shadow-lg transition-shadow duration-200">
         <CardHeader><CardTitle>My Meals</CardTitle></CardHeader>

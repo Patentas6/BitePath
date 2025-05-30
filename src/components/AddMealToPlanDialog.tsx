@@ -38,7 +38,6 @@ interface Meal {
   name: string;
   meal_tags?: string[] | null;
   image_url?: string | null;
-  created_at?: string | null;
 }
 
 interface AddMealToPlanDialogProps {
@@ -69,9 +68,9 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
       if (!userId) throw new Error("User ID is required to fetch meals.");
       const { data, error } = await supabase
         .from("meals")
-        .select("id, name, meal_tags, image_url, created_at")
+        .select("id, name, meal_tags, image_url")
         .eq("user_id", userId)
-        .order("created_at", { ascending: false }); 
+        .order("name", { ascending: true }); 
       if (error) throw error;
       return data || [];
     },
@@ -243,7 +242,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
                       if (!isComboboxOpen && value) setIsComboboxOpen(true); 
                     }}
                   />
-                  <CommandList className="max-h-[200px] sm:max-h-[250px]"> 
+                  <CommandList className="max-h-[200px] sm:max-h-[250px]"> {/* Constrain height for scrolling */}
                     {isLoadingMeals ? (
                       <div className="p-2 text-sm text-muted-foreground">Loading meals...</div>
                     ) : mealsError ? (
@@ -291,7 +290,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
             </Popover>
           </div>
         </div>
-        <DialogFooter className="mt-auto pt-4 border-t"> 
+        <DialogFooter className="mt-auto pt-4 border-t"> {/* Ensure footer is at the bottom */}
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={addMealToPlanMutation.isPending}>
             Cancel
           </Button>

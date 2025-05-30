@@ -1,9 +1,10 @@
 import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
-import { useIsMobile } from "@/hooks/use-mobile"; 
+import { useIsMobile } from "@/hooks/use-mobile"; // Import useIsMobile
 
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -23,12 +24,14 @@ import MealDetailPage from "./pages/MealDetailPage";
 const queryClient = new QueryClient();
 
 const App = () => {
-  const isMobile = useIsMobile(); 
+  const isMobile = useIsMobile(); // Determine if the view is mobile
 
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <QueryClientProvider client={queryClient}>
-        <Toaster offset={isMobile ? 80 : 20} /> 
+        <Toaster /> {/* This is the default shadcn/ui toast system */}
+        {/* Conditionally position Sonner toasts */}
+        <Sonner position={isMobile ? "top-center" : "bottom-right"} /> 
         <TooltipProvider>
           <BrowserRouter>
             <>
