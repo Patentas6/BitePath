@@ -11,6 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { Brain, Save, RefreshCw, Info, Image as ImageIcon, Edit2, Zap, Users } from 'lucide-react'; 
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Progress } from "@/components/ui/progress";
 import { IMAGE_GENERATION_LIMIT_PER_MONTH, RECIPE_GENERATION_LIMIT_PER_PERIOD, RECIPE_GENERATION_PERIOD_DAYS } from '@/lib/constants';
 import { calculateCaloriesPerServing } from '@/utils/mealUtils';
 import type { CombinedGenerationLimits } from '@/pages/ManageMealEntryPage';
@@ -77,6 +78,8 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
+  const [generationStatusMessage, setGenerationStatusMessage] = useState<string | null>(null);
+  const [generationProgress, setGenerationProgress] = useState<number>(0);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -115,8 +118,14 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
       }
 
       setIsGeneratingRecipe(true);
+      setGenerationStatusMessage(params.isRefinement ? "Preparing to refine recipe..." : "Preparing your recipe request...");
+      setGenerationProgress(10); 
+      
       const loadingToastId = showLoading(params.isRefinement ? "Refining recipe..." : "Generating recipe...");
       
+      setTimeout(() => { setGenerationStatusMessage("Contacting AI chef..."); setGenerationProgress(30); }, 1000);
+      setTimeout(() => { setGenerationStatusMessage("AI is crafting your masterpiece..."); setGenerationProgress(60); }, 5000); 
+
       const bodyPayload: any = {
         mealType: selectedMealType,
         kinds: selectedKinds,
@@ -132,6 +141,7 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
       try {
         const { data, error: functionError } = await supabase.functions.invoke('generate-meal', { body: bodyPayload });
         dismissToast(loadingToastId);
+        setGenerationProgress(100); 
 
         if (functionError) {
             if (functionError.message.includes("Functions_Relay_Error") && functionError.message.includes("429")) {
@@ -140,21 +150,30 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
                  showError(`Recipe generation failed: ${functionError.message}`);
             }
             queryClient.invalidateQueries({ queryKey: ['userProfileForMealEntryLimits', userId] });
+            setGenerationStatusMessage(null); 
+            setGenerationProgress(0); 
             return null;
         }
         if (data?.error) { 
             showError(data.error); 
             queryClient.invalidateQueries({ queryKey: ['userProfileForMealEntryLimits', userId] });
+            setGenerationStatusMessage(null); 
+            setGenerationProgress(0); 
             return null; 
         }
         setGeneratedMeal({ ...data, image_url: params.isRefinement ? generatedMeal?.image_url : undefined }); 
         setRefinementPrompt(''); 
         showSuccess(params.isRefinement ? "Recipe refined!" : "Recipe generated!");
         queryClient.invalidateQueries({ queryKey: ['userProfileForMealEntryLimits', userId] });
+        setGenerationStatusMessage(params.isRefinement ? "Recipe refined successfully!" : "Recipe generated successfully!"); 
+        setTimeout(() => { setGenerationStatusMessage(null); setGenerationProgress(0); }, 3000); 
         return data;
       } catch (error: any) { 
         dismissToast(loadingToastId);
         showError(`Failed to ${params.isRefinement ? 'refine' : 'generate'} recipe: ${error.message || 'Please try again.'}`);
+        setGenerationStatusMessage("An error occurred."); 
+        setGenerationProgress(0); 
+        setTimeout(() => setGenerationStatusMessage(null), 3000); 
         throw error;
       } finally {
         setIsGeneratingRecipe(false);
@@ -271,7 +290,7 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
     setRefinementPrompt('');
   };
 
-  const handleInitialGenerateRecipeClick = async () => {
+  const handleInitialGenerateRecipeClick = async () => { 
      const { data: authData } = await supabase.auth.getUser();
      if (!authData.user) { showError("You must be logged in to generate meals."); navigate("/auth"); return; }
      recipeGenerationMutation.mutate({ isRefinement: false });
@@ -377,7 +396,6 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
                 maxLength={PREFERENCES_MAX_LENGTH}
               />
               <div className="text-xs text-muted-foreground mt-2 p-2 bg-muted/50 rounded-md space-y-1">
-                {/* Removed the specific text about profile preferences being auto-included */}
                 <div>
                   <strong className="block mt-1">Pro Tips:</strong>
                   <ul className="list-disc list-inside pl-1 space-y-0.5">
@@ -395,8 +413,16 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
               disabled={!selectedMealType || isGeneratingRecipe || recipeGenerationMutation.isPending || (!isLoadingProfile && !recipeGenerationStatus.isAdmin && recipeGenerationStatus.limitReached)}
               className="w-full"
             >
-              {isGeneratingRecipe || recipeGenerationMutation.isPending ? 'Generating Recipe...' : 'Generate Recipe'}
+              {recipeGenerationMutation.isPending && generationStatusMessage 
+                ? generationStatusMessage 
+                : (isGeneratingRecipe || recipeGenerationMutation.isPending ? 'Generating Recipe...' : 'Generate Recipe')}
             </Button>
+            {recipeGenerationMutation.isPending && (
+              <div className="mt-2 text-center">
+                <Progress value={generationProgress} className="w-full h-2 mb-2" />
+                {generationStatusMessage && <p className="text-sm text-muted-foreground">{generationStatusMessage}</p>}
+              </div>
+            )}
             <div className="text-xs text-muted-foreground text-center pt-2">
               <Info size={14} className="inline mr-1 flex-shrink-0" />
                {getRecipeLimitText()}
@@ -409,7 +435,7 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
         <Card ref={recipeCardRef}> 
           <CardHeader>
             <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-              <div className="flex-grow order-2 sm:order-1"> {/* Text content first on small screens */}
+              <div className="flex-grow order-2 sm:order-1"> 
                 <CardTitle>{generatedMeal.name}</CardTitle>
                 <CardDescription>
                   {generatedMeal.image_url ? "Generated Recipe & Image" : "Generated Recipe Text"}
@@ -553,7 +579,7 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
               src={viewingImageUrl}
               alt="Enlarged meal image"
               className="max-w-full max-h-full object-contain"
-              onClick={(e) => e.stopPropagation()} // Optional: if you want clicking image itself to NOT close
+              onClick={(e) => e.stopPropagation()} 
             />
           )}
         </DialogContent>
