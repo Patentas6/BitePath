@@ -418,8 +418,7 @@ The meal should still generally be a ${mealType || 'general'} type.`;
                   parameters: {
                     sampleCount: 1,
                     aspectRatio: "1:1",
-                    outputFormat: "png",
-                    sampleImageSize: 1024 // Attempt to control image size
+                    outputFormat: "png"
                   }
                 };
                 console.log("Imagen Payload:", JSON.stringify(imagenPayload)); // Log the payload
