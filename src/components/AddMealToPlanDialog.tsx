@@ -60,6 +60,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTags, setSelectedTags] = useState<MealTag[]>([]);
   const [isComboboxOpen, setIsComboboxOpen] = useState(false);
+  const [imagesReadyToLoad, setImagesReadyToLoad] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: meals, isLoading: isLoadingMeals, error: mealsError } = useQuery<Meal[]>({
@@ -115,12 +116,21 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
       setSelectedTags(tagsToPreselect);
       console.log("[AddMealToPlanDialog] `selectedTags` state set to:", tagsToPreselect);
       console.log("--------------------------------------------------");
-      
+      setImagesReadyToLoad(false); 
     } else {
       setIsComboboxOpen(false); 
     }
   }, [open, initialMealType]);
 
+  useEffect(() => {
+    if (meals && meals.length > 0 && !isLoadingMeals) {
+      // Once meal data is available and not loading, allow images to load after a brief delay
+      const timer = setTimeout(() => {
+        setImagesReadyToLoad(true);
+      }, 100); // Small delay to ensure text renders first
+      return () => clearTimeout(timer);
+    }
+  }, [meals, isLoadingMeals]);
 
   const filteredMeals = useMemo(() => {
     if (!meals) return [];
@@ -266,7 +276,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
                           >
                             <Check className={cn("mr-2 h-4 w-4", selectedMealId === meal.id ? "opacity-100" : "opacity-0")} />
                             <div className="flex items-center space-x-2 overflow-hidden">
-                              {meal.image_url ? (
+                              {imagesReadyToLoad && meal.image_url ? (
                                 <img 
                                   src={meal.image_url} 
                                   alt={meal.name} 
