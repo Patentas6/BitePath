@@ -40,6 +40,7 @@ interface Meal {
   name: string;
   meal_tags?: string[] | null;
   image_url?: string | null;
+  created_at?: string | null;
 }
 
 interface AddMealToPlanDialogProps {
@@ -63,15 +64,15 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
   const [searchTerm, setSearchTerm] = useState("");
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
   const [selectedTags, setSelectedTags] = useState<MealTag[]>([]);
-  const queryClient = useQueryClient(); // Removed unused isComboboxOpen
+  const queryClient = useQueryClient(); 
 
   const fetchMeals = async ({ pageParam = 0, queryKey }: { pageParam?: number, queryKey: any }) => {
     const [_queryName, currentUserId, currentSearchTerm, currentSelectedTagsString] = queryKey;
-    if (!currentUserId) return { data: [], error: null, nextPage: undefined, totalCount: 0 }; // Ensure all return paths match structure
+    if (!currentUserId) return { data: [], error: null, nextPage: undefined, totalCount: 0 }; 
 
     let query = supabase
       .from("meals")
-      .select("id, name, meal_tags, image_url", { count: 'exact' })
+      .select("id, name, meal_tags, image_url, created_at", { count: 'exact' }) 
       .eq("user_id", currentUserId);
 
     if (currentSearchTerm) {
@@ -85,7 +86,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
     
     const from = pageParam * DIALOG_PAGE_SIZE;
     const to = from + DIALOG_PAGE_SIZE - 1;
-    query = query.order("name", { ascending: true }).range(from, to);
+    query = query.order("created_at", { ascending: false }).range(from, to); 
 
     const { data, error, count } = await query;
 
@@ -105,7 +106,6 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
 
   const {
     data: mealsData,
-    // error: mealsError, // Error is handled by query, not directly used here
     isLoading: isLoadingMeals,
     fetchNextPage,
     hasNextPage,
@@ -146,7 +146,6 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
       }
       setSelectedTags(tagsToPreselect);
     } 
-    // Removed setIsComboboxOpen(false) as it's not used
   }, [open, initialMealType]);
 
   useEffect(() => {
@@ -240,7 +239,6 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
                   className="cursor-pointer text-xs"
                 >
                   {tag}
-                  {selectedTags.includes(tag) && <X className="ml-1 h-3 w-3" />}
                 </Badge>
               ))}
             </div>
@@ -258,7 +256,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
                 disabled={isLoadingMeals || addMealToPlanMutation.isPending}
               />
             </div>
-            <CommandList className="flex-grow overflow-y-auto"> {/* Adjusted for flex grow */}
+            <CommandList className="flex-grow overflow-y-auto"> 
               {isLoadingMeals && !allFetchedMeals.length && (
                 <div className="p-4 text-center text-sm text-muted-foreground">
                   <Loader2 className="mx-auto h-6 w-6 animate-spin mb-2" />
