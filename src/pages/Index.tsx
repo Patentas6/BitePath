@@ -97,6 +97,15 @@ const Index = () => {
             >
               <BitePathStyled />
             </Link>
+            {isMobile && ( 
+              <a 
+                href="#get-app" 
+                className="p-2 rounded-md hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                aria-label="Download App"
+              >
+                <Download className="h-6 w-6" />
+              </a>
+            )}
           </div>
           <nav className="flex items-center space-x-2 md:space-x-4">
             {isMobile ? (
@@ -129,12 +138,6 @@ const Index = () => {
                         >
                           <Link to="/auth?mode=signup">Sign Up</Link>
                         </Button>
-                    </SheetClose>
-                    <SheetClose asChild>
-                      <a href="#get-app" className="text-lg hover:underline flex items-center">
-                        <Download className="mr-2 h-5 w-5" />
-                        Download App
-                      </a>
                     </SheetClose>
                     <div className="pt-4 border-t border-border">
                       <ThemeToggleButton />
