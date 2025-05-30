@@ -58,13 +58,6 @@ const MealTemplateCard: React.FC<MealTemplateCardProps> = ({ template, onAddToMy
     return text.substring(0, maxLength) + '...';
   };
 
-  const getTransformedImageUrl = (url: string | null | undefined, width: number, height: number) => {
-    if (!url) return '';
-    return `${url}?transform=w_${width},h_${height},c_fill,q_auto`;
-  };
-  
-  const transformedImageUrl = getTransformedImageUrl(template.image_url, 300, 160); // Example: 300x160 for card header
-
   return (
     <Card className={cn(
       "flex flex-col hover:shadow-lg transition-shadow duration-200",
@@ -73,7 +66,7 @@ const MealTemplateCard: React.FC<MealTemplateCardProps> = ({ template, onAddToMy
       <CardHeader>
         {template.image_url && (
           <img 
-            src={transformedImageUrl} 
+            src={template.image_url} 
             alt={template.name} 
             className="w-full h-40 object-cover rounded-t-md mb-4" 
             onError={(e) => (e.currentTarget.style.display = 'none')}

@@ -7,7 +7,7 @@ import { PLANNING_MEAL_TYPES, PlanningMealType } from "@/lib/constants";
 
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { UtensilsCrossed, Edit, Zap, Image as ImageIconPlaceholder, Users, PlusCircle } from "lucide-react"; 
+import { UtensilsCrossed, Edit, Zap, Image as ImageIcon, Users, PlusCircle } from "lucide-react"; 
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -170,11 +170,6 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
     type => !sortedMealPlans.some(p => p.meal_type === type)
   );
 
-  const getTransformedImageUrl = (url: string, width: number, height: number) => {
-    if (!url) return '';
-    return `${url}?transform=w_${width},h_${height},c_fill,q_auto`;
-  };
-
   return (
     <>
       <Card className="hover:shadow-lg transition-shadow duration-200 flex flex-col">
@@ -212,9 +207,6 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
                   ? { className: "flex-grow w-full sm:w-auto block p-1 -m-1" }
                   : { to: mealDetailLink, className: "flex-grow w-full sm:w-auto block hover:bg-muted/30 rounded-md p-1 -m-1 transition-colors" };
 
-                const imageUrl = plannedMeal.meals?.image_url;
-                const transformedImageUrl = imageUrl ? getTransformedImageUrl(imageUrl, 100, 100) : null; // 100x100 for thumbnail
-
                 return (
                   <li 
                     key={plannedMeal.id} 
@@ -223,17 +215,17 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
                       showExampleData && "opacity-80 border-dashed"
                     )}
                   >
-                     {transformedImageUrl ? (
+                     {plannedMeal.meals?.image_url ? (
                       <div
                         className={cn(
                           "w-full h-40 sm:w-24 sm:h-24 object-cover rounded-md mb-2 sm:mb-0 sm:mr-3 flex-shrink-0 flex items-center justify-center overflow-hidden bg-muted",
                           !showExampleData && "cursor-pointer"
                         )}
-                        onClick={() => !showExampleData && imageUrl && setViewingImageUrl(imageUrl)} // Use original URL for dialog
+                        onClick={() => !showExampleData && plannedMeal.meals?.image_url && setViewingImageUrl(plannedMeal.meals.image_url)}
                       >
                         <img
-                          src={transformedImageUrl}
-                          alt={plannedMeal.meals?.name || 'Meal image'}
+                          src={plannedMeal.meals.image_url}
+                          alt={plannedMeal.meals.name || 'Meal image'}
                           className="h-full w-full object-cover"
                           onError={(e) => {
                             const target = e.currentTarget as HTMLImageElement;
@@ -250,7 +242,7 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
                       </div>
                      ) : (
                        <div className="w-full h-40 sm:w-24 sm:h-24 rounded-md mb-2 sm:mb-0 sm:mr-3 flex-shrink-0 flex items-center justify-center bg-muted text-muted-foreground">
-                         <ImageIconPlaceholder size={32} />
+                         <ImageIcon size={32} />
                        </div>
                      )}
                      <MealContentWrapper {...mealContentWrapperProps}>
@@ -330,7 +322,7 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
         >
           {viewingImageUrl && (
             <img
-              src={viewingImageUrl} // Display original image in dialog
+              src={viewingImageUrl}
               alt="Enlarged meal image"
               className="max-w-full max-h-full object-contain"
               onClick={(e) => e.stopPropagation()} 

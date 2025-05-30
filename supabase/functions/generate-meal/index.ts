@@ -2,7 +2,6 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { create, getNumericDate } from "https://deno.land/x/djwt@v2.4/mod.ts";
 import { format as formatDate, parse as parseDate, difference } from "https://deno.land/std@0.224.0/datetime/mod.ts";
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-import { Buffer } from "https://deno.land/std@0.190.0/io/buffer.ts"; // For base64 decoding
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,12 +12,11 @@ const corsHeaders = {
 const IMAGE_GENERATION_LIMIT_PER_MONTH = 30;
 const RECIPE_GENERATION_LIMIT_PER_PERIOD = 100;
 const RECIPE_GENERATION_PERIOD_DAYS = 15;
-const MEAL_IMAGES_BUCKET = 'meal_images'; // Define bucket name
 
 interface GeneratedIngredient {
   name: string;
-  quantity: number | string | null;
-  unit: string | null;
+  quantity: number | string | null; // Allow null for "to taste"
+  unit: string | null; // Allow null for "to taste"
   description?: string;
 }
 
@@ -101,17 +99,6 @@ async function getAccessToken(serviceAccountJsonString: string): Promise<string>
     console.error("Error in getAccessToken:", error);
     throw new Error(`Authentication failed: ${(error as Error).message}`);
   }
-}
-
-// Helper function to decode base64 and convert to ArrayBuffer
-function base64ToArrayBuffer(base64: string): ArrayBuffer {
-  const binaryString = atob(base64);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes.buffer;
 }
 
 serve(async (req) => {
@@ -208,7 +195,6 @@ serve(async (req) => {
         console.log("Proceeding to generate/re-generate image for:", mealNameForImage);
 
     } else {
-        // ... (recipe generation logic - remains the same)
         if (!userIsAdmin) {
             const today = new Date();
             const todayStr = formatDate(today, "yyyy-MM-dd");
@@ -252,7 +238,7 @@ serve(async (req) => {
         const saGemini = JSON.parse(serviceAccountJsonStringForGemini);
         const projectIdGemini = saGemini.project_id;
         const regionGemini = "us-central1";
-        const geminiModelId = "gemini-1.5-flash-preview-0514"; // Ensure this is the correct/latest model
+        const geminiModelId = "gemini-2.5-flash-preview-05-20"; // Updated model ID
         const geminiEndpoint = `https://${regionGemini}-aiplatform.googleapis.com/v1/projects/${projectIdGemini}/locations/${regionGemini}/publishers/google/models/${geminiModelId}:generateContent`;
 
         let prompt = `Generate a detailed meal recipe in JSON format. The JSON object must have the following structure:
@@ -395,14 +381,14 @@ The meal should still generally be a ${mealType || 'general'} type.`;
             if (userImageGenerationCount >= IMAGE_GENERATION_LIMIT_PER_MONTH) {
                 if (!requestBody.mealData && generatedMealData) {
                     console.warn(`Image generation limit reached for user ${user.id}, but returning generated recipe text.`);
-                    generatedMealData.image_url = undefined; // Ensure no image URL if limit hit
-                } else { // This case means it was an explicit image generation request (mealData was present)
+                    generatedMealData.image_url = undefined;
+                } else {
                     return new Response(JSON.stringify({
                         error: `You have reached your monthly image generation limit of ${IMAGE_GENERATION_LIMIT_PER_MONTH}.`,
-                        ...(requestBody.mealData && { // Return existing mealData if it was an image-only request
+                        ...(requestBody.mealData && {
                             mealData: {
-                                ...generatedMealData, // This would be the original mealData passed in
-                                image_url: generatedMealData?.image_url // Keep existing image_url if any
+                                ...generatedMealData,
+                                image_url: generatedMealData?.image_url
                             }
                         })
                     }), {
@@ -412,7 +398,6 @@ The meal should still generally be a ${mealType || 'general'} type.`;
             }
         }
 
-        // Proceed with image generation if not limit-hit or if admin
         if (userIsAdmin || userImageGenerationCount < IMAGE_GENERATION_LIMIT_PER_MONTH || userLastImageGenerationReset !== formatDate(new Date(), "yyyy-MM")) {
             const serviceAccountJsonStringForImagen = Deno.env.get("VERTEX_SERVICE_ACCOUNT_KEY_JSON");
             if (!serviceAccountJsonStringForImagen) {
@@ -429,17 +414,17 @@ The meal should still generally be a ${mealType || 'general'} type.`;
                 const imagePromptText = `A vibrant, appetizing, realistic photo of the meal "${mealNameForImage}". Focus on the finished dish presented nicely on a plate or in a bowl, suitable for a food blog. Ensure main ingredients are clearly visible. Good lighting, sharp focus.`;
 
                 const imagenPayload = {
-                  instances: [{ prompt: imagePromptText }],
-                  parameters: { sampleCount: 1, aspectRatio: "1:1", outputFormat: "png" }
+                instances: [{ prompt: imagePromptText }],
+                parameters: { sampleCount: 1, aspectRatio: "1:1", outputFormat: "png" }
                 };
-                
+
                 const imagenResponse = await fetch(imagenEndpoint, {
                     method: "POST",
                     headers: { "Authorization": `Bearer ${accessTokenForImagen}`, "Content-Type": "application/json" },
                     body: JSON.stringify(imagenPayload),
                 });
 
-                let storagePublicUrl: string | undefined = undefined;
+                let imageUrl: string | undefined = undefined;
                 if (!imagenResponse.ok) {
                     const errorBody = await imagenResponse.text();
                     console.error(`Vertex AI Imagen API error for user ${user.id}: ${imagenResponse.status} ${imagenResponse.statusText}`, errorBody);
@@ -447,44 +432,19 @@ The meal should still generally be a ${mealType || 'general'} type.`;
                     const imagenData = await imagenResponse.json();
                     const base64EncodedImage = imagenData.predictions?.[0]?.bytesBase64Encoded;
                     if (base64EncodedImage) {
-                        try {
-                            const imageBuffer = base64ToArrayBuffer(base64EncodedImage);
-                            const filePath = `meal-images/${user.id}/${crypto.randomUUID()}.png`;
-                            
-                            const { data: uploadData, error: uploadError } = await serviceSupabaseClient.storage
-                                .from(MEAL_IMAGES_BUCKET)
-                                .upload(filePath, imageBuffer, { contentType: 'image/png', upsert: true });
-
-                            if (uploadError) {
-                                console.error(`Supabase Storage upload error for user ${user.id}:`, uploadError);
-                            } else if (uploadData) {
-                                const { data: urlData } = serviceSupabaseClient.storage
-                                    .from(MEAL_IMAGES_BUCKET)
-                                    .getPublicUrl(filePath);
-                                storagePublicUrl = urlData.publicUrl;
-                                console.log(`Image uploaded for user ${user.id} to: ${storagePublicUrl}`);
-                            }
-                        } catch (e) {
-                            console.error(`Error processing/uploading image for user ${user.id}:`, e);
-                        }
-                    } else {
-                        console.warn(`Imagen API response for user ${user.id} OK, but no base64EncodedImage found.`);
+                        imageUrl = `data:image/png;base64,${base64EncodedImage}`;
                     }
                 }
 
-                if (generatedMealData) generatedMealData.image_url = storagePublicUrl;
+                if (generatedMealData) generatedMealData.image_url = imageUrl;
 
-                if (!storagePublicUrl && generatedMealData) { 
-                    console.warn(`Image URL is undefined for user ${user.id} after Imagen API call and Storage upload for meal: ${generatedMealData.name}.`);
-                }
-
-                if (!userIsAdmin) { // Only update count if not admin
+                if (!userIsAdmin) {
                     userImageGenerationCount += 1;
                     const { error: updateError } = await serviceSupabaseClient
                         .from('profiles')
                         .update({
                             image_generation_count: userImageGenerationCount,
-                            last_image_generation_reset: userLastImageGenerationReset // This should be currentMonthYear if reset
+                            last_image_generation_reset: userLastImageGenerationReset
                         })
                         .eq('id', user.id);
                     if (updateError) {
@@ -495,19 +455,18 @@ The meal should still generally be a ${mealType || 'general'} type.`;
         }
     }
 
-    // Final response construction
-    if (requestBody.mealData) { // If original request was for image generation on existing mealData
+    if (requestBody.mealData) {
          return new Response(
-            JSON.stringify({ // Return only the potentially updated image_url and other relevant fields
-                image_url: generatedMealData?.image_url, // This will be the new Supabase URL or undefined
-                estimated_calories: generatedMealData?.estimated_calories, // Pass through if they existed
-                servings: generatedMealData?.servings // Pass through if they existed
+            JSON.stringify({
+                image_url: generatedMealData?.image_url,
+                estimated_calories: generatedMealData?.estimated_calories,
+                servings: generatedMealData?.servings
             }),
             { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
          );
-    } else if (generatedMealData) { // If it was a recipe generation request
+    } else if (generatedMealData) {
         return new Response(
-          JSON.stringify(generatedMealData), // Contains recipe text and potentially new Supabase image_url
+          JSON.stringify(generatedMealData),
           { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
         );
     } else {

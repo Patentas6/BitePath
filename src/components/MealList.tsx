@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Trash2, Edit3, Search, ChefHat, List, Grid3X3, Zap, Users, Image as ImageIconPlaceholder } from "lucide-react"; 
+import { Trash2, Edit3, Search, ChefHat, List, Grid3X3, Zap, Users } from "lucide-react"; 
 import EditMealDialog, { MealForEditing } from "./EditMealDialog";
 import {
   AlertDialog,
@@ -204,14 +204,6 @@ const MealList = () => {
     );
   }
 
-  const getTransformedImageUrl = (url: string, width: number, height: number) => {
-    if (!url) return '';
-    // Assuming the URL is already a Supabase public storage URL
-    // e.g., https://<project_id>.supabase.co/storage/v1/object/public/meal_images/path/to/image.png
-    // We just need to append the transform query parameters.
-    return `${url}?transform=w_${width},h_${height},c_fill,q_auto`;
-  };
-
   return (
     <>
       <Card className="hover:shadow-lg transition-shadow duration-200">
@@ -287,8 +279,6 @@ const MealList = () => {
                 const caloriesPerServing = calculateCaloriesPerServing(meal.estimated_calories, meal.servings);
                 const canTrackCalories = userProfile && userProfile.track_calories;
                 const shouldShowCalories = canTrackCalories && caloriesPerServing !== null;
-                const imageWidth = layoutView === 'grid' ? 300 : 100; // Example sizes
-                const imageHeight = layoutView === 'grid' ? 200 : 100;
                 
                 return (
                   <div 
@@ -296,45 +286,22 @@ const MealList = () => {
                     className="border p-3 sm:p-4 rounded-lg shadow-sm bg-card hover:shadow-md transition-shadow duration-150 flex flex-col cursor-pointer"
                     onClick={() => navigate(`/meal/${meal.id}`)}
                   >
+                    {/* Top section: Image (mobile full-width) and Main Info + Desktop Buttons */}
                     <div className="flex flex-col sm:flex-row items-start">
-                      {meal.image_url ? (
+                      {meal.image_url && (
                          <div
-                           className={cn(
-                            "flex-shrink-0 rounded-md mb-2 sm:mb-0 sm:mr-4 flex items-center justify-center overflow-hidden bg-muted",
-                            layoutView === 'grid' ? "w-full h-40" : "w-full sm:w-24 md:w-28 h-40 sm:h-24 md:h-28"
-                           )}
+                           className="w-full sm:w-24 md:w-28 h-40 sm:h-24 md:h-28 object-cover rounded-md mb-2 sm:mb-0 sm:mr-4 flex-shrink-0 flex items-center justify-center overflow-hidden bg-muted" 
                            onClick={(e) => { e.stopPropagation(); setViewingImageUrl(meal.image_url || null); }}
                          >
                            <img
-                             src={getTransformedImageUrl(meal.image_url, imageWidth, imageHeight)}
+                             src={meal.image_url}
                              alt={meal.name}
                              className="h-full w-full object-cover" 
-                             onError={(e) => {
-                                const target = e.currentTarget as HTMLImageElement;
-                                target.style.display = 'none'; 
-                                const parent = target.parentElement;
-                                if (parent) {
-                                  const placeholder = document.createElement('div');
-                                  placeholder.className = cn(
-                                    "h-full w-full flex items-center justify-center bg-muted text-muted-foreground",
-                                    layoutView === 'grid' ? "w-full h-40" : "w-full sm:w-24 md:w-28 h-40 sm:h-24 md:h-28"
-                                  );
-                                  placeholder.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>';
-                                  parent.appendChild(placeholder);
-                                }
-                              }}
+                             onError={(e) => (e.currentTarget.style.display = 'none')} 
                            />
                          </div>
-                      ) : (
-                        <div className={cn(
-                          "flex-shrink-0 rounded-md mb-2 sm:mb-0 sm:mr-4 flex items-center justify-center bg-muted text-muted-foreground",
-                           layoutView === 'grid' ? "w-full h-40" : "w-full sm:w-24 md:w-28 h-40 sm:h-24 md:h-28"
-                          )}
-                        >
-                          <ImageIconPlaceholder size={32} />
-                        </div>
                       )}
-                      <div className="flex-grow min-w-0">
+                      <div className="flex-grow min-w-0"> {/* min-w-0 for flex child to truncate */}
                         <h3 className="text-lg sm:text-xl font-semibold text-foreground">{meal.name}</h3>
                         {meal.meal_tags && meal.meal_tags.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-1.5">
@@ -356,6 +323,7 @@ const MealList = () => {
                           </div>
                         )}
                       </div>
+                      {/* Desktop Buttons (only visible on sm+) */}
                       <div className="hidden sm:flex flex-col space-y-2 ml-2 flex-shrink-0">
                         <Button 
                           variant="outline" 
@@ -376,6 +344,7 @@ const MealList = () => {
                       </div>
                     </div>
 
+                    {/* Ingredients & Instructions */}
                     {(meal.ingredients || (meal.instructions && meal.instructions.trim() !== "")) && (
                       <div className="space-y-2 mt-2 pt-2 border-t sm:border-t-0 sm:pt-2 flex-grow"> 
                         {meal.ingredients && (
@@ -397,6 +366,7 @@ const MealList = () => {
                       </div>
                     )}
 
+                    {/* Mobile Buttons (only visible on screens smaller than sm) */}
                     <div className="flex sm:hidden space-x-2 mt-3 pt-3 border-t">
                       <Button 
                         variant="outline" 
@@ -459,7 +429,7 @@ const MealList = () => {
         >
           {viewingImageUrl && (
             <img
-              src={viewingImageUrl} // Display original image in dialog
+              src={viewingImageUrl}
               alt="Enlarged meal image"
               className="max-w-full max-h-full object-contain" 
               onClick={(e) => e.stopPropagation()} 
