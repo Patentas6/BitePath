@@ -14,7 +14,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from "@/components/ui/dialog"; // Ensured this import is present
+} from "./ui/dialog"; 
 import {
   Command,
   CommandEmpty,
