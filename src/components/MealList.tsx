@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect } from "react"; 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useMemo, useEffect } from "react";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // <-- MODIFIED: Added useInfiniteQuery
 import { supabase } from "@/lib/supabase";
 import { showError, showSuccess } from "@/utils/toast";
 import { useNavigate } from "react-router-dom";
@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Trash2, Edit3, Search, ChefHat, List, Grid3X3, Zap, Users } from "lucide-react"; 
+import { Trash2, Edit3, Search, ChefHat, List, Grid3X3, Zap, Users, Loader2 } from "lucide-react"; // <-- MODIFIED: Added Loader2
 import EditMealDialog, { MealForEditing } from "./EditMealDialog";
 import {
   AlertDialog,
@@ -21,34 +21,36 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent } from "@/components/ui/dialog"; 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; 
-import { cn } from "@/lib/utils"; 
-import { calculateCaloriesPerServing } from '@/utils/mealUtils'; 
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
+import { calculateCaloriesPerServing } from '@/utils/mealUtils';
 
 interface Meal extends MealForEditing {
   meal_tags?: string[] | null;
-  image_url?: string | null; 
-  estimated_calories?: string | null; 
-  servings?: string | null; 
+  image_url?: string | null;
+  estimated_calories?: string | null;
+  servings?: string | null;
 }
 
 interface ParsedIngredient {
   name: string;
-  quantity: number | string | null; 
+  quantity: number | string | null;
   unit: string;
   description?: string;
 }
 
+const PAGE_SIZE = 10; // <-- ADDED: Page size for pagination
+
 const MealList = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string | 'all'>('all'); 
-  const [layoutView, setLayoutView] = useState<'list' | 'grid'>('list'); 
+  const [selectedCategory, setSelectedCategory] = useState<string | 'all'>('all');
+  const [layoutView, setLayoutView] = useState<'list' | 'grid'>('list');
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [mealToEdit, setMealToEdit] = useState<MealForEditing | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [mealToDelete, setMealToDelete] = useState<MealForEditing | null>(null);
-  const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null); 
+  const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -72,34 +74,60 @@ const MealList = () => {
         .single();
       if (error && error.code !== 'PGRST116') {
         console.error("[MealList] Error fetching profile for meal list calorie display:", error);
-        return { track_calories: false }; 
+        return { track_calories: false };
       }
       return data || { track_calories: false };
     },
     enabled: !!userId,
   });
 
+  // --- MODIFIED: Replaced useQuery with useInfiniteQuery for meals ---
+  const fetchMeals = async ({ pageParam = 0 }) => {
+    if (!userId) return { data: [], nextPage: undefined };
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("User not logged in.");
 
-  const { data: meals, isLoading: isLoadingMealsData, error } = useQuery<Meal[]>({
-    queryKey: ["meals", userId], 
-    queryFn: async () => {
-      if (!userId) return []; 
-      const { data: { user } } = await supabase.auth.getUser(); 
-      if (!user) throw new Error("User not logged in.");
-      const { data, error } = await supabase
-        .from("meals")
-        .select("id, name, ingredients, instructions, user_id, meal_tags, image_url, estimated_calories, servings") 
-        .eq("user_id", user.id)
-        .order('created_at', { ascending: false });
+    const from = pageParam * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
 
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!userId, 
+    const { data, error, count } = await supabase
+      .from("meals")
+      .select("id, name, ingredients, instructions, user_id, meal_tags, image_url, estimated_calories, servings", { count: 'exact' }) // Added count
+      .eq("user_id", user.id)
+      .order('created_at', { ascending: false })
+      .range(from, to);
+
+    if (error) throw error;
+    
+    const hasMore = (count || 0) > (from + (data?.length || 0));
+
+    return {
+      data: data || [],
+      nextPage: hasMore ? pageParam + 1 : undefined,
+    };
+  };
+
+  const {
+    data: mealsData, // This will be an object like { pages: [...], pageParams: [...] }
+    fetchNextPage,
+    hasNextPage,
+    isLoading: isLoadingMealsData,
+    isFetchingNextPage,
+    error,
+  } = useInfiniteQuery<Awaited<ReturnType<typeof fetchMeals>>, Error>({
+    queryKey: ["meals", userId],
+    queryFn: fetchMeals,
+    getNextPageParam: (lastPage) => lastPage.nextPage,
+    enabled: !!userId,
+    initialPageParam: 0, // <-- ADDED: Explicitly set initialPageParam
   });
+
+  const allMeals = useMemo(() => mealsData?.pages.flatMap(page => page.data) || [], [mealsData]);
+  // --- END MODIFICATION ---
 
   const deleteMealMutation = useMutation({
     mutationFn: async (mealId: string) => {
+      // ... KEEP: deleteMealMutation implementation ...
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not logged in.");
 
@@ -113,12 +141,13 @@ const MealList = () => {
     },
     onSuccess: () => {
       showSuccess("Meal deleted successfully!");
-      queryClient.invalidateQueries({ queryKey: ["meals", userId] });
+      queryClient.invalidateQueries({ queryKey: ["meals", userId] }); // This will refetch all pages
       queryClient.invalidateQueries({ queryKey: ["mealPlans"] });
       queryClient.invalidateQueries({ queryKey: ["groceryListSource"] });
       queryClient.invalidateQueries({ queryKey: ["todaysGroceryListSource"] });
     },
-    onError: (error) => {
+    onError: (error) // Type annotation for error
+    : void => {
       console.error("Error deleting meal:", error);
       showError(`Failed to delete meal: ${error.message}`);
     },
@@ -143,21 +172,22 @@ const MealList = () => {
   };
 
   const uniqueCategories = useMemo(() => {
-    if (!meals) return [];
-    const allTags = meals.flatMap(meal => meal.meal_tags || []).filter(Boolean) as string[];
+    if (!allMeals) return []; // <-- MODIFIED: Use allMeals
+    const allTags = allMeals.flatMap(meal => meal.meal_tags || []).filter(Boolean) as string[];
     return Array.from(new Set(allTags)).sort();
-  }, [meals]);
+  }, [allMeals]);
 
   const filteredMeals = useMemo(() => {
-    if (!meals) return [];
-    return meals.filter(meal => {
+    if (!allMeals) return []; // <-- MODIFIED: Use allMeals
+    return allMeals.filter(meal => {
       const nameMatch = meal.name.toLowerCase().includes(searchTerm.toLowerCase());
       const categoryMatch = selectedCategory === 'all' || (meal.meal_tags && meal.meal_tags.includes(selectedCategory));
       return nameMatch && categoryMatch;
     });
-  }, [meals, searchTerm, selectedCategory]);
+  }, [allMeals, searchTerm, selectedCategory]);
 
   const formatIngredientsDisplay = (ingredientsString: string | null | undefined): string => {
+    // ... KEEP: formatIngredientsDisplay implementation ...
     if (!ingredientsString) return 'No ingredients listed.';
     try {
       const parsedIngredients: ParsedIngredient[] = JSON.parse(ingredientsString);
@@ -177,10 +207,10 @@ const MealList = () => {
       return ingredientsString.substring(0, maxLength) + (ingredientsString.length > maxLength ? '...' : '');
     }
   };
-  
-  const overallIsLoading = isLoadingUserProfile || isLoadingMealsData;
 
-  if (overallIsLoading && !meals) { 
+  const overallIsLoading = isLoadingUserProfile || (isLoadingMealsData && !mealsData?.pages.length); // <-- MODIFIED: Adjust loading condition
+
+  if (overallIsLoading && !allMeals.length) { // <-- MODIFIED: Use allMeals.length
     return (
       <Card className="hover:shadow-lg transition-shadow duration-200">
         <CardHeader><CardTitle>My Meals</CardTitle></CardHeader>
@@ -199,7 +229,7 @@ const MealList = () => {
     return (
       <Card className="hover:shadow-lg transition-shadow duration-200">
         <CardHeader><CardTitle>My Meals</CardTitle></CardHeader>
-        <CardContent><p className="text-red-500">Error loading meals. Please try again later.</p></CardContent>
+        <CardContent><p className="text-red-500">Error loading meals: {error.message}. Please try again later.</p></CardContent>
       </Card>
     );
   }
@@ -211,6 +241,7 @@ const MealList = () => {
           <CardTitle>My Meals</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* ... KEEP: Search and filter controls ... */}
           <div className="flex flex-col sm:flex-row gap-4 items-center">
             <div className="relative flex-grow w-full sm:w-auto">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -255,7 +286,9 @@ const MealList = () => {
             </div>
           </div>
 
-          {meals && meals.length === 0 && !overallIsLoading && (
+
+          {/* --- MODIFIED: Conditions for empty/no results states --- */}
+          {allMeals.length === 0 && !isLoadingMealsData && !isFetchingNextPage && (
             <div className="text-center py-6 text-muted-foreground">
               <ChefHat className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500 mb-4" />
               <p className="text-lg font-semibold mb-1">No Meals Yet!</p>
@@ -263,19 +296,21 @@ const MealList = () => {
             </div>
           )}
 
-          {meals && meals.length > 0 && filteredMeals.length === 0 && !overallIsLoading && (
+          {allMeals.length > 0 && filteredMeals.length === 0 && !isLoadingMealsData && !isFetchingNextPage && (
             <div className="text-center py-6 text-muted-foreground">
               <Search className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500 mb-3" />
               <p className="text-lg">No meals match your current filters.</p>
               <p className="text-sm">Try a different search term or category.</p>
             </div>
           )}
-
+          {/* --- END MODIFICATION --- */}
+          
           {filteredMeals && filteredMeals.length > 0 && (
             <div className={cn(
               layoutView === 'list' ? 'space-y-3' : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'
             )}>
               {filteredMeals.map((meal) => {
+                // ... KEEP: Meal card rendering logic ...
                 const caloriesPerServing = calculateCaloriesPerServing(meal.estimated_calories, meal.servings);
                 const canTrackCalories = userProfile && userProfile.track_calories;
                 const shouldShowCalories = canTrackCalories && caloriesPerServing !== null;
@@ -392,9 +427,32 @@ const MealList = () => {
               })}
             </div>
           )}
+
+          {/* --- ADDED: Load More Button --- */}
+          {hasNextPage && (
+            <div className="flex justify-center mt-6">
+              <Button
+                onClick={() => fetchNextPage()}
+                disabled={isFetchingNextPage}
+                variant="outline"
+              >
+                {isFetchingNextPage ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Loading more...
+                  </>
+                ) : (
+                  "Load More Meals"
+                )}
+              </Button>
+            </div>
+          )}
+          {/* --- END ADDITION --- */}
+
         </CardContent>
       </Card>
 
+      {/* ... KEEP: Dialogs (EditMealDialog, AlertDialog for delete, Image Dialog) ... */}
       {mealToEdit && (
         <EditMealDialog
           open={isEditDialogOpen}
