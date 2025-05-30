@@ -7,7 +7,7 @@ export function cn(...inputs: ClassValue[]) {
 
 interface SupabaseImageTransformations {
   width?: number;
-  height?: number; // Keep for specific cases like full-screen modal
+  height?: number;
   quality?: number;
   format?: 'webp' | 'avif' | 'jpg' | 'png';
   resize?: 'cover' | 'contain' | 'fill';
@@ -18,48 +18,53 @@ export function transformSupabaseImage(
   options: SupabaseImageTransformations = {}
 ): string | undefined {
   if (!originalUrl) {
-    console.log("[transformSupabaseImage] Original URL is null or undefined.");
+    // This log is expected if a meal genuinely has no image_url
+    // console.log("[transformSupabaseImage] Original URL is null or undefined. No transformation possible.");
     return undefined;
   }
 
-  // console.log("[transformSupabaseImage] Attempting to transform:", originalUrl, "with options:", options);
+  // console.log(`[transformSupabaseImage] Attempting to transform: '${originalUrl}' with options:`, options);
 
   try {
     const url = new URL(originalUrl);
-    
-    const isRenderPath = url.pathname.startsWith('/storage/v1/render/image');
-    const isObjectPath = url.pathname.startsWith('/storage/v1/object/public/');
+    let newPathname = url.pathname;
 
-    if (!isRenderPath && isObjectPath) {
-      url.pathname = url.pathname.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
-      // console.log("[transformSupabaseImage] Converted object path to render path:", url.pathname);
-    } else if (!isRenderPath && !isObjectPath) {
-      // console.warn("[transformSupabaseImage] URL is not a known Supabase public object URL. Returning original:", originalUrl);
+    const objectPublicPath = '/storage/v1/object/public/';
+    const renderImagePath = '/storage/v1/render/image/public/';
+
+    if (newPathname.startsWith(objectPublicPath)) {
+      newPathname = newPathname.replace(objectPublicPath, renderImagePath);
+      // console.log(`[transformSupabaseImage] Path converted from object to render: '${newPathname}'`);
+    } else if (!newPathname.startsWith(renderImagePath)) {
+      // console.warn(`[transformSupabaseImage] URL '${originalUrl}' is not a known Supabase public object or render path. Returning original.`);
       return originalUrl;
     }
-    // If it's already a render path, Supabase typically ignores further render path segments if nested,
-    // and applies the new query parameters. So, clearing old ones might be safer if re-transforming.
-    // For now, we'll assume we append/override.
+    
+    url.pathname = newPathname; // Update the pathname on the URL object
 
     const { width, height, quality = 75, format = 'webp', resize = 'contain' } = options;
 
-    // Clear existing transformation params to avoid conflicts if re-transforming an already transformed URL
-    // This is a guess; Supabase might handle this gracefully. Test to confirm.
-    // const paramsToRemove = ['width', 'height', 'quality', 'format', 'resize'];
-    // paramsToRemove.forEach(param => url.searchParams.delete(param));
-
+    // Clear existing transformation query parameters to prevent conflicts if re-transforming
+    const existingSearchParams = new URLSearchParams(url.search);
+    const paramsToRemove = ['width', 'height', 'quality', 'format', 'resize', 'transform']; // 'transform' is sometimes used
+    paramsToRemove.forEach(param => existingSearchParams.delete(param));
+    
+    // Reconstruct search string without old transformation params
+    url.search = existingSearchParams.toString(); 
+    
+    // Now add new transformation params
     if (width) url.searchParams.set('width', String(width));
     if (height) url.searchParams.set('height', String(height)); // Only set if provided
     url.searchParams.set('quality', String(quality));
     url.searchParams.set('format', format);
-    url.searchParams.set('resize', resize); // 'contain' is good default, 'cover' for fixed boxes
+    url.searchParams.set('resize', resize);
     
     const transformed = url.toString();
-    // console.log("[transformSupabaseImage] Successfully transformed URL:", transformed);
+    // console.log(`[transformSupabaseImage] Successfully transformed URL to: '${transformed}'`);
     return transformed;
 
   } catch (error) {
-    console.error("[transformSupabaseImage] Error transforming URL:", error, "Original URL:", originalUrl);
+    console.error(`[transformSupabaseImage] Error transforming URL '${originalUrl}':`, error);
     return originalUrl; // Fallback to original URL on error
   }
 }
