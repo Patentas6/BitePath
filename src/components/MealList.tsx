@@ -56,7 +56,7 @@ const MealList = () => {
   useEffect(() => {
     const fetchUser = async () => {
       console.log("[MealList] Attempting to fetch user session...");
-      const { data: { user, error } } = await supabase.auth.getUser();
+      const { data: { user }, error } = await supabase.auth.getUser(); // Destructure error correctly
       if (error) {
         console.log("[MealList] Error fetching user session:", error);
         setUserId(null);
@@ -84,12 +84,12 @@ const MealList = () => {
         .select('track_calories')
         .eq('id', userId)
         .single();
-      if (error && error.code !== 'PGRST116') {
+      if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found, which is fine
         console.error("[MealList] Error fetching profile for meal list calorie display:", error);
-        return { track_calories: false }; 
+        return { track_calories: false }; // Default or error state
       }
       console.log("[MealList] User profile fetched:", data);
-      return data || { track_calories: false };
+      return data || { track_calories: false }; // Ensure a value is returned
     },
     enabled: !!userId,
   });
@@ -129,6 +129,7 @@ const MealList = () => {
       return data || [];
     },
     enabled: !!userId, 
+    staleTime: 300000, // <-- MODIFIED: Added 5 minutes staleTime
   });
 
   const deleteMealMutation = useMutation({
@@ -151,7 +152,7 @@ const MealList = () => {
       queryClient.invalidateQueries({ queryKey: ["groceryListSource"] });
       queryClient.invalidateQueries({ queryKey: ["todaysGroceryListSource"] });
     },
-    onError: (error) => {
+    onError: (error: Error) => { // Explicitly type error
       console.error("Error deleting meal:", error);
       showError(`Failed to delete meal: ${error.message}`);
     },
@@ -206,6 +207,7 @@ const MealList = () => {
       }
       return 'No ingredients listed or format error.';
     } catch (e) {
+      // If JSON.parse fails, treat as plain string and truncate
       const maxLength = 70; 
       return ingredientsString.substring(0, maxLength) + (ingredientsString.length > maxLength ? '...' : '');
     }
@@ -213,7 +215,7 @@ const MealList = () => {
   
   const overallIsLoading = isLoadingUserProfile || isLoadingMealsData;
 
-  if (overallIsLoading && !meals) { 
+  if (overallIsLoading && !meals) { // Show skeleton if initial load for either profile or meals
     return (
       <Card className="hover:shadow-lg transition-shadow duration-200">
         <CardHeader><CardTitle>My Meals</CardTitle></CardHeader>
@@ -227,7 +229,7 @@ const MealList = () => {
     );
   }
 
-  if (error) {
+  if (error) { // This 'error' is from the meals query
     console.error("Error fetching meals:", error);
     return (
       <Card className="hover:shadow-lg transition-shadow duration-200">
