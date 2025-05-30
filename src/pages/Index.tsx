@@ -2,12 +2,12 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
-import { LayoutDashboard, CalendarDays, BrainCircuit, ShoppingCart, ImagePlus, Info, Sparkles, Menu } from "lucide-react"; // <-- ADDED: Menu icon
+import { LayoutDashboard, CalendarDays, BrainCircuit, ShoppingCart, ImagePlus, Info, Sparkles, Menu, Smartphone, QrCode, Apple, Share2 } from "lucide-react"; 
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { supabase } from "@/lib/supabase";
-import { Sheet, SheetTrigger, SheetContent, SheetClose } from "@/components/ui/sheet"; // <-- ADDED: Sheet components
+import { Sheet, SheetTrigger, SheetContent, SheetClose } from "@/components/ui/sheet"; 
 
 const Index = () => {
   const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
@@ -204,7 +204,77 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Testimonials Section - Modified */}
+      {/* "Get BitePath On Your Phone" Section */}
+      <section id="get-app" className="w-full py-16 bg-muted/40 dark:bg-muted/20">
+        <div className="container mx-auto px-4">
+          <div className="flex justify-center items-center mb-4">
+            <Smartphone className="h-10 w-10 text-primary mr-3" />
+            <h2 className="text-3xl md:text-4xl font-bold text-center">Get <BitePathStyled /> On Your Phone</h2>
+          </div>
+          <p className="text-lg text-muted-foreground text-center mb-12">
+            Enjoy seamless meal planning on the go. Follow the instructions below for your device.
+          </p>
+          
+          <div className="grid md:grid-cols-2 gap-8">
+            {/* Android Card */}
+            <Card className="flex flex-col">
+              <CardHeader className="flex-row items-center space-x-3 pb-4">
+                <Apple className="h-8 w-8 text-green-500" /> 
+                <CardTitle className="text-2xl">Android Users</CardTitle>
+              </CardHeader>
+              <CardContent className="flex-grow space-y-4">
+                <p className="text-muted-foreground">
+                  1. Scan the QR code below using your Android device's camera or a QR scanner app.
+                </p>
+                <div className="flex justify-center my-4">
+                  <img 
+                    src="/android-qr-code.png" 
+                    alt="BitePath Android App QR Code" 
+                    className="w-48 h-48 border rounded-lg shadow-sm bg-white p-1" 
+                  />
+                </div>
+                <p className="text-muted-foreground">
+                  2. This will take you to the <BitePathStyled /> web app. You can then add it to your home screen for easy access if your browser supports it, or simply bookmark the page.
+                </p>
+              </CardContent>
+              <CardFooter>
+                <p className="text-sm text-muted-foreground">
+                  Then, sign up or log in to start your smart meal planning journey!
+                </p>
+              </CardFooter>
+            </Card>
+
+            {/* iPhone Card */}
+            <Card className="flex flex-col">
+              <CardHeader className="flex-row items-center space-x-3 pb-4">
+                <Apple className="h-8 w-8 text-gray-500 dark:text-gray-400" />
+                <CardTitle className="text-2xl">iPhone Users (Safari)</CardTitle>
+              </CardHeader>
+              <CardContent className="flex-grow space-y-3">
+                <p className="text-muted-foreground">
+                  To add <BitePathStyled /> to your Home Screen for an app-like experience:
+                </p>
+                <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
+                  <li>Open <BitePathStyled /> in your Safari browser.</li>
+                  <li>Tap the 'Share' button <Share2 className="inline h-5 w-5 mx-1 text-blue-500" /> at the bottom of your screen.</li>
+                  <li>Scroll down and tap 'Add to Home Screen'.</li>
+                  <li>Confirm by tapping 'Add' in the top right.</li>
+                </ol>
+                <p className="text-muted-foreground pt-2">
+                  You'll now find <BitePathStyled /> on your Home Screen!
+                </p>
+              </CardContent>
+              <CardFooter>
+                <p className="text-sm text-muted-foreground">
+                  Open it up, then sign up or log in to dive into smart meal planning!
+                </p>
+              </CardFooter>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials Section */}
       <section id="testimonials" className="w-full py-16 bg-muted/40 dark:bg-muted/20 text-center">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold mb-4">Testimonials Coming Soon!</h2>
@@ -214,7 +284,7 @@ const Index = () => {
         </div>
       </section>
 
-      {/* About Us & Contact Section - Updated */}
+      {/* About Us & Contact Section */}
       <section id="about-us" className="w-full py-16 bg-background text-center">
         <div className="container mx-auto px-4 max-w-3xl">
           <div className="flex justify-center items-center mb-4">
