@@ -408,7 +408,7 @@ The meal should still generally be a ${mealType || 'general'} type.`;
                 const saImagen = JSON.parse(serviceAccountJsonStringForImagen);
                 const projectIdImagen = saImagen.project_id;
                 const regionImagen = "us-central1";
-                const imagenModelId = "imagegeneration@005";
+                const imagenModelId = "imagegeneration@006";
                 const imagenEndpoint = `https://${regionImagen}-aiplatform.googleapis.com/v1/projects/${projectIdImagen}/locations/${regionImagen}/publishers/google/models/${imagenModelId}:predict`;
 
                 const imagePromptText = `A vibrant, appetizing, realistic photo of the meal "${mealNameForImage}". Focus on the finished dish presented nicely on a plate or in a bowl, suitable for a food blog. Ensure main ingredients are clearly visible. Good lighting, sharp focus.`;
