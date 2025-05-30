@@ -8,6 +8,8 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { useIsMobile } from "@/hooks/use-mobile";
 import { supabase } from "@/lib/supabase";
 import { Sheet, SheetTrigger, SheetContent, SheetClose } from "@/components/ui/sheet"; 
+import { AndroidBrandIcon } from "@/components/icons/AndroidBrandIcon";
+import { AppleBrandIcon } from "@/components/icons/AppleBrandIcon";
 
 const Index = () => {
   const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
@@ -219,7 +221,7 @@ const Index = () => {
             {/* Android Card */}
             <Card className="flex flex-col">
               <CardHeader className="flex-row items-center space-x-3 pb-4">
-                <img src="/icons/icons8-android.svg" alt="Android Icon" className="h-8 w-8" /> 
+                <AndroidBrandIcon className="h-8 w-8 text-green-600 dark:text-green-500" /> 
                 <CardTitle className="text-2xl">Android Users</CardTitle>
               </CardHeader>
               <CardContent className="flex-grow space-y-4">
@@ -247,7 +249,7 @@ const Index = () => {
             {/* iPhone Card */}
             <Card className="flex flex-col">
               <CardHeader className="flex-row items-center space-x-3 pb-4">
-                <img src="/icons/icons8-apple.svg" alt="Apple Icon" className="h-8 w-8" />
+                <AppleBrandIcon className="h-8 w-8 text-gray-700 dark:text-gray-300" />
                 <CardTitle className="text-2xl">iPhone Users (Safari)</CardTitle>
               </CardHeader>
               <CardContent className="flex-grow space-y-3">
