@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { create, getNumericDate } from "https://deno.land/x/djwt@v2.4/mod.ts";
 import { format as formatDate, parse as parseDate, difference } from "https://deno.land/std@0.224.0/datetime/mod.ts";
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { decode } from "https://deno.land/std@0.203.0/encoding/base64.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,11 +13,12 @@ const corsHeaders = {
 const IMAGE_GENERATION_LIMIT_PER_MONTH = 30;
 const RECIPE_GENERATION_LIMIT_PER_PERIOD = 100;
 const RECIPE_GENERATION_PERIOD_DAYS = 15;
+const MEAL_IMAGES_BUCKET = 'meal-images';
 
 interface GeneratedIngredient {
   name: string;
-  quantity: number | string | null; // Allow null for "to taste"
-  unit: string | null; // Allow null for "to taste"
+  quantity: number | string | null; 
+  unit: string | null; 
   description?: string;
 }
 
@@ -238,7 +240,7 @@ serve(async (req) => {
         const saGemini = JSON.parse(serviceAccountJsonStringForGemini);
         const projectIdGemini = saGemini.project_id;
         const regionGemini = "us-central1";
-        const geminiModelId = "gemini-2.5-flash-preview-05-20"; // Updated model ID
+        const geminiModelId = "gemini-2.5-flash-preview-05-20"; 
         const geminiEndpoint = `https://${regionGemini}-aiplatform.googleapis.com/v1/projects/${projectIdGemini}/locations/${regionGemini}/publishers/google/models/${geminiModelId}:generateContent`;
 
         let prompt = `Generate a detailed meal recipe in JSON format. The JSON object must have the following structure:
@@ -424,21 +426,46 @@ The meal should still generally be a ${mealType || 'general'} type.`;
                     body: JSON.stringify(imagenPayload),
                 });
 
-                let imageUrl: string | undefined = undefined;
+                let finalImageUrl: string | undefined = undefined; 
+
                 if (!imagenResponse.ok) {
                     const errorBody = await imagenResponse.text();
                     console.error(`Vertex AI Imagen API error for user ${user.id}: ${imagenResponse.status} ${imagenResponse.statusText}`, errorBody);
                 } else {
                     const imagenData = await imagenResponse.json();
                     const base64EncodedImage = imagenData.predictions?.[0]?.bytesBase64Encoded;
+
                     if (base64EncodedImage) {
-                        imageUrl = `data:image/png;base64,${base64EncodedImage}`;
+                        try {
+                            const imageBuffer = decode(base64EncodedImage); 
+                            const fileName = `public/${user.id}_${Date.now()}.png`; 
+
+                            console.log(`Attempting to upload to Supabase Storage: ${MEAL_IMAGES_BUCKET}/${fileName}`);
+
+                            const { data: publicUrlData, error: uploadError } = await serviceSupabaseClient.storage
+                                .from(MEAL_IMAGES_BUCKET)
+                                .upload(fileName, imageBuffer, {
+                                    upsert: true,
+                                });
+
+                            if (uploadError) {
+                                console.error(`Supabase Storage upload error for user ${user.id}:`, uploadError);
+                                // Do not set finalImageUrl, it will remain undefined
+                            } else {
+                                finalImageUrl = publicUrlData.publicUrl; 
+                                console.log(`Generated Supabase public URL for user ${user.id}: ${finalImageUrl}`);
+                            }
+                        } catch (decodeOrUploadError) {
+                            console.error(`Error decoding base64 or during Supabase upload for user ${user.id}:`, decodeOrUploadError);
+                        }
+                    } else {
+                        console.warn(`No base64 image data received from Imagen API for user ${user.id}.`);
                     }
                 }
 
-                if (generatedMealData) generatedMealData.image_url = imageUrl;
+                if (generatedMealData) generatedMealData.image_url = finalImageUrl; 
 
-                if (!userIsAdmin) {
+                if (finalImageUrl && !userIsAdmin) { 
                     userImageGenerationCount += 1;
                     const { error: updateError } = await serviceSupabaseClient
                         .from('profiles')
@@ -450,8 +477,12 @@ The meal should still generally be a ${mealType || 'general'} type.`;
                     if (updateError) {
                         console.error(`Failed to update image generation count for user ${user.id}:`, updateError);
                     }
+                } else if (!finalImageUrl) {
+                    console.warn(`Image URL was not generated or uploaded for user ${user.id}, count not incremented.`);
                 }
             }
+        } else if (generatedMealData && !anImageShouldBeGenerated) { 
+            generatedMealData.image_url = undefined;
         }
     }
 
