@@ -238,7 +238,7 @@ serve(async (req) => {
         const saGemini = JSON.parse(serviceAccountJsonStringForGemini);
         const projectIdGemini = saGemini.project_id;
         const regionGemini = "us-central1";
-        const geminiModelId = "gemini-2.5-flash-preview-05-20"; // Updated model ID
+        const geminiModelId = "gemini-2.5-flash-preview-05-20"; 
         const geminiEndpoint = `https://${regionGemini}-aiplatform.googleapis.com/v1/projects/${projectIdGemini}/locations/${regionGemini}/publishers/google/models/${geminiModelId}:generateContent`;
 
         let prompt = `Generate a detailed meal recipe in JSON format. The JSON object must have the following structure:
