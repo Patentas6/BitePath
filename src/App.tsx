@@ -28,7 +28,7 @@ const App = () => {
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <QueryClientProvider client={queryClient}>
-        <Toaster offset={isMobile ? 240 : 20} /> 
+        <Toaster offset={isMobile ? 80 : 20} /> 
         <TooltipProvider>
           <BrowserRouter>
             <>
