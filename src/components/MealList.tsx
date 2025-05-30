@@ -41,7 +41,7 @@ interface ParsedIngredient {
   description?: string;
 }
 
-const PAGE_SIZE = 10; 
+const PAGE_SIZE = 20; 
 
 const MealList = () => {
   const [searchTerm, setSearchTerm] = useState("");
