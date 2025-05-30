@@ -55,8 +55,21 @@ const MealList = () => {
 
   useEffect(() => {
     const fetchUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      setUserId(data.user?.id || null);
+      console.log("[MealList] Attempting to fetch user session...");
+      const { data: { user, error } } = await supabase.auth.getUser();
+      if (error) {
+        console.log("[MealList] Error fetching user session:", error);
+        setUserId(null);
+        return;
+      }
+
+      if (user) {
+        console.log("[MealList] User session found. User ID:", user.id);
+        setUserId(user.id);
+      } else {
+        console.log("[MealList] No user session found.");
+        setUserId(null);
+      }
     };
     fetchUser();
   }, []);
@@ -65,6 +78,7 @@ const MealList = () => {
     queryKey: ['userProfileForMealListDisplay', userId],
     queryFn: async () => {
       if (!userId) return null;
+      console.log("[MealList] Fetching user profile for calorie display, userId:", userId);
       const { data, error } = await supabase
         .from('profiles')
         .select('track_calories')
@@ -74,25 +88,31 @@ const MealList = () => {
         console.error("[MealList] Error fetching profile for meal list calorie display:", error);
         return { track_calories: false }; 
       }
+      console.log("[MealList] User profile fetched:", data);
       return data || { track_calories: false };
     },
     enabled: !!userId,
   });
 
-
   const { data: meals, isLoading: isLoadingMealsData, error } = useQuery<Meal[]>({
     queryKey: ["meals", userId], 
     queryFn: async () => {
-      if (!userId) return []; 
-      const { data: { user } } = await supabase.auth.getUser(); 
-      if (!user) throw new Error("User not logged in.");
-      const { data, error } = await supabase
+      console.log("[MealList] meals queryFn triggered. Current userId:", userId);
+      if (!userId) {
+        console.log("[MealList] meals queryFn: No userId, returning empty array.");
+        return [];
+      }
+      const { data, error: dbError } = await supabase
         .from("meals")
-        .select("id, name, ingredients, instructions, user_id, meal_tags, image_url, estimated_calories, servings") 
-        .eq("user_id", user.id)
+        .select("id, name, ingredients, instructions, user_id, meal_tags, image_url, estimated_calories, servings")
+        .eq("user_id", userId)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (dbError) {
+        console.error(`[MealList] Error fetching meals for user ${userId}:`, dbError);
+        throw dbError; 
+      }
+      console.log(`[MealList] Meals data fetched for user ${userId}:`, data?.length, "meals");
       return data || [];
     },
     enabled: !!userId, 
