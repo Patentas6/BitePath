@@ -93,7 +93,6 @@ const MealList = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      console.log("[MealList] Fetched meals:", data); 
       return data || [];
     },
     enabled: !!userId, 
@@ -151,10 +150,8 @@ const MealList = () => {
 
   const filteredMeals = useMemo(() => {
     if (!meals) {
-      console.log("[MealList] filteredMeals: meals data is null/undefined"); 
       return [];
     }
-    console.log("[MealList] filteredMeals: processing meals", meals); 
     return meals.filter(meal => {
       const nameMatch = meal.name.toLowerCase().includes(searchTerm.toLowerCase());
       const categoryMatch = selectedCategory === 'all' || (meal.meal_tags && meal.meal_tags.includes(selectedCategory));
@@ -186,7 +183,6 @@ const MealList = () => {
   const overallIsLoading = isLoadingUserProfile || isLoadingMealsData;
 
   if (overallIsLoading && !meals) { 
-    console.log("[MealList] Displaying loading skeleton (overallIsLoading && !meals)"); 
     return (
       <Card className="hover:shadow-lg transition-shadow duration-200">
         <CardHeader><CardTitle>My Meals</CardTitle></CardHeader>
@@ -209,10 +205,6 @@ const MealList = () => {
       </Card>
     );
   }
-
-  console.log("[MealList] Meals data:", meals); 
-  console.log("[MealList] Filtered meals:", filteredMeals); 
-  console.log("[MealList] isLoadingUserProfile:", isLoadingUserProfile, "isLoadingMealsData:", isLoadingMealsData, "overallIsLoading:", overallIsLoading); 
 
   return (
     <>
