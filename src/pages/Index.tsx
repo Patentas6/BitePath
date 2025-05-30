@@ -2,11 +2,12 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
-import { LayoutDashboard, CalendarDays, BrainCircuit, ShoppingCart, ImagePlus, Info, Sparkles } from "lucide-react";
+import { LayoutDashboard, CalendarDays, BrainCircuit, ShoppingCart, ImagePlus, Info, Sparkles, Menu } from "lucide-react"; // <-- ADDED: Menu icon
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { supabase } from "@/lib/supabase";
+import { Sheet, SheetTrigger, SheetContent, SheetClose } from "@/components/ui/sheet"; // <-- ADDED: Sheet components
 
 const Index = () => {
   const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
@@ -91,24 +92,64 @@ const Index = () => {
               to="/" 
               className="text-2xl font-bold group"
             >
-              <span className="text-accent dark:text-foreground transition-opacity duration-150 ease-in-out group-hover:opacity-80">Bite</span>
-              <span className="text-primary dark:text-primary transition-opacity duration-150 ease-in-out group-hover:opacity-80">Path</span>
+              <BitePathStyled />
             </Link>
           </div>
-          <nav className="flex items-center space-x-4">
-            <a href="#features-glimpse" className="hover:underline text-sm md:text-base">How It Works</a>
-            <a href="#testimonials" className="hover:underline text-sm md:text-base">Testimonials</a>
-            <a href="#about-us" className="hover:underline text-sm md:text-base">About Us</a>
-            <Link to="/auth" className="hover:underline text-sm md:text-base">Login</Link>
-            <Button 
-              size="sm" 
-              variant="default"
-              asChild
-              className="text-xs md:text-sm px-2 md:px-3"
-            >
-              <Link to="/auth?mode=signup"><span>Sign Up</span></Link>
-            </Button>
-            <ThemeToggleButton />
+          <nav className="flex items-center space-x-2 md:space-x-4">
+            {isMobile ? (
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button variant="outline" size="icon">
+                    <Menu className="h-6 w-6" />
+                    <span className="sr-only">Open navigation menu</span>
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="right" className="w-[280px] sm:w-[320px]">
+                  <div className="flex flex-col space-y-4 p-6">
+                    <SheetClose asChild>
+                      <a href="#features-glimpse" className="text-lg hover:underline">How It Works</a>
+                    </SheetClose>
+                    <SheetClose asChild>
+                      <a href="#testimonials" className="text-lg hover:underline">Testimonials</a>
+                    </SheetClose>
+                    <SheetClose asChild>
+                      <a href="#about-us" className="text-lg hover:underline">About Us</a>
+                    </SheetClose>
+                    <SheetClose asChild>
+                      <Link to="/auth" className="text-lg hover:underline">Login</Link>
+                    </SheetClose>
+                    <SheetClose asChild>
+                       <Button 
+                          variant="default"
+                          className="w-full"
+                          asChild
+                        >
+                          <Link to="/auth?mode=signup">Sign Up</Link>
+                        </Button>
+                    </SheetClose>
+                    <div className="pt-4 border-t border-border">
+                      <ThemeToggleButton />
+                    </div>
+                  </div>
+                </SheetContent>
+              </Sheet>
+            ) : (
+              <>
+                <a href="#features-glimpse" className="hover:underline text-sm md:text-base">How It Works</a>
+                <a href="#testimonials" className="hover:underline text-sm md:text-base">Testimonials</a>
+                <a href="#about-us" className="hover:underline text-sm md:text-base">About Us</a>
+                <Link to="/auth" className="hover:underline text-sm md:text-base">Login</Link>
+                <Button 
+                  size="sm" 
+                  variant="default"
+                  asChild
+                  className="text-xs md:text-sm px-2 md:px-3"
+                >
+                  <Link to="/auth?mode=signup"><span>Sign Up</span></Link>
+                </Button>
+                <ThemeToggleButton />
+              </>
+            )}
           </nav>
         </div>
       </header>
