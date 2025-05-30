@@ -255,7 +255,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
                     ) : (
                       <CommandGroup>
                         {filteredMeals.map((meal) => {
-                          const transformedImageUrl = transformSupabaseImage(meal.image_url, { width: 100, height: 100 });
+                          const transformedImageUrl = transformSupabaseImage(meal.image_url, { width: 100, resize: 'cover' });
                           return (
                             <CommandItem
                               key={meal.id}

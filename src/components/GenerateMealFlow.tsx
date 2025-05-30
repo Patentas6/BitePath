@@ -315,8 +315,8 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
     return null;
   }, [generatedMeal]);
 
-  const transformedGeneratedImageUrl = transformSupabaseImage(generatedMeal?.image_url, { width: 600 });
-  const transformedEnlargedImageUrl = transformSupabaseImage(viewingImageUrl, { width: 1200, height: 1200, resize: 'contain' });
+  const transformedGeneratedImageUrl = transformSupabaseImage(generatedMeal?.image_url, { width: 600, resize: 'contain' });
+  const transformedEnlargedImageUrl = viewingImageUrl ? transformSupabaseImage(viewingImageUrl, { width: 1200, height: 1200, resize: 'contain' }) : null;
 
   return (
     <div className="space-y-6">

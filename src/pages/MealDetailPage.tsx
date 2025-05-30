@@ -149,7 +149,7 @@ const MealDetailPage = () => {
     );
   }
 
-  const transformedMainImageUrl = transformSupabaseImage(meal.image_url, { width: 800, height: 600 });
+  const transformedMainImageUrl = transformSupabaseImage(meal.image_url, { width: 800, resize: 'contain' });
 
   return (
     <div className={cn("min-h-screen bg-background text-foreground", isMobile ? "pt-4 pb-20 px-2" : "p-4")}>

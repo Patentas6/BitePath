@@ -58,7 +58,7 @@ const MealTemplateCard: React.FC<MealTemplateCardProps> = ({ template, onAddToMy
     return text.substring(0, maxLength) + '...';
   };
 
-  const transformedImageUrl = transformSupabaseImage(template.image_url, { width: 400, height: 300 });
+  const transformedImageUrl = transformSupabaseImage(template.image_url, { width: 400, resize: 'cover' });
 
   return (
     <Card className={cn(

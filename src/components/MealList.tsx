@@ -279,7 +279,9 @@ const MealList = () => {
                 const caloriesPerServing = calculateCaloriesPerServing(meal.estimated_calories, meal.servings);
                 const canTrackCalories = userProfile && userProfile.track_calories;
                 const shouldShowCalories = canTrackCalories && caloriesPerServing !== null;
-                const transformedImageUrl = transformSupabaseImage(meal.image_url, { width: 400, height: 300 });
+                // For list items, request a reasonably sized image. CSS will handle final display.
+                // Using 'cover' to ensure the container is filled.
+                const transformedImageUrl = transformSupabaseImage(meal.image_url, { width: 400, resize: 'cover' }); 
                 
                 return (
                   <div 
@@ -291,11 +293,11 @@ const MealList = () => {
                     <div className="flex flex-col sm:flex-row items-start">
                       {meal.image_url && (
                          <div
-                           className="w-full sm:w-24 md:w-28 h-40 sm:h-24 md:h-28 object-cover rounded-md mb-2 sm:mb-0 sm:mr-4 flex-shrink-0 flex items-center justify-center overflow-hidden bg-muted" 
+                           className="w-full sm:w-24 md:w-28 h-40 sm:h-24 md:h-28 rounded-md mb-2 sm:mb-0 sm:mr-4 flex-shrink-0 flex items-center justify-center overflow-hidden bg-muted" 
                            onClick={(e) => { e.stopPropagation(); setViewingImageUrl(meal.image_url || null); }}
                          >
                            <img
-                             src={transformedImageUrl}
+                             src={transformedImageUrl} 
                              alt={meal.name}
                              className="h-full w-full object-cover" 
                              onError={(e) => (e.currentTarget.style.display = 'none')} 
@@ -431,7 +433,8 @@ const MealList = () => {
         >
           {viewingImageUrl && (
             <img
-              src={transformSupabaseImage(viewingImageUrl, { width: 1200, height: 1200, resize: 'contain' })}
+              // For enlarged view, 'contain' is best. Requesting a large size.
+              src={transformSupabaseImage(viewingImageUrl, { width: 1200, height: 1200, resize: 'contain' })} 
               alt="Enlarged meal image"
               className="max-w-full max-h-full object-contain" 
               onClick={(e) => e.stopPropagation()} 

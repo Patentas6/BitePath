@@ -201,7 +201,7 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
 
   if (!meal) return null;
 
-  const transformedDialogImageUrl = transformSupabaseImage(meal.image_url, { width: 600 });
+  const transformedDialogImageUrl = transformSupabaseImage(meal.image_url, { width: 600, resize: 'contain' });
   const transformedEnlargedImageUrl = viewingImageUrl ? transformSupabaseImage(viewingImageUrl, { width: 1200, height: 1200, resize: 'contain' }) : null;
 
   return (
