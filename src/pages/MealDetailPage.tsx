@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import AppHeader from '@/components/AppHeader';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { cn, transformSupabaseImage } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { calculateCaloriesPerServing } from '@/utils/mealUtils';
 
 interface Meal {
@@ -149,8 +149,6 @@ const MealDetailPage = () => {
     );
   }
 
-  const transformedMainImageUrl = transformSupabaseImage(meal.image_url, { width: 800, resize: 'contain' });
-
   return (
     <div className={cn("min-h-screen bg-background text-foreground", isMobile ? "pt-4 pb-20 px-2" : "p-4")}>
       <AppHeader />
@@ -172,12 +170,7 @@ const MealDetailPage = () => {
           <CardContent className="space-y-6">
             {meal.image_url ? (
               <div className="w-full h-48 sm:h-64 md:h-80 rounded-md overflow-hidden bg-muted flex items-center justify-center">
-                <img 
-                  src={transformedMainImageUrl} 
-                  alt={meal.name} 
-                  className="w-full h-full object-contain" 
-                  loading="lazy" 
-                />
+                <img src={meal.image_url} alt={meal.name} className="w-full h-full object-contain" />
               </div>
             ) : (
               <div className="w-full h-48 sm:h-64 md:h-80 rounded-md bg-muted flex items-center justify-center text-muted-foreground">

@@ -13,7 +13,6 @@ import { Brain, Save, RefreshCw, Info, Image as ImageIcon, Edit2, Zap, Users } f
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { IMAGE_GENERATION_LIMIT_PER_MONTH, RECIPE_GENERATION_LIMIT_PER_PERIOD, RECIPE_GENERATION_PERIOD_DAYS } from '@/lib/constants';
 import { calculateCaloriesPerServing } from '@/utils/mealUtils';
-import { cn, transformSupabaseImage } from "@/lib/utils";
 import type { CombinedGenerationLimits } from '@/pages/ManageMealEntryPage';
 
 interface GeneratedIngredient {
@@ -272,7 +271,7 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
     setRefinementPrompt('');
   };
 
-  const handleInitialGenerateRecipeClick = async () => { 
+  const handleInitialGenerateRecipeClick = async () => {
      const { data: authData } = await supabase.auth.getUser();
      if (!authData.user) { showError("You must be logged in to generate meals."); navigate("/auth"); return; }
      recipeGenerationMutation.mutate({ isRefinement: false });
@@ -314,9 +313,6 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
     }
     return null;
   }, [generatedMeal]);
-
-  const transformedGeneratedImageUrl = transformSupabaseImage(generatedMeal?.image_url, { width: 600, resize: 'contain' });
-  const transformedEnlargedImageUrl = viewingImageUrl ? transformSupabaseImage(viewingImageUrl, { width: 1200, height: 1200, resize: 'contain' }) : null;
 
   return (
     <div className="space-y-6">
@@ -439,11 +435,10 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
                   onClick={() => setViewingImageUrl(generatedMeal.image_url || null)}
                 >
                   <img
-                    src={transformedGeneratedImageUrl}
+                    src={generatedMeal.image_url}
                     alt={`Image of ${generatedMeal.name}`}
                     className="h-full w-full object-contain rounded-md"
                     onError={(e) => (e.currentTarget.style.display = 'none')}
-                    loading="lazy"
                   />
                 </div>
               )}
@@ -555,11 +550,10 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
         >
           {viewingImageUrl && (
             <img
-              src={transformedEnlargedImageUrl}
+              src={viewingImageUrl}
               alt="Enlarged meal image"
               className="max-w-full max-h-full object-contain"
-              onClick={(e) => e.stopPropagation()}
-              loading="lazy"
+              onClick={(e) => e.stopPropagation()} // Optional: if you want clicking image itself to NOT close
             />
           )}
         </DialogContent>

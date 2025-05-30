@@ -3,7 +3,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription }
 import { Button } from "@/components/ui/button";
 import { PlusCircle, CheckCircle2 } from 'lucide-react';
 import { Badge } from "@/components/ui/badge"; 
-import { cn, transformSupabaseImage } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 
 export interface MealTemplate {
   id: string;
@@ -58,8 +58,6 @@ const MealTemplateCard: React.FC<MealTemplateCardProps> = ({ template, onAddToMy
     return text.substring(0, maxLength) + '...';
   };
 
-  const transformedImageUrl = transformSupabaseImage(template.image_url, { width: 400, resize: 'cover' });
-
   return (
     <Card className={cn(
       "flex flex-col hover:shadow-lg transition-shadow duration-200",
@@ -68,11 +66,10 @@ const MealTemplateCard: React.FC<MealTemplateCardProps> = ({ template, onAddToMy
       <CardHeader>
         {template.image_url && (
           <img 
-            src={transformedImageUrl} 
+            src={template.image_url} 
             alt={template.name} 
             className="w-full h-40 object-cover rounded-t-md mb-4" 
             onError={(e) => (e.currentTarget.style.display = 'none')}
-            loading="lazy"
           />
         )}
         <CardTitle>{template.name}</CardTitle>
