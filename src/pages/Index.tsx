@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
-import { LayoutDashboard, CalendarDays, BrainCircuit, ShoppingCart, ImagePlus, Info, Sparkles, Menu, Smartphone, QrCode, Apple, Share2 } from "lucide-react"; 
+import { LayoutDashboard, CalendarDays, BrainCircuit, ShoppingCart, ImagePlus, Info, Sparkles, Menu, Smartphone } from "lucide-react"; 
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -219,12 +219,12 @@ const Index = () => {
             {/* Android Card */}
             <Card className="flex flex-col">
               <CardHeader className="flex-row items-center space-x-3 pb-4">
-                <Apple className="h-8 w-8 text-green-500" /> 
+                <img src="/icons/icons8-android.svg" alt="Android Icon" className="h-8 w-8" /> 
                 <CardTitle className="text-2xl">Android Users</CardTitle>
               </CardHeader>
               <CardContent className="flex-grow space-y-4">
                 <p className="text-muted-foreground">
-                  1. Scan the QR code below using your Android device's camera or a QR scanner app.
+                  1. Scan the QR code below or click <a href="#" className="text-primary hover:underline">this link</a>.
                 </p>
                 <div className="flex justify-center my-4">
                   <img 
@@ -234,7 +234,7 @@ const Index = () => {
                   />
                 </div>
                 <p className="text-muted-foreground">
-                  2. This will take you to the <BitePathStyled /> web app. You can then add it to your home screen for easy access if your browser supports it, or simply bookmark the page.
+                  2. Download the app. (If prompted, allow Google to scan the app – it's harmless, and Google can verify its safety.)
                 </p>
               </CardContent>
               <CardFooter>
@@ -247,7 +247,7 @@ const Index = () => {
             {/* iPhone Card */}
             <Card className="flex flex-col">
               <CardHeader className="flex-row items-center space-x-3 pb-4">
-                <Apple className="h-8 w-8 text-gray-500 dark:text-gray-400" />
+                <img src="/icons/icons8-apple.svg" alt="Apple Icon" className="h-8 w-8" />
                 <CardTitle className="text-2xl">iPhone Users (Safari)</CardTitle>
               </CardHeader>
               <CardContent className="flex-grow space-y-3">
@@ -256,7 +256,7 @@ const Index = () => {
                 </p>
                 <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
                   <li>Open <BitePathStyled /> in your Safari browser.</li>
-                  <li>Tap the 'Share' button <Share2 className="inline h-5 w-5 mx-1 text-blue-500" /> at the bottom of your screen.</li>
+                  <li>Tap the 'Share' button at the bottom of your screen.</li>
                   <li>Scroll down and tap 'Add to Home Screen'.</li>
                   <li>Confirm by tapping 'Add' in the top right.</li>
                 </ol>
