@@ -3,6 +3,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import { supabase } from "@/lib/supabase";
 import { showError, showSuccess } from "@/utils/toast";
 import { useNavigate } from "react-router-dom";
+import useDebounce from "@/hooks/use-debounce";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -44,6 +45,7 @@ const PAGE_SIZE = 10;
 
 const MealList = () => {
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearchTerm = useDebounce(searchTerm, 500);
   const [selectedCategory, setSelectedCategory] = useState<string | 'all'>('all');
   const [layoutView, setLayoutView] = useState<'list' | 'grid'>('list');
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -81,28 +83,42 @@ const MealList = () => {
     enabled: !!userId,
   });
 
-  const fetchMeals = async ({ pageParam = 0 }) => {
-    if (!userId) return { data: [], nextPage: undefined };
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("User not logged in.");
+  const fetchMeals = async ({ pageParam = 0, queryKey }: { pageParam?: number, queryKey: any }) => {
+    const currentUserId = queryKey[1];
+    const currentSearchTerm = queryKey[2];
+    const currentSelectedCategory = queryKey[3];
 
     const from = pageParam * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
 
-    const { data, error, count } = await supabase
+    let query = supabase
       .from("meals")
       .select("id, name, ingredients, instructions, user_id, meal_tags, image_url, estimated_calories, servings", { count: 'exact' }) 
-      .eq("user_id", user.id)
-      .order('created_at', { ascending: false })
-      .range(from, to);
+      .eq("user_id", currentUserId);
 
-    if (error) throw error;
+    if (currentSearchTerm) {
+      query = query.ilike("name", `%${currentSearchTerm}%`);
+    }
+
+    if (currentSelectedCategory && currentSelectedCategory !== 'all') {
+      query = query.contains("meal_tags", [currentSelectedCategory]);
+    }
+    
+    query = query.order('created_at', { ascending: false }).range(from, to);
+    
+    const { data, error, count } = await query;
+
+    if (error) {
+      console.error("Error fetching meals for MealList:", error);
+      throw error;
+    }
     
     const hasMore = (count || 0) > (from + (data?.length || 0));
 
     return {
       data: data || [],
       nextPage: hasMore ? pageParam + 1 : undefined,
+      totalCount: count,
     };
   };
 
@@ -114,7 +130,7 @@ const MealList = () => {
     isFetchingNextPage,
     error,
   } = useInfiniteQuery<Awaited<ReturnType<typeof fetchMeals>>, Error>({
-    queryKey: ["meals", userId],
+    queryKey: ["meals", userId, debouncedSearchTerm, selectedCategory], 
     queryFn: fetchMeals,
     getNextPageParam: (lastPage) => lastPage.nextPage,
     enabled: !!userId,
@@ -122,6 +138,7 @@ const MealList = () => {
   });
 
   const allMeals = useMemo(() => mealsData?.pages.flatMap(page => page.data) || [], [mealsData]);
+  const totalMealsCount = useMemo(() => mealsData?.pages[0]?.totalCount || 0, [mealsData]);
   
   const deleteMealMutation = useMutation({
     mutationFn: async (mealId: string) => {
@@ -143,8 +160,7 @@ const MealList = () => {
       queryClient.invalidateQueries({ queryKey: ["groceryListSource"] });
       queryClient.invalidateQueries({ queryKey: ["todaysGroceryListSource"] });
     },
-    onError: (error) 
-    : void => {
+    onError: (error) => {
       console.error("Error deleting meal:", error);
       showError(`Failed to delete meal: ${error.message}`);
     },
@@ -173,15 +189,6 @@ const MealList = () => {
     const allTags = allMeals.flatMap(meal => meal.meal_tags || []).filter(Boolean) as string[];
     return Array.from(new Set(allTags)).sort();
   }, [allMeals]);
-
-  const filteredMeals = useMemo(() => {
-    if (!allMeals) return []; 
-    return allMeals.filter(meal => {
-      const nameMatch = meal.name.toLowerCase().includes(searchTerm.toLowerCase());
-      const categoryMatch = selectedCategory === 'all' || (meal.meal_tags && meal.meal_tags.includes(selectedCategory));
-      return nameMatch && categoryMatch;
-    });
-  }, [allMeals, searchTerm, selectedCategory]);
 
   const formatIngredientsDisplay = (ingredientsString: string | null | undefined): string => {
     if (!ingredientsString) return 'No ingredients listed.';
@@ -283,25 +290,27 @@ const MealList = () => {
 
           {allMeals.length === 0 && !isLoadingMealsData && !isFetchingNextPage && (
             <div className="text-center py-6 text-muted-foreground">
-              <ChefHat className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500 mb-4" />
-              <p className="text-lg font-semibold mb-1">No Meals Yet!</p>
-              <p className="text-sm">Looks like your recipe book is empty. <br/>Add a meal using the "Add Meal" button above or discover new ones!</p>
-            </div>
-          )}
-
-          {allMeals.length > 0 && filteredMeals.length === 0 && !isLoadingMealsData && !isFetchingNextPage && (
-            <div className="text-center py-6 text-muted-foreground">
-              <Search className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500 mb-3" />
-              <p className="text-lg">No meals match your current filters.</p>
-              <p className="text-sm">Try a different search term or category.</p>
+              { (debouncedSearchTerm || selectedCategory !== 'all') && totalMealsCount > 0 ? ( 
+                <>
+                  <Search className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500 mb-3" />
+                  <p className="text-lg">No meals match your current filters.</p>
+                  <p className="text-sm">Try a different search term or category.</p>
+                </>
+              ) : ( 
+                <>
+                  <ChefHat className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500 mb-4" />
+                  <p className="text-lg font-semibold mb-1">No Meals Yet!</p>
+                  <p className="text-sm">Looks like your recipe book is empty. <br/>Add a meal using the "Add Meal" button above or discover new ones!</p>
+                </>
+              )}
             </div>
           )}
           
-          {filteredMeals && filteredMeals.length > 0 && (
+          {allMeals && allMeals.length > 0 && (
             <div className={cn(
               layoutView === 'list' ? 'space-y-3' : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'
             )}>
-              {filteredMeals.map((meal) => {
+              {allMeals.map((meal) => {
                 const caloriesPerServing = calculateCaloriesPerServing(meal.estimated_calories, meal.servings);
                 const canTrackCalories = userProfile && userProfile.track_calories;
                 const shouldShowCalories = canTrackCalories && caloriesPerServing !== null;
