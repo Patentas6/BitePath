@@ -113,3 +113,16 @@
     color: hsl(var(--foreground)); 
   }
 }
+
+/* Custom styles for ToastViewport positioning */
+@layer components {
+  [data-radix-toast-viewport] {
+    /* Adjust bottom margin to lift above a typical mobile nav bar (e.g., 4rem or 64px) */
+    /* Also considers iOS safe area insets for the notch */
+    margin-bottom: calc(env(safe-area-inset-bottom, 0px) + 4.5rem) !important; /* Increased slightly to 4.5rem for more clearance */
+    /* On sm screens and up, where it's centered, ensure it's not full width */
+    @media (min-width: 640px) { /* sm breakpoint */
+      width: auto; /* Allow it to size to its content (md:max-w-[420px] will take effect) */
+    }
+  }
+}
