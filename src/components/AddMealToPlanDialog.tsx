@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // <-- MODIFIED: useInfiniteQuery
 import { supabase } from "@/lib/supabase";
 import { format } from "date-fns"; 
 import { showError, showSuccess } from "@/utils/toast";
 import { MEAL_TAG_OPTIONS, MealTag, PLANNING_MEAL_TYPES, PlanningMealType } from "@/lib/constants"; 
+import useDebounce from "@/hooks/use-debounce"; // <-- ADDED: useDebounce hook
 
 import { Button } from "@/components/ui/button";
 import {
@@ -28,9 +29,9 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
+// Skeleton removed as we'll use loading states from useInfiniteQuery
 import { Badge } from "@/components/ui/badge";
-import { Search, X, Check, ChevronsUpDown } from "lucide-react"; 
+import { Search, X, Check, ChevronsUpDown, Loader2 } from "lucide-react"; // <-- MODIFIED: Added Loader2
 import { cn } from "@/lib/utils";
 
 interface Meal {
@@ -48,6 +49,8 @@ interface AddMealToPlanDialogProps {
   initialMealType?: PlanningMealType | string | null; 
 }
 
+const PAGE_SIZE = 15; // <-- ADDED: Page size for fetching meals
+
 const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
   open,
   onOpenChange,
@@ -56,97 +59,138 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
   initialMealType,
 }) => {
   const [selectedMealId, setSelectedMealId] = useState<string | undefined>(undefined);
+  const [selectedMealName, setSelectedMealName] = useState<string | undefined>(undefined); // <-- ADDED: To display selected meal name
   const [selectedMealTypeForSaving, setSelectedMealTypeForSaving] = useState<PlanningMealType | undefined>(undefined);
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearchTerm = useDebounce(searchTerm, 500); // <-- ADDED: Debounced search term
   const [selectedTags, setSelectedTags] = useState<MealTag[]>([]);
   const [isComboboxOpen, setIsComboboxOpen] = useState(false);
   const queryClient = useQueryClient();
 
-  const { data: meals, isLoading: isLoadingMeals, error: mealsError } = useQuery<Meal[]>({
-    queryKey: ["userMealsWithTagsAndImages", userId],
-    queryFn: async () => {
-      if (!userId) throw new Error("User ID is required to fetch meals.");
-      const { data, error } = await supabase
-        .from("meals")
-        .select("id, name, meal_tags, image_url")
-        .eq("user_id", userId)
-        .order("name", { ascending: true }); 
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!userId && open, 
+  // --- MODIFIED: Replaced useQuery with useInfiniteQuery for meals ---
+  const fetchMeals = async ({ pageParam = 0, queryKey }: { pageParam?: number, queryKey: any }) => {
+    // queryKey will be [queryName, userId, debouncedSearchTerm, selectedTagsString]
+    const [_queryName, currentUserId, currentSearchTerm, currentSelectedTagsString] = queryKey;
+    
+    if (!currentUserId) return { data: [], nextPage: undefined, totalCount: 0 };
+
+    const from = pageParam * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+
+    let query = supabase
+      .from("meals")
+      .select("id, name, meal_tags, image_url", { count: 'exact' })
+      .eq("user_id", currentUserId);
+
+    if (currentSearchTerm) {
+      query = query.ilike("name", `%${currentSearchTerm}%`);
+    }
+
+    const currentSelectedTags: MealTag[] = currentSelectedTagsString ? currentSelectedTagsString.split(',') : [];
+    if (currentSelectedTags.length > 0) {
+      // Assuming meal_tags is an array of text. If it's JSONB, this might need adjustment.
+      // Using 'cs' (contains) for array of strings.
+      query = query.cs("meal_tags", currentSelectedTags);
+    }
+    
+    query = query.order("name", { ascending: true }).range(from, to);
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      console.error("Error fetching meals for dialog:", error);
+      throw error;
+    }
+    
+    const hasMore = (count || 0) > (from + (data?.length || 0));
+
+    return {
+      data: data || [],
+      nextPage: hasMore ? pageParam + 1 : undefined,
+      totalCount: count || 0,
+    };
+  };
+  
+  const selectedTagsString = useMemo(() => selectedTags.sort().join(','), [selectedTags]); // For stable queryKey
+
+  const {
+    data: mealsData,
+    fetchNextPage,
+    hasNextPage,
+    isLoading: isLoadingMeals,
+    isFetchingNextPage,
+    error: mealsError,
+    refetch: refetchMeals, // <-- ADDED: To manually refetch if needed
+  } = useInfiniteQuery<Awaited<ReturnType<typeof fetchMeals>>, Error>({
+    queryKey: ["userMealsForPlanner", userId, debouncedSearchTerm, selectedTagsString], // <-- MODIFIED: Query key includes search and tags
+    queryFn: fetchMeals,
+    getNextPageParam: (lastPage) => lastPage.nextPage,
+    enabled: !!userId && open, // Only fetch when dialog is open and user is known
+    initialPageParam: 0,
   });
+
+  const allFetchedMeals = useMemo(() => mealsData?.pages.flatMap(page => page.data) || [], [mealsData]);
+  // --- END MODIFICATION ---
 
   useEffect(() => {
     if (open) {
-      console.log("--------------------------------------------------");
-      console.log("[AddMealToPlanDialog] useEffect triggered because 'open' or 'initialMealType' changed.");
-      console.log("[AddMealToPlanDialog] Current `open` state:", open);
-      console.log("[AddMealToPlanDialog] Received `initialMealType` prop:", initialMealType);
-
-      setSearchTerm("");
+      console.log("[AddMealToPlanDialog] Opened. InitialMealType:", initialMealType);
+      // Reset search and selection when dialog opens, but preserve tags based on initialMealType
+      setSearchTerm(""); 
       setSelectedMealId(undefined);
+      setSelectedMealName(undefined);
 
       const typeForSavingDatabase = PLANNING_MEAL_TYPES.find(t => t === initialMealType);
       setSelectedMealTypeForSaving(typeForSavingDatabase);
-      console.log("[AddMealToPlanDialog] `selectedMealTypeForSaving` (for database) state set to:", typeForSavingDatabase);
-
+      
       let tagsToPreselect: MealTag[] = [];
-      const snackTag = MEAL_TAG_OPTIONS.find(tag => tag === "Snack"); // Explicitly find "Snack"
+      const snackTag = MEAL_TAG_OPTIONS.find(tag => tag === "Snack");
 
       if (initialMealType) {
         if (MEAL_TAG_OPTIONS.includes(initialMealType as MealTag)) {
-          // Exact match (e.g., "Breakfast" -> "Breakfast" tag)
-          console.log(`[AddMealToPlanDialog] Tag Pre-selection: Exact match. '${initialMealType}' is in MEAL_TAG_OPTIONS.`);
           tagsToPreselect = [initialMealType as MealTag];
         } else if (
           (initialMealType === "Afternoon Snack" || initialMealType === "Brunch Snack") &&
-          snackTag // Check if "Snack" tag exists in MEAL_TAG_OPTIONS
+          snackTag
         ) {
-          // Specific mapping for "Afternoon Snack" or "Brunch Snack" to "Snack" tag
-          console.log(`[AddMealToPlanDialog] Tag Pre-selection: Mapping '${initialMealType}' to 'Snack' tag.`);
           tagsToPreselect = [snackTag];
-        } else {
-          console.log(`[AddMealToPlanDialog] Tag Pre-selection: No specific rule for '${initialMealType}'. Resetting tags.`);
         }
-      } else {
-        console.log(`[AddMealToPlanDialog] Tag Pre-selection: initialMealType is falsy. Resetting tags.`);
       }
-      setSelectedTags(tagsToPreselect);
-      console.log("[AddMealToPlanDialog] `selectedTags` state set to:", tagsToPreselect);
-      console.log("--------------------------------------------------");
+      setSelectedTags(tagsToPreselect); // This will trigger a fetch due to selectedTagsString in queryKey
       
+      // Explicitly refetch if tags haven't changed but dialog reopens
+      // This ensures fresh data if the dialog was closed and reopened without tag changes
+      if (mealsData) {
+         // queryClient.resetQueries({ queryKey: ["userMealsForPlanner", userId, debouncedSearchTerm, selectedTagsString] });
+         // refetchMeals(); // This might be too aggressive, let's see if selectedTags change is enough
+      }
+
     } else {
       setIsComboboxOpen(false); 
     }
-  }, [open, initialMealType]);
+  }, [open, initialMealType]); // Removed userId, debouncedSearchTerm, selectedTagsString as they are in queryKey
 
-
-  const filteredMeals = useMemo(() => {
-    if (!meals) return [];
-    let tempFilteredMeals = meals;
-
-    if (searchTerm) {
-      tempFilteredMeals = tempFilteredMeals.filter(meal =>
-        meal.name.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+  // Effect to update selectedMealName when selectedMealId changes
+  useEffect(() => {
+    if (selectedMealId) {
+      const meal = allFetchedMeals.find(m => m.id === selectedMealId);
+      setSelectedMealName(meal?.name);
+    } else {
+      setSelectedMealName(undefined);
     }
+  }, [selectedMealId, allFetchedMeals]);
 
-    if (selectedTags.length > 0) {
-      tempFilteredMeals = tempFilteredMeals.filter(meal =>
-        meal.meal_tags && selectedTags.every(tag => meal.meal_tags!.includes(tag))
-      );
-    }
-    return tempFilteredMeals;
-  }, [meals, searchTerm, selectedTags]);
 
   const toggleTagFilter = (tag: MealTag) => {
     setSelectedTags(prev =>
       prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
     );
+    // Changing selectedTags will change selectedTagsString, which is in the queryKey,
+    // so useInfiniteQuery will refetch automatically.
   };
 
   const addMealToPlanMutation = useMutation({
+    // ... KEEP: mutationFn and other options ...
     mutationFn: async ({ meal_id, plan_date_str, meal_type_str }: { meal_id: string; plan_date_str: string; meal_type_str: string }) => {
       if (!userId) throw new Error("User not authenticated.");
       if (!selectedMealTypeForSaving) {
@@ -194,6 +238,8 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
 
   const descriptionDisplayMealType = initialMealType || "Meal"; 
 
+  const totalMealsCount = mealsData?.pages[0]?.totalCount || 0;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md max-h-[85vh] flex flex-col">
@@ -226,41 +272,48 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
                   aria-expanded={isComboboxOpen}
                   className="w-full justify-between font-normal"
                 >
-                  {selectedMealId
-                    ? meals?.find((meal) => meal.id === selectedMealId)?.name
+                  {selectedMealName // <-- MODIFIED: Display selected meal name
+                    ? selectedMealName
                     : "Select a meal..."}
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                <Command shouldFilter={false}> 
+                <Command shouldFilter={false}> {/* Client-side filtering is disabled */}
                   <CommandInput 
                     placeholder="Search meal by name..."
                     value={searchTerm}
                     onValueChange={(value) => {
-                      setSearchTerm(value);
+                      setSearchTerm(value); // Updates searchTerm, debouncedSearchTerm will follow
                       if (!isComboboxOpen && value) setIsComboboxOpen(true); 
                     }}
                   />
-                  <CommandList className="max-h-[200px] sm:max-h-[250px]"> {/* Constrain height for scrolling */}
-                    {isLoadingMeals ? (
-                      <div className="p-2 text-sm text-muted-foreground">Loading meals...</div>
-                    ) : mealsError ? (
-                      <div className="p-2 text-sm text-red-500">Error loading meals.</div>
-                    ) : filteredMeals.length === 0 ? (
+                  <CommandList className="max-h-[200px] sm:max-h-[250px]">
+                    {isLoadingMeals && !isFetchingNextPage && !allFetchedMeals.length && ( // Initial load
+                      <div className="p-2 text-sm text-muted-foreground flex items-center justify-center">
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading meals...
+                      </div>
+                    )}
+                    {mealsError && (
+                      <div className="p-2 text-sm text-red-500">Error: {mealsError.message}</div>
+                    )}
+                    {!isLoadingMeals && !mealsError && allFetchedMeals.length === 0 && (
                       <CommandEmpty>
-                        {meals && meals.length > 0 ? "No meals match your search/filters." : "No meals found. Add some first!"}
+                        {totalMealsCount > 0 ? "No meals match your search/filters." : "No meals found. Add some first!"}
                       </CommandEmpty>
-                    ) : (
+                    )}
+                    
+                    {allFetchedMeals.length > 0 && (
                       <CommandGroup>
-                        {filteredMeals.map((meal) => (
+                        {allFetchedMeals.map((meal) => (
                           <CommandItem
                             key={meal.id}
-                            value={meal.id}
-                            onSelect={(currentValue) => {
+                            value={meal.id} // Use ID for value
+                            onSelect={(currentValue) => { // currentValue is meal.id
                               setSelectedMealId(currentValue === selectedMealId ? undefined : currentValue);
+                              // setSelectedMealName will be updated by useEffect
                               setIsComboboxOpen(false);
-                              setSearchTerm(""); 
+                              // setSearchTerm(""); // Optional: clear search on select
                             }}
                             className="cursor-pointer"
                           >
@@ -284,17 +337,42 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
                         ))}
                       </CommandGroup>
                     )}
+                    {/* --- ADDED: Load More Item --- */}
+                    {hasNextPage && (
+                      <CommandItem
+                        key="load-more"
+                        onSelect={() => {
+                          if (!isFetchingNextPage) {
+                            fetchNextPage();
+                          }
+                        }}
+                        className="flex items-center justify-center cursor-pointer text-sm text-muted-foreground hover:bg-accent"
+                        disabled={isFetchingNextPage}
+                      >
+                        {isFetchingNextPage ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading...
+                          </>
+                        ) : (
+                          "Load More Results"
+                        )}
+                      </CommandItem>
+                    )}
                   </CommandList>
                 </Command>
               </PopoverContent>
             </Popover>
           </div>
         </div>
-        <DialogFooter className="mt-auto pt-4 border-t"> {/* Ensure footer is at the bottom */}
+        <DialogFooter className="mt-auto pt-4 border-t">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={addMealToPlanMutation.isPending}>
             Cancel
           </Button>
-          <Button type="submit" onClick={handleSave} disabled={isLoadingMeals || addMealToPlanMutation.isPending || !selectedMealId || !selectedMealTypeForSaving}> 
+          <Button 
+            type="submit" 
+            onClick={handleSave} 
+            disabled={isLoadingMeals || addMealToPlanMutation.isPending || !selectedMealId || !selectedMealTypeForSaving}
+          > 
             {addMealToPlanMutation.isPending ? "Saving..." : "Save Meal"}
           </Button>
         </DialogFooter>
