@@ -55,21 +55,8 @@ const MealList = () => {
 
   useEffect(() => {
     const fetchUser = async () => {
-      console.log("[MealList] Attempting to fetch user session...");
-      const { data: { user }, error } = await supabase.auth.getUser(); // Destructure error correctly
-      if (error) {
-        console.log("[MealList] Error fetching user session:", error);
-        setUserId(null);
-        return;
-      }
-
-      if (user) {
-        console.log("[MealList] User session found. User ID:", user.id);
-        setUserId(user.id);
-      } else {
-        console.log("[MealList] No user session found.");
-        setUserId(null);
-      }
+      const { data } = await supabase.auth.getUser();
+      setUserId(data.user?.id || null);
     };
     fetchUser();
   }, []);
@@ -78,58 +65,37 @@ const MealList = () => {
     queryKey: ['userProfileForMealListDisplay', userId],
     queryFn: async () => {
       if (!userId) return null;
-      console.log("[MealList] Fetching user profile for calorie display, userId:", userId);
       const { data, error } = await supabase
         .from('profiles')
         .select('track_calories')
         .eq('id', userId)
         .single();
-      if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found, which is fine
+      if (error && error.code !== 'PGRST116') {
         console.error("[MealList] Error fetching profile for meal list calorie display:", error);
-        return { track_calories: false }; // Default or error state
+        return { track_calories: false }; 
       }
-      console.log("[MealList] User profile fetched:", data);
-      return data || { track_calories: false }; // Ensure a value is returned
+      return data || { track_calories: false };
     },
     enabled: !!userId,
   });
 
+
   const { data: meals, isLoading: isLoadingMealsData, error } = useQuery<Meal[]>({
     queryKey: ["meals", userId], 
     queryFn: async () => {
-      console.log("[MealList] meals queryFn triggered. Current userId:", userId);
-      if (!userId) {
-        console.log("[MealList] meals queryFn: No userId, returning empty array.");
-        return [];
-      }
+      if (!userId) return []; 
+      const { data: { user } } = await supabase.auth.getUser(); 
+      if (!user) throw new Error("User not logged in.");
+      const { data, error } = await supabase
+        .from("meals")
+        .select("id, name, ingredients, instructions, user_id, meal_tags, image_url, estimated_calories, servings") 
+        .eq("user_id", user.id)
+        .order('created_at', { ascending: false });
 
-      console.log(`[MealList] Preparing to fetch meals from Supabase for user: ${userId}`);
-      let data, dbError;
-      try {
-        const response = await supabase
-          .from("meals")
-          .select("id, name, ingredients, instructions, user_id, meal_tags, image_url, estimated_calories, servings")
-          .eq("user_id", userId)
-          .order('created_at', { ascending: false });
-        
-        data = response.data;
-        dbError = response.error;
-        console.log(`[MealList] Supabase meals query completed for user: ${userId}. Error:`, dbError, "Data received:", !!data);
-
-      } catch (catchError: any) {
-        console.error(`[MealList] CRITICAL ERROR during Supabase meals query for user ${userId}:`, catchError);
-        throw catchError; 
-      }
-
-      if (dbError) {
-        console.error(`[MealList] Error fetching meals (dbError) for user ${userId}:`, dbError);
-        throw dbError;
-      }
-      console.log(`[MealList] Meals data processed for user ${userId}:`, data?.length, "meals");
+      if (error) throw error;
       return data || [];
     },
     enabled: !!userId, 
-    staleTime: 300000, // <-- MODIFIED: Added 5 minutes staleTime
   });
 
   const deleteMealMutation = useMutation({
@@ -152,7 +118,7 @@ const MealList = () => {
       queryClient.invalidateQueries({ queryKey: ["groceryListSource"] });
       queryClient.invalidateQueries({ queryKey: ["todaysGroceryListSource"] });
     },
-    onError: (error: Error) => { // Explicitly type error
+    onError: (error) => {
       console.error("Error deleting meal:", error);
       showError(`Failed to delete meal: ${error.message}`);
     },
@@ -207,7 +173,6 @@ const MealList = () => {
       }
       return 'No ingredients listed or format error.';
     } catch (e) {
-      // If JSON.parse fails, treat as plain string and truncate
       const maxLength = 70; 
       return ingredientsString.substring(0, maxLength) + (ingredientsString.length > maxLength ? '...' : '');
     }
@@ -215,7 +180,7 @@ const MealList = () => {
   
   const overallIsLoading = isLoadingUserProfile || isLoadingMealsData;
 
-  if (overallIsLoading && !meals) { // Show skeleton if initial load for either profile or meals
+  if (overallIsLoading && !meals) { 
     return (
       <Card className="hover:shadow-lg transition-shadow duration-200">
         <CardHeader><CardTitle>My Meals</CardTitle></CardHeader>
@@ -229,7 +194,7 @@ const MealList = () => {
     );
   }
 
-  if (error) { // This 'error' is from the meals query
+  if (error) {
     console.error("Error fetching meals:", error);
     return (
       <Card className="hover:shadow-lg transition-shadow duration-200">
