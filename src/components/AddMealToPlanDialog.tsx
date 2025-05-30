@@ -1,14 +1,13 @@
 import { useState, useEffect, useMemo } from "react";
-import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { format } from "date-fns";
+import { format } from "date-fns"; 
 import { showError, showSuccess } from "@/utils/toast";
-import { MEAL_TAG_OPTIONS, MealTag, PLANNING_MEAL_TYPES, PlanningMealType } from "@/lib/constants";
-import useDebounce from "@/hooks/use-debounce";
+import { MEAL_TAG_OPTIONS, MealTag, PLANNING_MEAL_TYPES, PlanningMealType } from "@/lib/constants"; 
 
 import { Button } from "@/components/ui/button";
 import {
-  Dialog as ShadDialog,
+  Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -29,18 +28,16 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Search, X, Check, ChevronsUpDown, Loader2 } from "lucide-react";
+import { Search, X, Check, ChevronsUpDown } from "lucide-react"; 
 import { cn } from "@/lib/utils";
-
-const DIALOG_PAGE_SIZE = 15;
 
 interface Meal {
   id: string;
   name: string;
   meal_tags?: string[] | null;
   image_url?: string | null;
-  created_at?: string | null;
 }
 
 interface AddMealToPlanDialogProps {
@@ -48,7 +45,7 @@ interface AddMealToPlanDialogProps {
   onOpenChange: (open: boolean) => void;
   planDate: Date | null;
   userId: string | null;
-  initialMealType?: PlanningMealType | string | null;
+  initialMealType?: PlanningMealType | string | null; 
 }
 
 const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
@@ -59,103 +56,89 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
   initialMealType,
 }) => {
   const [selectedMealId, setSelectedMealId] = useState<string | undefined>(undefined);
-  const [selectedMealName, setSelectedMealName] = useState<string | undefined>(undefined);
   const [selectedMealTypeForSaving, setSelectedMealTypeForSaving] = useState<PlanningMealType | undefined>(undefined);
   const [searchTerm, setSearchTerm] = useState("");
-  const debouncedSearchTerm = useDebounce(searchTerm, 500);
   const [selectedTags, setSelectedTags] = useState<MealTag[]>([]);
-  const queryClient = useQueryClient(); 
+  const [isComboboxOpen, setIsComboboxOpen] = useState(false);
+  const queryClient = useQueryClient();
 
-  const fetchMeals = async ({ pageParam = 0, queryKey }: { pageParam?: number, queryKey: any }) => {
-    const [_queryName, currentUserId, currentSearchTerm, currentSelectedTagsString] = queryKey;
-    if (!currentUserId) return { data: [], error: null, nextPage: undefined, totalCount: 0 }; 
-
-    let query = supabase
-      .from("meals")
-      .select("id, name, meal_tags, image_url, created_at", { count: 'exact' }) 
-      .eq("user_id", currentUserId);
-
-    if (currentSearchTerm) {
-      query = query.ilike("name", `%${currentSearchTerm}%`);
-    }
-
-    const currentSelectedTags: MealTag[] = currentSelectedTagsString ? currentSelectedTagsString.split(',') : [];
-    if (currentSelectedTags.length > 0) {
-      query = query.contains("meal_tags", currentSelectedTags);
-    }
-    
-    const from = pageParam * DIALOG_PAGE_SIZE;
-    const to = from + DIALOG_PAGE_SIZE - 1;
-    query = query.order("created_at", { ascending: false }).range(from, to); 
-
-    const { data, error, count } = await query;
-
-    if (error) {
-      console.error("Error fetching meals for dialog:", error);
-      throw error;
-    }
-    
-    return {
-      data: data || [],
-      nextPage: count && data && data.length === DIALOG_PAGE_SIZE ? pageParam + 1 : undefined,
-      totalCount: count || 0,
-    };
-  };
-
-  const selectedTagsString = useMemo(() => selectedTags.sort().join(','), [selectedTags]);
-
-  const {
-    data: mealsData,
-    isLoading: isLoadingMeals,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-  } = useInfiniteQuery<Awaited<ReturnType<typeof fetchMeals>>, Error>({
-    queryKey: ["userMealsForPlanner", userId, debouncedSearchTerm, selectedTagsString],
-    queryFn: fetchMeals,
-    getNextPageParam: (lastPage) => lastPage.nextPage,
-    initialPageParam: 0,
-    enabled: !!userId && open,
+  const { data: meals, isLoading: isLoadingMeals, error: mealsError } = useQuery<Meal[]>({
+    queryKey: ["userMealsWithTagsAndImages", userId],
+    queryFn: async () => {
+      if (!userId) throw new Error("User ID is required to fetch meals.");
+      const { data, error } = await supabase
+        .from("meals")
+        .select("id, name, meal_tags, image_url")
+        .eq("user_id", userId)
+        .order("name", { ascending: true }); 
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!userId && open, 
   });
-
-  const allFetchedMeals = useMemo(() => mealsData?.pages.flatMap(page => page.data) || [], [mealsData]);
-  const totalMealsCount = useMemo(() => mealsData?.pages[0]?.totalCount || 0, [mealsData]);
 
   useEffect(() => {
     if (open) {
-      console.log("[AddMealToPlanDialog] Opened. InitialMealType:", initialMealType);
+      console.log("--------------------------------------------------");
+      console.log("[AddMealToPlanDialog] useEffect triggered because 'open' or 'initialMealType' changed.");
+      console.log("[AddMealToPlanDialog] Current `open` state:", open);
+      console.log("[AddMealToPlanDialog] Received `initialMealType` prop:", initialMealType);
+
       setSearchTerm("");
       setSelectedMealId(undefined);
-      setSelectedMealName(undefined);
 
       const typeForSavingDatabase = PLANNING_MEAL_TYPES.find(t => t === initialMealType);
       setSelectedMealTypeForSaving(typeForSavingDatabase);
-      
+      console.log("[AddMealToPlanDialog] `selectedMealTypeForSaving` (for database) state set to:", typeForSavingDatabase);
+
       let tagsToPreselect: MealTag[] = [];
-      const snackTag = MEAL_TAG_OPTIONS.find(tag => tag === "Snack");
+      const snackTag = MEAL_TAG_OPTIONS.find(tag => tag === "Snack"); // Explicitly find "Snack"
 
       if (initialMealType) {
         if (MEAL_TAG_OPTIONS.includes(initialMealType as MealTag)) {
+          // Exact match (e.g., "Breakfast" -> "Breakfast" tag)
+          console.log(`[AddMealToPlanDialog] Tag Pre-selection: Exact match. '${initialMealType}' is in MEAL_TAG_OPTIONS.`);
           tagsToPreselect = [initialMealType as MealTag];
         } else if (
           (initialMealType === "Afternoon Snack" || initialMealType === "Brunch Snack") &&
-          snackTag
+          snackTag // Check if "Snack" tag exists in MEAL_TAG_OPTIONS
         ) {
+          // Specific mapping for "Afternoon Snack" or "Brunch Snack" to "Snack" tag
+          console.log(`[AddMealToPlanDialog] Tag Pre-selection: Mapping '${initialMealType}' to 'Snack' tag.`);
           tagsToPreselect = [snackTag];
+        } else {
+          console.log(`[AddMealToPlanDialog] Tag Pre-selection: No specific rule for '${initialMealType}'. Resetting tags.`);
         }
+      } else {
+        console.log(`[AddMealToPlanDialog] Tag Pre-selection: initialMealType is falsy. Resetting tags.`);
       }
       setSelectedTags(tagsToPreselect);
-    } 
+      console.log("[AddMealToPlanDialog] `selectedTags` state set to:", tagsToPreselect);
+      console.log("--------------------------------------------------");
+      
+    } else {
+      setIsComboboxOpen(false); 
+    }
   }, [open, initialMealType]);
 
-  useEffect(() => {
-    if (selectedMealId) {
-      const meal = allFetchedMeals.find(m => m.id === selectedMealId);
-      setSelectedMealName(meal?.name);
-    } else {
-      setSelectedMealName(undefined);
+
+  const filteredMeals = useMemo(() => {
+    if (!meals) return [];
+    let tempFilteredMeals = meals;
+
+    if (searchTerm) {
+      tempFilteredMeals = tempFilteredMeals.filter(meal =>
+        meal.name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
     }
-  }, [selectedMealId, allFetchedMeals]);
+
+    if (selectedTags.length > 0) {
+      tempFilteredMeals = tempFilteredMeals.filter(meal =>
+        meal.meal_tags && selectedTags.every(tag => meal.meal_tags!.includes(tag))
+      );
+    }
+    return tempFilteredMeals;
+  }, [meals, searchTerm, selectedTags]);
 
   const toggleTagFilter = (tag: MealTag) => {
     setSelectedTags(prev =>
@@ -173,12 +156,12 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
       const { error: deleteError } = await supabase
         .from("meal_plans")
         .delete()
-        .match({ user_id: userId, plan_date: plan_date_str, meal_type: selectedMealTypeForSaving });
+        .match({ user_id: userId, plan_date: plan_date_str, meal_type: selectedMealTypeForSaving }); 
       if (deleteError) console.warn("Error deleting existing meal plan entry:", deleteError.message);
       
       const { data, error: insertError } = await supabase
         .from("meal_plans")
-        .insert([{ user_id: userId, meal_id: meal_id, plan_date: plan_date_str, meal_type: selectedMealTypeForSaving }])
+        .insert([{ user_id: userId, meal_id: meal_id, plan_date: plan_date_str, meal_type: selectedMealTypeForSaving }]) 
         .select();
       if (insertError) throw insertError;
       return data;
@@ -198,137 +181,125 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
   });
 
   const handleSave = () => {
-    if (!selectedMealId || !planDate || !selectedMealTypeForSaving) {
+    if (!selectedMealId || !planDate || !selectedMealTypeForSaving) { 
       showError("Please select a meal. The meal type is determined by the planner slot.");
       console.error("Save validation failed: selectedMealId:", selectedMealId, "planDate:", planDate, "selectedMealTypeForSaving:", selectedMealTypeForSaving);
       return;
     }
     const plan_date_str = format(planDate, "yyyy-MM-dd");
-    addMealToPlanMutation.mutate({ meal_id: selectedMealId, plan_date_str, meal_type_str: selectedMealTypeForSaving });
+    addMealToPlanMutation.mutate({ meal_id: selectedMealId, plan_date_str, meal_type_str: selectedMealTypeForSaving }); 
   };
 
-  if (!planDate) return null;
+  if (!planDate) return null; 
 
-  const descriptionDisplayMealType = initialMealType || "Meal";
+  const descriptionDisplayMealType = initialMealType || "Meal"; 
 
   return (
-    <ShadDialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent 
-        className="sm:max-w-md max-h-[85vh] flex flex-col bg-background p-6 shadow-lg rounded-lg" 
-        style={{ zIndex: 50 }} 
-      >
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md max-h-[85vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>Add / Change Meal</DialogTitle>
+          <DialogTitle>Add / Change Meal</DialogTitle> 
           <DialogDescription>
             For {descriptionDisplayMealType} on {format(planDate, "EEEE, MMM dd, yyyy")}.
-            {selectedMealName && <span className="block mt-1">Selected: <strong>{selectedMealName}</strong></span>}
           </DialogDescription>
         </DialogHeader>
 
-        {/* Content area for search, filters, and list */}
-        <div className="flex flex-col gap-3 flex-grow overflow-hidden py-1">
-          {/* Tag filter section - moved before Command */}
+        <div className="grid gap-4 py-4 overflow-y-auto flex-grow pr-2">
           <div>
-            <Label htmlFor="meal-tag-filter" className="text-xs text-muted-foreground">Filter by tags:</Label>
-            <div id="meal-tag-filter" className="flex flex-wrap gap-1 mt-1">
-              {MEAL_TAG_OPTIONS.map((tag) => (
-                <Badge
-                  key={tag}
-                  variant={selectedTags.includes(tag) ? "default" : "outline"}
-                  onClick={() => toggleTagFilter(tag)}
-                  className="cursor-pointer text-xs"
-                >
+            <Label className="text-sm font-medium">Filter by tags:</Label>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {MEAL_TAG_OPTIONS.map(tag => (
+                <Button key={tag} variant={selectedTags.includes(tag) ? "default" : "outline"} size="sm" onClick={() => toggleTagFilter(tag)} className="text-xs px-2 py-1 h-auto">
                   {tag}
-                </Badge>
+                </Button>
               ))}
             </div>
           </div>
-          
-          {/* Command component now correctly wraps Input and List */}
-          <Command className="rounded-lg border shadow-md flex-grow overflow-hidden flex flex-col">
-            <div className="flex items-center border-b px-3">
-              <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-              <CommandInput
-                value={searchTerm}
-                onValueChange={setSearchTerm}
-                placeholder="Search meals by name..."
-                className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={isLoadingMeals || addMealToPlanMutation.isPending}
-              />
-            </div>
-            <CommandList className="flex-grow overflow-y-auto"> 
-              {isLoadingMeals && !allFetchedMeals.length && (
-                <div className="p-4 text-center text-sm text-muted-foreground">
-                  <Loader2 className="mx-auto h-6 w-6 animate-spin mb-2" />
-                  Loading meals...
-                </div>
-              )}
-              {!isLoadingMeals && !allFetchedMeals.length && (
-                <CommandEmpty>
-                  {debouncedSearchTerm || selectedTags.length > 0 
-                    ? `No meals found for "${debouncedSearchTerm}" with selected tags.` 
-                    : "No meals found. Add some meals to your collection first!"}
-                </CommandEmpty>
-              )}
-              <CommandGroup heading={totalMealsCount > 0 ? `Results (${totalMealsCount})` : undefined}>
-                {allFetchedMeals.map((meal) => (
-                  <CommandItem
-                    key={meal.id}
-                    value={meal.name} 
-                    onSelect={() => {
-                      setSelectedMealId(meal.id);
-                      setSelectedMealName(meal.name);
-                      console.log("Selected meal:", meal.name, meal.id);
+
+          <div className="grid grid-cols-1 items-center gap-2">
+            <Label className="text-sm font-medium">Select Meal</Label>
+            <Popover open={isComboboxOpen} onOpenChange={setIsComboboxOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={isComboboxOpen}
+                  className="w-full justify-between font-normal"
+                >
+                  {selectedMealId
+                    ? meals?.find((meal) => meal.id === selectedMealId)?.name
+                    : "Select a meal..."}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                <Command shouldFilter={false}> 
+                  <CommandInput 
+                    placeholder="Search meal by name..."
+                    value={searchTerm}
+                    onValueChange={(value) => {
+                      setSearchTerm(value);
+                      if (!isComboboxOpen && value) setIsComboboxOpen(true); 
                     }}
-                    className={cn(
-                      "flex justify-between items-center cursor-pointer",
-                      selectedMealId === meal.id && "bg-accent"
+                  />
+                  <CommandList className="max-h-[200px] sm:max-h-[250px]"> {/* Constrain height for scrolling */}
+                    {isLoadingMeals ? (
+                      <div className="p-2 text-sm text-muted-foreground">Loading meals...</div>
+                    ) : mealsError ? (
+                      <div className="p-2 text-sm text-red-500">Error loading meals.</div>
+                    ) : filteredMeals.length === 0 ? (
+                      <CommandEmpty>
+                        {meals && meals.length > 0 ? "No meals match your search/filters." : "No meals found. Add some first!"}
+                      </CommandEmpty>
+                    ) : (
+                      <CommandGroup>
+                        {filteredMeals.map((meal) => (
+                          <CommandItem
+                            key={meal.id}
+                            value={meal.id}
+                            onSelect={(currentValue) => {
+                              setSelectedMealId(currentValue === selectedMealId ? undefined : currentValue);
+                              setIsComboboxOpen(false);
+                              setSearchTerm(""); 
+                            }}
+                            className="cursor-pointer"
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", selectedMealId === meal.id ? "opacity-100" : "opacity-0")} />
+                            <div className="flex items-center space-x-2 overflow-hidden">
+                              {meal.image_url && (
+                                <img src={meal.image_url} alt={meal.name} className="h-8 w-8 object-cover rounded-sm flex-shrink-0" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                              )}
+                              {!meal.image_url && <div className="h-8 w-8 bg-muted rounded-sm flex-shrink-0"></div>}
+                              <div className="flex flex-col overflow-hidden">
+                                <span className="font-medium truncate">{meal.name}</span>
+                                {meal.meal_tags && meal.meal_tags.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-0.5">
+                                    {meal.meal_tags.slice(0,3).map(tag => <Badge key={tag} variant="secondary" className="text-xs px-1 py-0">{tag}</Badge>)}
+                                    {meal.meal_tags.length > 3 && <Badge variant="secondary" className="text-xs px-1 py-0">...</Badge>}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
                     )}
-                  >
-                    <div className="flex items-center">
-                      {meal.image_url ? (
-                        <img src={meal.image_url} alt={meal.name} className="h-8 w-8 rounded-sm object-cover mr-2" />
-                      ) : (
-                        <div className="h-8 w-8 rounded-sm bg-muted mr-2" />
-                      )}
-                      <span className="text-sm">{meal.name}</span>
-                    </div>
-                    {selectedMealId === meal.id && <Check className="h-4 w-4 text-primary" />}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-              {hasNextPage && (
-                <div className="p-2 flex justify-center">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => fetchNextPage()}
-                    disabled={isFetchingNextPage}
-                  >
-                    {isFetchingNextPage ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    Load More
-                  </Button>
-                </div>
-              )}
-            </CommandList>
-          </Command>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
-        
-        <DialogFooter className="mt-auto pt-4 border-t">
+        <DialogFooter className="mt-auto pt-4 border-t"> {/* Ensure footer is at the bottom */}
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={addMealToPlanMutation.isPending}>
             Cancel
           </Button>
-          <Button 
-            type="submit" 
-            onClick={handleSave} 
-            disabled={isLoadingMeals || addMealToPlanMutation.isPending || !selectedMealId || !selectedMealTypeForSaving}
-          > 
-            {addMealToPlanMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          <Button type="submit" onClick={handleSave} disabled={isLoadingMeals || addMealToPlanMutation.isPending || !selectedMealId || !selectedMealTypeForSaving}> 
             {addMealToPlanMutation.isPending ? "Saving..." : "Save Meal"}
           </Button>
         </DialogFooter>
       </DialogContent>
-    </ShadDialog>
+    </Dialog>
   );
 };
 

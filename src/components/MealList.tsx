@@ -1,15 +1,14 @@
-import { useState, useMemo, useEffect } from "react";
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"; 
+import { useState, useMemo, useEffect } from "react"; 
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { showError, showSuccess } from "@/utils/toast";
 import { useNavigate } from "react-router-dom";
-import useDebounce from "@/hooks/use-debounce";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Trash2, Edit3, Search, ChefHat, List, Grid3X3, Zap, Users, Loader2 } from "lucide-react"; 
+import { Trash2, Edit3, Search, ChefHat, List, Grid3X3, Zap, Users } from "lucide-react"; 
 import EditMealDialog, { MealForEditing } from "./EditMealDialog";
 import {
   AlertDialog,
@@ -22,37 +21,34 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
-import { calculateCaloriesPerServing } from '@/utils/mealUtils';
+import { Dialog, DialogContent } from "@/components/ui/dialog"; 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; 
+import { cn } from "@/lib/utils"; 
+import { calculateCaloriesPerServing } from '@/utils/mealUtils'; 
 
 interface Meal extends MealForEditing {
   meal_tags?: string[] | null;
-  image_url?: string | null;
-  estimated_calories?: string | null;
-  servings?: string | null;
+  image_url?: string | null; 
+  estimated_calories?: string | null; 
+  servings?: string | null; 
 }
 
 interface ParsedIngredient {
   name: string;
-  quantity: number | string | null;
+  quantity: number | string | null; 
   unit: string;
   description?: string;
 }
 
-const PAGE_SIZE = 20; 
-
 const MealList = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const debouncedSearchTerm = useDebounce(searchTerm, 500);
-  const [selectedCategory, setSelectedCategory] = useState<string | 'all'>('all');
-  const [layoutView, setLayoutView] = useState<'list' | 'grid'>('list');
+  const [selectedCategory, setSelectedCategory] = useState<string | 'all'>('all'); 
+  const [layoutView, setLayoutView] = useState<'list' | 'grid'>('list'); 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [mealToEdit, setMealToEdit] = useState<MealForEditing | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [mealToDelete, setMealToDelete] = useState<MealForEditing | null>(null);
-  const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
+  const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null); 
   const [userId, setUserId] = useState<string | null>(null);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -76,70 +72,32 @@ const MealList = () => {
         .single();
       if (error && error.code !== 'PGRST116') {
         console.error("[MealList] Error fetching profile for meal list calorie display:", error);
-        return { track_calories: false };
+        return { track_calories: false }; 
       }
       return data || { track_calories: false };
     },
     enabled: !!userId,
   });
 
-  const fetchMeals = async ({ pageParam = 0, queryKey }: { pageParam?: number, queryKey: any }) => {
-    const currentUserId = queryKey[1];
-    const currentSearchTerm = queryKey[2];
-    const currentSelectedCategory = queryKey[3];
 
-    const from = pageParam * PAGE_SIZE;
-    const to = from + PAGE_SIZE - 1;
+  const { data: meals, isLoading: isLoadingMealsData, error } = useQuery<Meal[]>({
+    queryKey: ["meals", userId], 
+    queryFn: async () => {
+      if (!userId) return []; 
+      const { data: { user } } = await supabase.auth.getUser(); 
+      if (!user) throw new Error("User not logged in.");
+      const { data, error } = await supabase
+        .from("meals")
+        .select("id, name, ingredients, instructions, user_id, meal_tags, image_url, estimated_calories, servings") 
+        .eq("user_id", user.id)
+        .order('created_at', { ascending: false });
 
-    let query = supabase
-      .from("meals")
-      .select("id, name, ingredients, instructions, user_id, meal_tags, image_url, estimated_calories, servings", { count: 'exact' }) 
-      .eq("user_id", currentUserId);
-
-    if (currentSearchTerm) {
-      query = query.ilike("name", `%${currentSearchTerm}%`);
-    }
-
-    if (currentSelectedCategory && currentSelectedCategory !== 'all') {
-      query = query.contains("meal_tags", [currentSelectedCategory]);
-    }
-    
-    query = query.order('created_at', { ascending: false }).range(from, to);
-    
-    const { data, error, count } = await query;
-
-    if (error) {
-      console.error("Error fetching meals for MealList:", error);
-      throw error;
-    }
-    
-    const hasMore = (count || 0) > (from + (data?.length || 0));
-
-    return {
-      data: data || [],
-      nextPage: hasMore ? pageParam + 1 : undefined,
-      totalCount: count,
-    };
-  };
-
-  const {
-    data: mealsData, 
-    fetchNextPage,
-    hasNextPage,
-    isLoading: isLoadingMealsData,
-    isFetchingNextPage,
-    error,
-  } = useInfiniteQuery<Awaited<ReturnType<typeof fetchMeals>>, Error>({
-    queryKey: ["meals", userId, debouncedSearchTerm, selectedCategory], 
-    queryFn: fetchMeals,
-    getNextPageParam: (lastPage) => lastPage.nextPage,
-    enabled: !!userId,
-    initialPageParam: 0, 
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!userId, 
   });
 
-  const allMeals = useMemo(() => mealsData?.pages.flatMap(page => page.data) || [], [mealsData]);
-  const totalMealsCount = useMemo(() => mealsData?.pages[0]?.totalCount || 0, [mealsData]);
-  
   const deleteMealMutation = useMutation({
     mutationFn: async (mealId: string) => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -155,7 +113,7 @@ const MealList = () => {
     },
     onSuccess: () => {
       showSuccess("Meal deleted successfully!");
-      queryClient.invalidateQueries({ queryKey: ["meals", userId] }); 
+      queryClient.invalidateQueries({ queryKey: ["meals", userId] });
       queryClient.invalidateQueries({ queryKey: ["mealPlans"] });
       queryClient.invalidateQueries({ queryKey: ["groceryListSource"] });
       queryClient.invalidateQueries({ queryKey: ["todaysGroceryListSource"] });
@@ -185,10 +143,19 @@ const MealList = () => {
   };
 
   const uniqueCategories = useMemo(() => {
-    if (!allMeals) return []; 
-    const allTags = allMeals.flatMap(meal => meal.meal_tags || []).filter(Boolean) as string[];
+    if (!meals) return [];
+    const allTags = meals.flatMap(meal => meal.meal_tags || []).filter(Boolean) as string[];
     return Array.from(new Set(allTags)).sort();
-  }, [allMeals]);
+  }, [meals]);
+
+  const filteredMeals = useMemo(() => {
+    if (!meals) return [];
+    return meals.filter(meal => {
+      const nameMatch = meal.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const categoryMatch = selectedCategory === 'all' || (meal.meal_tags && meal.meal_tags.includes(selectedCategory));
+      return nameMatch && categoryMatch;
+    });
+  }, [meals, searchTerm, selectedCategory]);
 
   const formatIngredientsDisplay = (ingredientsString: string | null | undefined): string => {
     if (!ingredientsString) return 'No ingredients listed.';
@@ -210,10 +177,10 @@ const MealList = () => {
       return ingredientsString.substring(0, maxLength) + (ingredientsString.length > maxLength ? '...' : '');
     }
   };
+  
+  const overallIsLoading = isLoadingUserProfile || isLoadingMealsData;
 
-  const overallIsLoading = isLoadingUserProfile || (isLoadingMealsData && !mealsData?.pages.length); 
-
-  if (overallIsLoading && !allMeals.length) { 
+  if (overallIsLoading && !meals) { 
     return (
       <Card className="hover:shadow-lg transition-shadow duration-200">
         <CardHeader><CardTitle>My Meals</CardTitle></CardHeader>
@@ -232,7 +199,7 @@ const MealList = () => {
     return (
       <Card className="hover:shadow-lg transition-shadow duration-200">
         <CardHeader><CardTitle>My Meals</CardTitle></CardHeader>
-        <CardContent><p className="text-red-500">Error loading meals: {error.message}. Please try again later.</p></CardContent>
+        <CardContent><p className="text-red-500">Error loading meals. Please try again later.</p></CardContent>
       </Card>
     );
   }
@@ -288,29 +255,27 @@ const MealList = () => {
             </div>
           </div>
 
-          {allMeals.length === 0 && !isLoadingMealsData && !isFetchingNextPage && (
+          {meals && meals.length === 0 && !overallIsLoading && (
             <div className="text-center py-6 text-muted-foreground">
-              { (debouncedSearchTerm || selectedCategory !== 'all') && totalMealsCount > 0 ? ( 
-                <>
-                  <Search className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500 mb-3" />
-                  <p className="text-lg">No meals match your current filters.</p>
-                  <p className="text-sm">Try a different search term or category.</p>
-                </>
-              ) : ( 
-                <>
-                  <ChefHat className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500 mb-4" />
-                  <p className="text-lg font-semibold mb-1">No Meals Yet!</p>
-                  <p className="text-sm">Looks like your recipe book is empty. <br/>Add a meal using the "Add Meal" button above or discover new ones!</p>
-                </>
-              )}
+              <ChefHat className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500 mb-4" />
+              <p className="text-lg font-semibold mb-1">No Meals Yet!</p>
+              <p className="text-sm">Looks like your recipe book is empty. <br/>Add a meal using the "Add Meal" button above or discover new ones!</p>
             </div>
           )}
-          
-          {allMeals && allMeals.length > 0 && (
+
+          {meals && meals.length > 0 && filteredMeals.length === 0 && !overallIsLoading && (
+            <div className="text-center py-6 text-muted-foreground">
+              <Search className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500 mb-3" />
+              <p className="text-lg">No meals match your current filters.</p>
+              <p className="text-sm">Try a different search term or category.</p>
+            </div>
+          )}
+
+          {filteredMeals && filteredMeals.length > 0 && (
             <div className={cn(
               layoutView === 'list' ? 'space-y-3' : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'
             )}>
-              {allMeals.map((meal) => {
+              {filteredMeals.map((meal) => {
                 const caloriesPerServing = calculateCaloriesPerServing(meal.estimated_calories, meal.servings);
                 const canTrackCalories = userProfile && userProfile.track_calories;
                 const shouldShowCalories = canTrackCalories && caloriesPerServing !== null;
@@ -321,6 +286,7 @@ const MealList = () => {
                     className="border p-3 sm:p-4 rounded-lg shadow-sm bg-card hover:shadow-md transition-shadow duration-150 flex flex-col cursor-pointer"
                     onClick={() => navigate(`/meal/${meal.id}`)}
                   >
+                    {/* Top section: Image (mobile full-width) and Main Info + Desktop Buttons */}
                     <div className="flex flex-col sm:flex-row items-start">
                       {meal.image_url && (
                          <div
@@ -332,11 +298,10 @@ const MealList = () => {
                              alt={meal.name}
                              className="h-full w-full object-cover" 
                              onError={(e) => (e.currentTarget.style.display = 'none')} 
-                             loading="lazy"
                            />
                          </div>
                       )}
-                      <div className="flex-grow min-w-0"> 
+                      <div className="flex-grow min-w-0"> {/* min-w-0 for flex child to truncate */}
                         <h3 className="text-lg sm:text-xl font-semibold text-foreground">{meal.name}</h3>
                         {meal.meal_tags && meal.meal_tags.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-1.5">
@@ -358,6 +323,7 @@ const MealList = () => {
                           </div>
                         )}
                       </div>
+                      {/* Desktop Buttons (only visible on sm+) */}
                       <div className="hidden sm:flex flex-col space-y-2 ml-2 flex-shrink-0">
                         <Button 
                           variant="outline" 
@@ -378,6 +344,7 @@ const MealList = () => {
                       </div>
                     </div>
 
+                    {/* Ingredients & Instructions */}
                     {(meal.ingredients || (meal.instructions && meal.instructions.trim() !== "")) && (
                       <div className="space-y-2 mt-2 pt-2 border-t sm:border-t-0 sm:pt-2 flex-grow"> 
                         {meal.ingredients && (
@@ -399,6 +366,7 @@ const MealList = () => {
                       </div>
                     )}
 
+                    {/* Mobile Buttons (only visible on screens smaller than sm) */}
                     <div className="flex sm:hidden space-x-2 mt-3 pt-3 border-t">
                       <Button 
                         variant="outline" 
@@ -422,25 +390,6 @@ const MealList = () => {
                   </div>
                 );
               })}
-            </div>
-          )}
-
-          {hasNextPage && (
-            <div className="flex justify-center mt-6">
-              <Button
-                onClick={() => fetchNextPage()}
-                disabled={isFetchingNextPage}
-                variant="outline"
-              >
-                {isFetchingNextPage ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Loading more...
-                  </>
-                ) : (
-                  "Load More Meals"
-                )}
-              </Button>
             </div>
           )}
         </CardContent>
@@ -484,7 +433,6 @@ const MealList = () => {
               alt="Enlarged meal image"
               className="max-w-full max-h-full object-contain" 
               onClick={(e) => e.stopPropagation()} 
-              loading="lazy"
             />
           )}
         </DialogContent>
