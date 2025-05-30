@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
-import { LayoutDashboard, CalendarDays, BrainCircuit, ShoppingCart, ImagePlus, Info, Sparkles, Menu, Smartphone } from "lucide-react"; 
+import { LayoutDashboard, CalendarDays, BrainCircuit, ShoppingCart, ImagePlus, Info, Sparkles, Menu, Smartphone, Download } from "lucide-react"; 
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -129,6 +129,12 @@ const Index = () => {
                         >
                           <Link to="/auth?mode=signup">Sign Up</Link>
                         </Button>
+                    </SheetClose>
+                    <SheetClose asChild>
+                      <a href="#get-app" className="text-lg hover:underline flex items-center">
+                        <Download className="mr-2 h-5 w-5" />
+                        Download App
+                      </a>
                     </SheetClose>
                     <div className="pt-4 border-t border-border">
                       <ThemeToggleButton />
