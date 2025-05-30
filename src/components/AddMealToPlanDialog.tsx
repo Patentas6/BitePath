@@ -134,25 +134,30 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
 
   // Merge text and image data
   useEffect(() => {
+    console.log("[AddMealToPlanDialog] Merge useEffect triggered. mealsTextData:", mealsTextData, "mealsImageData:", mealsImageData, "isLoadingImageData:", isLoadingImageData);
     if (mealsTextData) {
-      if (!mealsImageData && !isLoadingImageData) {
-        // Image data query hasn't run yet or finished, or has no data, use text data with undefined image_url
-        setProcessedMeals(mealsTextData.map(meal => ({ ...meal, image_url: undefined })));
-      } else if (mealsImageData) {
-        // Both text and image data are available, merge them
-        console.log("[AddMealToPlanDialog] Merging text and image data...");
+      // Always initialize processedMeals with text data first.
+      // This ensures that even if image loading is delayed or fails, text is available.
+      let currentProcessedMeals = mealsTextData.map(meal => ({
+        ...meal,
+        image_url: undefined, // Start with no image URL
+      }));
+
+      if (mealsImageData) {
+        // If image data is also available, merge it in.
+        console.log("[AddMealToPlanDialog] Merging with available image data...");
         const imageMap = new Map(mealsImageData.map(img => [img.id, img.image_url]));
-        setProcessedMeals(
-          mealsTextData.map(meal => ({
-            ...meal,
-            image_url: imageMap.get(meal.id) || null,
-          }))
-        );
+        currentProcessedMeals = currentProcessedMeals.map(meal => ({
+          ...meal,
+          image_url: imageMap.get(meal.id) || meal.image_url, // Keep existing if new is null/undefined
+        }));
       }
+      setProcessedMeals(currentProcessedMeals);
+      console.log("[AddMealToPlanDialog] setProcessedMeals called with:", currentProcessedMeals);
     } else {
-      setProcessedMeals([]);
+      setProcessedMeals([]); // If no text data, clear processed meals
     }
-  }, [mealsTextData, mealsImageData, isLoadingImageData]);
+  }, [mealsTextData, mealsImageData, isLoadingImageData]); // Dependency array is key
 
   const filteredMeals = useMemo(() => {
     if (!processedMeals) return [];
@@ -279,9 +284,13 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
                       <div className="p-2 text-sm text-muted-foreground">Loading meals...</div>
                     ) : textDataError ? (
                       <div className="p-2 text-sm text-red-500">Error loading meal details.</div>
-                    ) : !mealsTextData || mealsTextData.length === 0 ? ( 
+                    ) : !mealsTextData || mealsTextData.length === 0 ? (
                       <CommandEmpty>No meals found. Add some first!</CommandEmpty>
-                    ) : filteredMeals.length === 0 ? ( 
+                    ) : 
+                      // At this point, mealsTextData has items.
+                      // Now check filteredMeals which is derived from processedMeals.
+                      // processedMeals should have been populated by the useEffect above.
+                      filteredMeals.length === 0 ? (
                       <CommandEmpty>No meals match your search/filters.</CommandEmpty>
                     ) : (
                       <CommandGroup>
