@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // <-- MODIFIED: Added useInfiniteQuery
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"; 
 import { supabase } from "@/lib/supabase";
 import { showError, showSuccess } from "@/utils/toast";
 import { useNavigate } from "react-router-dom";
@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Trash2, Edit3, Search, ChefHat, List, Grid3X3, Zap, Users, Loader2 } from "lucide-react"; // <-- MODIFIED: Added Loader2
+import { Trash2, Edit3, Search, ChefHat, List, Grid3X3, Zap, Users, Loader2 } from "lucide-react"; 
 import EditMealDialog, { MealForEditing } from "./EditMealDialog";
 import {
   AlertDialog,
@@ -40,7 +40,7 @@ interface ParsedIngredient {
   description?: string;
 }
 
-const PAGE_SIZE = 10; // <-- ADDED: Page size for pagination
+const PAGE_SIZE = 10; 
 
 const MealList = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -81,7 +81,6 @@ const MealList = () => {
     enabled: !!userId,
   });
 
-  // --- MODIFIED: Replaced useQuery with useInfiniteQuery for meals ---
   const fetchMeals = async ({ pageParam = 0 }) => {
     if (!userId) return { data: [], nextPage: undefined };
     const { data: { user } } = await supabase.auth.getUser();
@@ -92,7 +91,7 @@ const MealList = () => {
 
     const { data, error, count } = await supabase
       .from("meals")
-      .select("id, name, ingredients, instructions, user_id, meal_tags, image_url, estimated_calories, servings", { count: 'exact' }) // Added count
+      .select("id, name, ingredients, instructions, user_id, meal_tags, image_url, estimated_calories, servings", { count: 'exact' }) 
       .eq("user_id", user.id)
       .order('created_at', { ascending: false })
       .range(from, to);
@@ -108,7 +107,7 @@ const MealList = () => {
   };
 
   const {
-    data: mealsData, // This will be an object like { pages: [...], pageParams: [...] }
+    data: mealsData, 
     fetchNextPage,
     hasNextPage,
     isLoading: isLoadingMealsData,
@@ -119,15 +118,13 @@ const MealList = () => {
     queryFn: fetchMeals,
     getNextPageParam: (lastPage) => lastPage.nextPage,
     enabled: !!userId,
-    initialPageParam: 0, // <-- ADDED: Explicitly set initialPageParam
+    initialPageParam: 0, 
   });
 
   const allMeals = useMemo(() => mealsData?.pages.flatMap(page => page.data) || [], [mealsData]);
-  // --- END MODIFICATION ---
-
+  
   const deleteMealMutation = useMutation({
     mutationFn: async (mealId: string) => {
-      // ... KEEP: deleteMealMutation implementation ...
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not logged in.");
 
@@ -141,12 +138,12 @@ const MealList = () => {
     },
     onSuccess: () => {
       showSuccess("Meal deleted successfully!");
-      queryClient.invalidateQueries({ queryKey: ["meals", userId] }); // This will refetch all pages
+      queryClient.invalidateQueries({ queryKey: ["meals", userId] }); 
       queryClient.invalidateQueries({ queryKey: ["mealPlans"] });
       queryClient.invalidateQueries({ queryKey: ["groceryListSource"] });
       queryClient.invalidateQueries({ queryKey: ["todaysGroceryListSource"] });
     },
-    onError: (error) // Type annotation for error
+    onError: (error) 
     : void => {
       console.error("Error deleting meal:", error);
       showError(`Failed to delete meal: ${error.message}`);
@@ -172,13 +169,13 @@ const MealList = () => {
   };
 
   const uniqueCategories = useMemo(() => {
-    if (!allMeals) return []; // <-- MODIFIED: Use allMeals
+    if (!allMeals) return []; 
     const allTags = allMeals.flatMap(meal => meal.meal_tags || []).filter(Boolean) as string[];
     return Array.from(new Set(allTags)).sort();
   }, [allMeals]);
 
   const filteredMeals = useMemo(() => {
-    if (!allMeals) return []; // <-- MODIFIED: Use allMeals
+    if (!allMeals) return []; 
     return allMeals.filter(meal => {
       const nameMatch = meal.name.toLowerCase().includes(searchTerm.toLowerCase());
       const categoryMatch = selectedCategory === 'all' || (meal.meal_tags && meal.meal_tags.includes(selectedCategory));
@@ -187,7 +184,6 @@ const MealList = () => {
   }, [allMeals, searchTerm, selectedCategory]);
 
   const formatIngredientsDisplay = (ingredientsString: string | null | undefined): string => {
-    // ... KEEP: formatIngredientsDisplay implementation ...
     if (!ingredientsString) return 'No ingredients listed.';
     try {
       const parsedIngredients: ParsedIngredient[] = JSON.parse(ingredientsString);
@@ -208,9 +204,9 @@ const MealList = () => {
     }
   };
 
-  const overallIsLoading = isLoadingUserProfile || (isLoadingMealsData && !mealsData?.pages.length); // <-- MODIFIED: Adjust loading condition
+  const overallIsLoading = isLoadingUserProfile || (isLoadingMealsData && !mealsData?.pages.length); 
 
-  if (overallIsLoading && !allMeals.length) { // <-- MODIFIED: Use allMeals.length
+  if (overallIsLoading && !allMeals.length) { 
     return (
       <Card className="hover:shadow-lg transition-shadow duration-200">
         <CardHeader><CardTitle>My Meals</CardTitle></CardHeader>
@@ -241,7 +237,6 @@ const MealList = () => {
           <CardTitle>My Meals</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* ... KEEP: Search and filter controls ... */}
           <div className="flex flex-col sm:flex-row gap-4 items-center">
             <div className="relative flex-grow w-full sm:w-auto">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -286,8 +281,6 @@ const MealList = () => {
             </div>
           </div>
 
-
-          {/* --- MODIFIED: Conditions for empty/no results states --- */}
           {allMeals.length === 0 && !isLoadingMealsData && !isFetchingNextPage && (
             <div className="text-center py-6 text-muted-foreground">
               <ChefHat className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500 mb-4" />
@@ -303,14 +296,12 @@ const MealList = () => {
               <p className="text-sm">Try a different search term or category.</p>
             </div>
           )}
-          {/* --- END MODIFICATION --- */}
           
           {filteredMeals && filteredMeals.length > 0 && (
             <div className={cn(
               layoutView === 'list' ? 'space-y-3' : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'
             )}>
               {filteredMeals.map((meal) => {
-                // ... KEEP: Meal card rendering logic ...
                 const caloriesPerServing = calculateCaloriesPerServing(meal.estimated_calories, meal.servings);
                 const canTrackCalories = userProfile && userProfile.track_calories;
                 const shouldShowCalories = canTrackCalories && caloriesPerServing !== null;
@@ -321,7 +312,6 @@ const MealList = () => {
                     className="border p-3 sm:p-4 rounded-lg shadow-sm bg-card hover:shadow-md transition-shadow duration-150 flex flex-col cursor-pointer"
                     onClick={() => navigate(`/meal/${meal.id}`)}
                   >
-                    {/* Top section: Image (mobile full-width) and Main Info + Desktop Buttons */}
                     <div className="flex flex-col sm:flex-row items-start">
                       {meal.image_url && (
                          <div
@@ -336,7 +326,7 @@ const MealList = () => {
                            />
                          </div>
                       )}
-                      <div className="flex-grow min-w-0"> {/* min-w-0 for flex child to truncate */}
+                      <div className="flex-grow min-w-0"> 
                         <h3 className="text-lg sm:text-xl font-semibold text-foreground">{meal.name}</h3>
                         {meal.meal_tags && meal.meal_tags.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-1.5">
@@ -358,7 +348,6 @@ const MealList = () => {
                           </div>
                         )}
                       </div>
-                      {/* Desktop Buttons (only visible on sm+) */}
                       <div className="hidden sm:flex flex-col space-y-2 ml-2 flex-shrink-0">
                         <Button 
                           variant="outline" 
@@ -379,7 +368,6 @@ const MealList = () => {
                       </div>
                     </div>
 
-                    {/* Ingredients & Instructions */}
                     {(meal.ingredients || (meal.instructions && meal.instructions.trim() !== "")) && (
                       <div className="space-y-2 mt-2 pt-2 border-t sm:border-t-0 sm:pt-2 flex-grow"> 
                         {meal.ingredients && (
@@ -401,7 +389,6 @@ const MealList = () => {
                       </div>
                     )}
 
-                    {/* Mobile Buttons (only visible on screens smaller than sm) */}
                     <div className="flex sm:hidden space-x-2 mt-3 pt-3 border-t">
                       <Button 
                         variant="outline" 
@@ -428,7 +415,6 @@ const MealList = () => {
             </div>
           )}
 
-          {/* --- ADDED: Load More Button --- */}
           {hasNextPage && (
             <div className="flex justify-center mt-6">
               <Button
@@ -447,12 +433,9 @@ const MealList = () => {
               </Button>
             </div>
           )}
-          {/* --- END ADDITION --- */}
-
         </CardContent>
       </Card>
 
-      {/* ... KEEP: Dialogs (EditMealDialog, AlertDialog for delete, Image Dialog) ... */}
       {mealToEdit && (
         <EditMealDialog
           open={isEditDialogOpen}
