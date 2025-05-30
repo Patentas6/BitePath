@@ -31,6 +31,7 @@ interface GeneratedMeal {
 }
 
 async function getAccessToken(serviceAccountJsonString: string): Promise<string> {
+  const getAccessTokenStartTime = Date.now();
   try {
     const sa = JSON.parse(serviceAccountJsonString);
     let privateKeyPem = sa.private_key;
@@ -94,14 +95,16 @@ async function getAccessToken(serviceAccountJsonString: string): Promise<string>
       throw new Error(`Failed to obtain access token: ${response.statusText}`);
     }
     const data = await response.json();
+    console.log(`[${formatDate(new Date(), "yyyy-MM-dd HH:mm:ss")}] getAccessToken completed. Duration: ${Date.now() - getAccessTokenStartTime}ms`);
     return data.access_token;
   } catch (error) {
-    console.error("Error in getAccessToken:", error);
+    console.error(`[${formatDate(new Date(), "yyyy-MM-dd HH:mm:ss")}] Error in getAccessToken. Duration: ${Date.now() - getAccessTokenStartTime}ms`, error);
     throw new Error(`Authentication failed: ${(error as Error).message}`);
   }
 }
 
 serve(async (req) => {
+  const functionStartTime = Date.now();
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -123,7 +126,7 @@ serve(async (req) => {
     });
 
     console.log(`[${formatDate(new Date(), "yyyy-MM-dd HH:mm:ss")}] Edge Function received request.`);
-
+    let stageStartTime = Date.now();
     const authHeader = req.headers.get('Authorization');
     const token = authHeader?.replace('Bearer ', '');
 
@@ -139,6 +142,8 @@ serve(async (req) => {
         auth: { autoRefreshToken: false, persistSession: false }
     }).auth.getUser();
 
+    console.log(`[${formatDate(new Date(), "yyyy-MM-dd HH:mm:ss")}] User authentication completed. Duration: ${Date.now() - stageStartTime}ms`);
+    stageStartTime = Date.now();
 
     if (userError || !user) {
       console.error("Authentication failed:", userError?.message || "Invalid token");
@@ -153,6 +158,9 @@ serve(async (req) => {
       .select('ai_preferences, is_admin, image_generation_count, last_image_generation_reset, recipe_generation_count, last_recipe_generation_reset, track_calories, preferred_unit_system')
       .eq('id', user.id)
       .single();
+
+    console.log(`[${formatDate(new Date(), "yyyy-MM-dd HH:mm:ss")}] User profile fetch completed. Duration: ${Date.now() - stageStartTime}ms`);
+    stageStartTime = Date.now();
 
     if (profileErrorDb && profileErrorDb.code !== 'PGRST116') {
         console.error("Error fetching user profile:", profileErrorDb);
@@ -229,12 +237,18 @@ serve(async (req) => {
             }
         }
 
+        console.log(`[${formatDate(new Date(), "yyyy-MM-dd HH:mm:ss")}] Starting recipe generation specific logic.`);
+        const recipeGenerationStartTime = Date.now();
+
         const serviceAccountJsonStringForGemini = Deno.env.get("VERTEX_SERVICE_ACCOUNT_KEY_JSON");
         if (!serviceAccountJsonStringForGemini) {
             console.error("VERTEX_SERVICE_ACCOUNT_KEY_JSON secret not set for Gemini.");
             throw new Error("AI service (Gemini) not configured.");
         }
+        const preGeminiCallTime = Date.now();
         const accessTokenForGemini = await getAccessToken(serviceAccountJsonStringForGemini);
+        console.log(`[${formatDate(new Date(), "yyyy-MM-dd HH:mm:ss")}] getAccessToken and prompt construction completed. Duration: ${Date.now() - preGeminiCallTime}ms`);
+
         const saGemini = JSON.parse(serviceAccountJsonStringForGemini);
         const projectIdGemini = saGemini.project_id;
         const regionGemini = "us-central1";
@@ -314,15 +328,14 @@ The meal should still generally be a ${mealType || 'general'} type.`;
 
         console.log(`[${formatDate(new Date(), "yyyy-MM-dd HH:mm:ss")}] Starting Gemini API call for user ${user.id}. Model: ${geminiModelId}`);
         const geminiStartTime = Date.now();
-
         const geminiResponse = await fetch(geminiEndpoint, {
             method: "POST",
             headers: { "Authorization": `Bearer ${accessTokenForGemini}`, "Content-Type": "application/json" },
             body: JSON.stringify(geminiPayload),
         });
-
         const geminiEndTime = Date.now();
         console.log(`[${formatDate(new Date(), "yyyy-MM-dd HH:mm:ss")}] Gemini API call completed for user ${user.id}. Duration: ${geminiEndTime - geminiStartTime}ms. Status: ${geminiResponse.status}`);
+        console.log(`[${formatDate(new Date(), "yyyy-MM-dd HH:mm:ss")}] Recipe generation completed. Duration: ${Date.now() - recipeGenerationStartTime}ms`);
 
         if (!geminiResponse.ok) {
             const errorText = await geminiResponse.text();
@@ -360,7 +373,6 @@ The meal should still generally be a ${mealType || 'general'} type.`;
             if (generatedMealData.servings) console.log("Servings:", generatedMealData.servings);
         }
 
-
         if (!userIsAdmin) {
             userRecipeGenerationCount += 1;
             const { error: updateRecipeCountError } = await serviceSupabaseClient
@@ -373,6 +385,7 @@ The meal should still generally be a ${mealType || 'general'} type.`;
             if (updateRecipeCountError) {
                 console.error(`Failed to update recipe generation count for user ${user.id}:`, updateRecipeCountError);
             }
+            console.log(`[${formatDate(new Date(), "yyyy-MM-dd HH:mm:ss")}] Recipe count update completed. Duration: ${Date.now() - stageStartTime}ms`);
         }
     }
 
@@ -487,10 +500,11 @@ The meal should still generally be a ${mealType || 'general'} type.`;
     }
 
   } catch (error) {
-    console.error("Error in Edge Function:", error.message, error.stack);
+    console.error(`[${formatDate(new Date(), "yyyy-MM-dd HH:mm:ss")}] Error in Edge Function. Total duration: ${Date.now() - functionStartTime}ms`, error.message, error.stack);
     return new Response(
       JSON.stringify({ error: `Failed to process request: ${error.message || 'Unknown error'}` }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
     );
   }
+  console.log(`[${formatDate(new Date(), "yyyy-MM-dd HH:mm:ss")}] Edge Function processing complete. Total duration: ${Date.now() - functionStartTime}ms`);
 });
