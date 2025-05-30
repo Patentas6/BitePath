@@ -103,7 +103,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
     },
     enabled: !!userId && open && !isLoadingTextData && !!mealsTextData, // Enable only when text data is available
   });
-  
+
   useEffect(() => {
     if (open) {
       console.log("--------------------------------------------------");
@@ -153,7 +153,6 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
       setProcessedMeals([]);
     }
   }, [mealsTextData, mealsImageData, isLoadingImageData]);
-
 
   const filteredMeals = useMemo(() => {
     if (!processedMeals) return [];
@@ -225,8 +224,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
 
   if (!planDate) return null;
   const descriptionDisplayMealType = initialMealType || "Meal";
-  const overallLoading = isLoadingTextData || (isLoadingImageData && mealsTextData && mealsTextData.length > 0);
-
+  const overallLoading = isLoadingTextData;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -277,23 +275,21 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
                     }}
                   />
                   <CommandList className="max-h-[200px] sm:max-h-[250px]">
-                    {isLoadingTextData ? ( // Primary loading state is for text
+                    {isLoadingTextData ? (
                       <div className="p-2 text-sm text-muted-foreground">Loading meals...</div>
                     ) : textDataError ? (
                       <div className="p-2 text-sm text-red-500">Error loading meal details.</div>
-                    ) : filteredMeals.length === 0 && !searchTerm && selectedTags.length === 0 ? (
-                       <CommandEmpty>
-                        {mealsTextData && mealsTextData.length > 0 ? "No meals match your search/filters." : "No meals found. Add some first!"}
-                      </CommandEmpty>
-                    ) : filteredMeals.length === 0 ? (
-                       <CommandEmpty>No meals match your search/filters.</CommandEmpty>
+                    ) : !mealsTextData || mealsTextData.length === 0 ? ( 
+                      <CommandEmpty>No meals found. Add some first!</CommandEmpty>
+                    ) : filteredMeals.length === 0 ? ( 
+                      <CommandEmpty>No meals match your search/filters.</CommandEmpty>
                     ) : (
                       <CommandGroup>
                         {filteredMeals.map((meal) => (
                           <CommandItem
                             key={meal.id}
-                            value={meal.id} // Use meal.id for value
-                            onSelect={(currentValue) => { // currentValue is meal.id
+                            value={meal.id} 
+                            onSelect={(currentValue) => { 
                               setSelectedMealId(currentValue === selectedMealId ? undefined : currentValue);
                               setIsComboboxOpen(false);
                               setSearchTerm("");
@@ -302,7 +298,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
                           >
                             <Check className={cn("mr-2 h-4 w-4", selectedMealId === meal.id ? "opacity-100" : "opacity-0")} />
                             <div className="flex items-center space-x-2 overflow-hidden">
-                              {meal.image_url ? ( // Image might not be loaded yet if isLoadingImageData is true
+                              {meal.image_url ? (
                                 <img
                                   src={meal.image_url}
                                   alt={meal.name}
@@ -310,7 +306,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
                                   loading="lazy"
                                 />
                               ) : (
-                                <div className="h-8 w-8 bg-muted rounded-sm flex-shrink-0"></div> // Placeholder
+                                <div className="h-8 w-8 bg-muted rounded-sm flex-shrink-0"></div> 
                               )}
                               <div className="flex flex-col overflow-hidden">
                                 <span className="font-medium truncate">{meal.name}</span>
@@ -326,7 +322,9 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
                         ))}
                       </CommandGroup>
                     )}
-                     {imageDataError && <div className="p-2 text-xs text-red-400">Could not load all meal images.</div>}
+                    {imageDataError && !textDataError && (
+                        <div className="p-1 text-xs text-amber-600 text-center">Could not load all meal images.</div>
+                    )}
                   </CommandList>
                 </Command>
               </PopoverContent>
@@ -337,7 +335,11 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={addMealToPlanMutation.isPending}>
             Cancel
           </Button>
-          <Button type="submit" onClick={handleSave} disabled={overallLoading || addMealToPlanMutation.isPending || !selectedMealId || !selectedMealTypeForSaving}>
+          <Button 
+            type="submit" 
+            onClick={handleSave} 
+            disabled={isLoadingTextData || (mealsTextData && mealsTextData.length > 0 && isLoadingImageData && !processedMeals.find(m => m.id === selectedMealId)?.image_url) || addMealToPlanMutation.isPending || !selectedMealId || !selectedMealTypeForSaving}
+          >
             {addMealToPlanMutation.isPending ? "Saving..." : "Save Meal"}
           </Button>
         </DialogFooter>
