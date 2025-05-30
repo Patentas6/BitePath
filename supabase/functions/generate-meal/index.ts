@@ -312,18 +312,24 @@ The meal should still generally be a ${mealType || 'general'} type.`;
           },
         };
 
+        console.log(`[${formatDate(new Date(), "yyyy-MM-dd HH:mm:ss")}] Starting Gemini API call for user ${user.id}. Model: ${geminiModelId}`);
+        const geminiStartTime = Date.now();
+
         const geminiResponse = await fetch(geminiEndpoint, {
             method: "POST",
             headers: { "Authorization": `Bearer ${accessTokenForGemini}`, "Content-Type": "application/json" },
             body: JSON.stringify(geminiPayload),
         });
 
+        const geminiEndTime = Date.now();
+        console.log(`[${formatDate(new Date(), "yyyy-MM-dd HH:mm:ss")}] Gemini API call completed for user ${user.id}. Duration: ${geminiEndTime - geminiStartTime}ms. Status: ${geminiResponse.status}`);
+
         if (!geminiResponse.ok) {
             const errorText = await geminiResponse.text();
             console.error("Gemini API error:", errorText);
             let errorMessage = errorText;
             try { const errorJson = JSON.parse(errorText); errorMessage = errorJson.error?.message || errorText; } catch (e) { /* ignore */ }
-            throw new Error(`Gemini API request failed: ${geminiResponse.status} ${errorMessage}`);
+            throw new Error(`Gemini API request failed: ${geminiResponse.status} ${errorMessage}. Duration: ${geminiEndTime - geminiStartTime}ms`);
         }
         const geminiData = await geminiResponse.json();
         const generatedContentString = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
