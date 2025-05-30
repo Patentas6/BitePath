@@ -102,17 +102,30 @@ const MealList = () => {
         console.log("[MealList] meals queryFn: No userId, returning empty array.");
         return [];
       }
-      const { data, error: dbError } = await supabase
-        .from("meals")
-        .select("id, name, ingredients, instructions, user_id, meal_tags, image_url, estimated_calories, servings")
-        .eq("user_id", userId)
-        .order('created_at', { ascending: false });
+
+      console.log(`[MealList] Preparing to fetch meals from Supabase for user: ${userId}`);
+      let data, dbError;
+      try {
+        const response = await supabase
+          .from("meals")
+          .select("id, name, ingredients, instructions, user_id, meal_tags, image_url, estimated_calories, servings")
+          .eq("user_id", userId)
+          .order('created_at', { ascending: false });
+        
+        data = response.data;
+        dbError = response.error;
+        console.log(`[MealList] Supabase meals query completed for user: ${userId}. Error:`, dbError, "Data received:", !!data);
+
+      } catch (catchError: any) {
+        console.error(`[MealList] CRITICAL ERROR during Supabase meals query for user ${userId}:`, catchError);
+        throw catchError; 
+      }
 
       if (dbError) {
-        console.error(`[MealList] Error fetching meals for user ${userId}:`, dbError);
-        throw dbError; 
+        console.error(`[MealList] Error fetching meals (dbError) for user ${userId}:`, dbError);
+        throw dbError;
       }
-      console.log(`[MealList] Meals data fetched for user ${userId}:`, data?.length, "meals");
+      console.log(`[MealList] Meals data processed for user ${userId}:`, data?.length, "meals");
       return data || [];
     },
     enabled: !!userId, 
