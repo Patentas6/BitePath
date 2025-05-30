@@ -8,7 +8,7 @@ import useDebounce from "@/hooks/use-debounce";
 
 import { Button } from "@/components/ui/button";
 import {
-  Dialog as ShadDialog, // Keep the alias that fixed the issue
+  Dialog as ShadDialog, 
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -216,7 +216,10 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
 
   return (
     <ShadDialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md max-h-[85vh] flex flex-col">
+      <DialogContent 
+        className="sm:max-w-md max-h-[85vh] flex flex-col bg-background p-6 shadow-lg rounded-lg" 
+        style={{ zIndex: 50 }} 
+      >
         <DialogHeader>
           <DialogTitle>Add / Change Meal</DialogTitle>
           <DialogDescription>
@@ -255,7 +258,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
           </div>
           
           <Command className="rounded-lg border shadow-md flex-grow overflow-hidden">
-            <CommandList className="max-h-[calc(85vh-280px)]"> {/* Adjusted max height */}
+            <CommandList className="max-h-[calc(85vh-280px)]"> 
               {isLoadingMeals && !allFetchedMeals.length && (
                 <div className="p-4 text-center text-sm text-muted-foreground">
                   <Loader2 className="mx-auto h-6 w-6 animate-spin mb-2" />
