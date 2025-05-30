@@ -1,10 +1,16 @@
-// Utility function to check if the app is running as PWA (iOS) or APK (Android)
+// Function to check if the app is running as PWA (iOS)
 export function isPWA() {
     return window.matchMedia('(display-mode: standalone)').matches;
 }
 
+// Function to check if the app is running as an APK (Android)
+export function isAPK() {
+    // Check the user agent to see if the app is running on Android
+    return /Android/i.test(navigator.userAgent);
+}
+
 export function isBrowser() {
-    return !isPWA() && !window.navigator.userAgent.includes('Android');
+    return !isPWA() && !isAPK();
 }
 
 // Function to check if the app was previously added to home screen (PWA) or installed (APK)
@@ -31,3 +37,4 @@ export function checkLandingPage() {
         }
     }
 }
+
