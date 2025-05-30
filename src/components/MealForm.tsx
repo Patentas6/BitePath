@@ -19,12 +19,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Trash2, Brain, XCircle, Info, Link2, Zap, Users, UploadCloud } from "lucide-react";
+import { PlusCircle, Trash2, Brain, XCircle, Info, Link2, Zap, Users } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { useState, useEffect, useRef } from "react";
-import { resizeImage } from "@/lib/imageUtils";
+import { useState, useEffect } from "react";
 
 export const UNITS = ['piece', 'g', 'kg', 'ml', 'l', 'tsp', 'tbsp', 'cup', 'oz', 'lb', 'pinch', 'dash', 'clove', 'can', 'bottle', 'package', 'slice', 'item', 'sprig', 'head', 'bunch'] as const;
 
@@ -91,8 +90,6 @@ const MealForm: React.FC<MealFormProps> = ({
   const queryClient = useQueryClient();
   const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
   const [showImageUrlInput, setShowImageUrlInput] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   const form = useForm<MealFormValues>({
     resolver: zodResolver(mealFormSchema),
@@ -244,49 +241,6 @@ const MealForm: React.FC<MealFormProps> = ({
       }
     },
   });
-
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-
-    setIsUploadingImage(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error("You must be logged in to upload images.");
-      }
-
-      const resizedBlob = await resizeImage(file, 1024, 0.85);
-      const { data, error: uploadError } = await supabase.storage
-        .from('images')
-        .upload(`${user.id}/${Date.now()}-${file.name}`, resizedBlob, {
-          cacheControl: "3600",
-          upsert: true,
-        });
-
-      if (uploadError) {
-        throw uploadError;
-      }
-
-      const { publicUrl } = supabase.storage.from('images').getPublicUrl(data.Key);
-      if (!publicUrl) {
-        throw new Error("Failed to get public URL for the uploaded image.");
-      }
-
-      form.setValue('image_url', publicUrl);
-      setShowImageUrlInput(false); 
-      showSuccess("Image uploaded successfully!");
-    } catch (error: any) {
-      console.error("Image upload failed:", error);
-      showError(`Image upload failed: ${error.message || "Please try again."}`);
-    } finally {
-      setIsUploadingImage(false);
-    }
-  };
 
   const onSubmit = (values: MealFormValues) => {
     addMealMutation.mutate(values);
@@ -570,7 +524,6 @@ const MealForm: React.FC<MealFormProps> = ({
                               !form.watch('name') ||
                               generateImageMutation.isPending ||
                               isLoadingProfile ||
-                              isUploadingImage || 
                               (generationStatus && !generationStatus.isAdmin && generationStatus.limitReached)
                             }
                             className="w-full"
@@ -587,31 +540,13 @@ const MealForm: React.FC<MealFormProps> = ({
                             {isLoadingProfile && "Loading AI generation limit..."}
                           </div>
 
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => fileInputRef.current?.click()}
-                            disabled={isUploadingImage || generateImageMutation.isPending}
-                            className="w-full"
-                          >
-                            <UploadCloud className="mr-2 h-4 w-4" />
-                            {isUploadingImage ? "Uploading..." : "Upload Image from Device"}
-                          </Button>
-                          <input
-                            type="file"
-                            ref={fileInputRef}
-                            onChange={handleImageUpload}
-                            accept="image/png, image/jpeg, image/gif, image/webp" 
-                            className="hidden"
-                          />
-
                           <div className="text-center">
                             <Button
                               type="button"
                               variant="link"
                               className="text-sm p-0 h-auto"
                               onClick={() => setShowImageUrlInput(!showImageUrlInput)}
-                              disabled={isUploadingImage || generateImageMutation.isPending} 
+                              disabled={generateImageMutation.isPending} 
                             >
                               <Link2 className="mr-1 h-3 w-3" />
                               {showImageUrlInput ? 'Hide URL input' : 'Or, use your own image URL'}
@@ -623,7 +558,7 @@ const MealForm: React.FC<MealFormProps> = ({
                               placeholder="Paste image URL"
                               {...field}
                               value={field.value || ''}
-                              disabled={isUploadingImage || generateImageMutation.isPending} 
+                              disabled={generateImageMutation.isPending} 
                             />
                           )}
                         </>
@@ -635,7 +570,7 @@ const MealForm: React.FC<MealFormProps> = ({
               )}
             />
 
-            <Button type="submit" disabled={addMealMutation.isPending || generateImageMutation.isPending || isUploadingImage} className="w-full">
+            <Button type="submit" disabled={addMealMutation.isPending || generateImageMutation.isPending} className="w-full">
               {addMealMutation.isPending ? "Adding..." : "Add Meal"}
             </Button>
           </form>

@@ -414,8 +414,12 @@ The meal should still generally be a ${mealType || 'general'} type.`;
                 const imagePromptText = `A vibrant, appetizing, realistic photo of the meal "${mealNameForImage}". Focus on the finished dish presented nicely on a plate or in a bowl, suitable for a food blog. Ensure main ingredients are clearly visible. Good lighting, sharp focus.`;
 
                 const imagenPayload = {
-                instances: [{ prompt: imagePromptText }],
-                parameters: { sampleCount: 1, aspectRatio: "1:1", outputFormat: "png" }
+                  instances: [{ prompt: imagePromptText }],
+                  parameters: { 
+                    sampleCount: 1, 
+                    aspectRatio: "1:1", 
+                    outputFormat: "jpeg" 
+                  }
                 };
 
                 const imagenResponse = await fetch(imagenEndpoint, {
@@ -432,7 +436,7 @@ The meal should still generally be a ${mealType || 'general'} type.`;
                     const imagenData = await imagenResponse.json();
                     const base64EncodedImage = imagenData.predictions?.[0]?.bytesBase64Encoded;
                     if (base64EncodedImage) {
-                        imageUrl = `data:image/png;base64,${base64EncodedImage}`;
+                        imageUrl = `data:image/jpeg;base64,${base64EncodedImage}`;
                     }
                 }
 
