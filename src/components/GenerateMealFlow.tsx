@@ -314,6 +314,11 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
     return null;
   }, [generatedMeal]);
 
+  const getTransformedImageUrl = (url: string | null | undefined, width: number, height: number) => {
+    if (!url) return '';
+    return `${url}?transform=w_${width},h_${height},c_fill,q_auto`;
+  };
+
   return (
     <div className="space-y-6">
       {!generatedMeal && (
@@ -435,7 +440,7 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
                   onClick={() => setViewingImageUrl(generatedMeal.image_url || null)}
                 >
                   <img
-                    src={generatedMeal.image_url}
+                    src={getTransformedImageUrl(generatedMeal.image_url, 300, 300)} // Example size for card display
                     alt={`Image of ${generatedMeal.name}`}
                     className="h-full w-full object-contain rounded-md"
                     onError={(e) => (e.currentTarget.style.display = 'none')}
@@ -550,7 +555,7 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
         >
           {viewingImageUrl && (
             <img
-              src={viewingImageUrl}
+              src={viewingImageUrl} // Display original image in dialog
               alt="Enlarged meal image"
               className="max-w-full max-h-full object-contain"
               onClick={(e) => e.stopPropagation()} // Optional: if you want clicking image itself to NOT close

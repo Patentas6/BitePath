@@ -102,6 +102,11 @@ const MealDetailPage = () => {
     return null;
   }, [meal]);
 
+  const getTransformedImageUrl = (url: string | null | undefined, width: number, height: number) => {
+    if (!url) return '';
+    return `${url}?transform=w_${width},h_${height},c_fit,q_auto`; // c_fit to ensure whole image is visible
+  };
+
   if (isLoading || isLoadingProfile) {
     return (
       <div className={cn("min-h-screen bg-background text-foreground", isMobile ? "pt-4 pb-20 px-2" : "p-4")}>
@@ -148,6 +153,8 @@ const MealDetailPage = () => {
       </div>
     );
   }
+  
+  const transformedImageUrl = getTransformedImageUrl(meal.image_url, 800, 600); // Larger size for detail page
 
   return (
     <div className={cn("min-h-screen bg-background text-foreground", isMobile ? "pt-4 pb-20 px-2" : "p-4")}>
@@ -170,7 +177,7 @@ const MealDetailPage = () => {
           <CardContent className="space-y-6">
             {meal.image_url ? (
               <div className="w-full h-48 sm:h-64 md:h-80 rounded-md overflow-hidden bg-muted flex items-center justify-center">
-                <img src={meal.image_url} alt={meal.name} className="w-full h-full object-contain" />
+                <img src={transformedImageUrl} alt={meal.name} className="w-full h-full object-contain" />
               </div>
             ) : (
               <div className="w-full h-48 sm:h-64 md:h-80 rounded-md bg-muted flex items-center justify-center text-muted-foreground">
