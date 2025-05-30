@@ -1,4 +1,4 @@
-import React, { lazy, Suspense } from "react"; // <-- MODIFIED: Added lazy and Suspense
+import React, { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -6,24 +6,23 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { useIsMobile } from "@/hooks/use-mobile"; 
 
-// PageLoader for Suspense fallback
-import PageLoader from "./components/PageLoader"; // <-- ADDED
+import PageLoader from "./components/PageLoader";
 import BetaDisclaimerBanner from "@/components/BetaDisclaimerBanner";
 import ProtectedRoute from "./components/ProtectedRoute";
 
-// Lazy load page components
-const Index = lazy(() => import("./pages/Index"));
-const NotFound = lazy(() => import("./pages/NotFound"));
-const Auth = lazy(() => import("./pages/Auth"));
-const Dashboard = lazy(() => import("./pages/Dashboard"));
-const ProfilePage = lazy(() => import("./pages/ProfilePage")); 
-const MealsPage = lazy(() => import("./pages/MealsPage"));
-const FeedbackPage = lazy(() => import("./pages/FeedbackPage"));
-const ManageMealEntryPage = lazy(() => import("./pages/ManageMealEntryPage")); 
-const GroceryListPage = lazy(() => import("./pages/GroceryListPage")); 
-const PlanningPage = lazy(() => import("./pages/PlanningPage"));
-const DiscoverMealsPage = lazy(() => import("./pages/DiscoverMealsPage")); 
-const MealDetailPage = lazy(() => import("./pages/MealDetailPage"));
+// Lazy load page components with explicit .tsx extension
+const Index = lazy(() => import("./pages/Index.tsx")); // <-- MODIFIED
+const NotFound = lazy(() => import("./pages/NotFound.tsx")); // <-- MODIFIED
+const Auth = lazy(() => import("./pages/Auth.tsx")); // <-- MODIFIED
+const Dashboard = lazy(() => import("./pages/Dashboard.tsx")); // <-- MODIFIED
+const ProfilePage = lazy(() => import("./pages/ProfilePage.tsx"));  // <-- MODIFIED
+const MealsPage = lazy(() => import("./pages/MealsPage.tsx")); // <-- MODIFIED
+const FeedbackPage = lazy(() => import("./pages/FeedbackPage.tsx")); // <-- MODIFIED
+const ManageMealEntryPage = lazy(() => import("./pages/ManageMealEntryPage.tsx"));  // <-- MODIFIED
+const GroceryListPage = lazy(() => import("./pages/GroceryListPage.tsx"));  // <-- MODIFIED
+const PlanningPage = lazy(() => import("./pages/PlanningPage.tsx")); // <-- MODIFIED
+const DiscoverMealsPage = lazy(() => import("./pages/DiscoverMealsPage.tsx"));  // <-- MODIFIED
+const MealDetailPage = lazy(() => import("./pages/MealDetailPage.tsx")); // <-- MODIFIED
 
 const queryClient = new QueryClient();
 
@@ -38,7 +37,7 @@ const App = () => {
           <BrowserRouter>
             <>
               <BetaDisclaimerBanner />
-              <Suspense fallback={<PageLoader />}> {/* <-- ADDED: Suspense wrapper */}
+              <Suspense fallback={<PageLoader />}> 
                 <Routes>
                   <Route path="/" element={<Index />} />
                   <Route path="/auth" element={<Auth />} />
@@ -109,7 +108,7 @@ const App = () => {
                   <Route path="/feedback" element={<FeedbackPage />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
-              </Suspense> {/* <-- ADDED: Closing Suspense wrapper */}
+              </Suspense> 
             </>
           </BrowserRouter>
         </TooltipProvider>
