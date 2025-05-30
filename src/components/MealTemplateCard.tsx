@@ -70,6 +70,7 @@ const MealTemplateCard: React.FC<MealTemplateCardProps> = ({ template, onAddToMy
             alt={template.name} 
             className="w-full h-40 object-cover rounded-t-md mb-4" 
             onError={(e) => (e.currentTarget.style.display = 'none')}
+            loading="lazy"
           />
         )}
         <CardTitle>{template.name}</CardTitle>

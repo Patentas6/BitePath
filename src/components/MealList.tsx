@@ -298,6 +298,7 @@ const MealList = () => {
                              alt={meal.name}
                              className="h-full w-full object-cover" 
                              onError={(e) => (e.currentTarget.style.display = 'none')} 
+                             loading="lazy"
                            />
                          </div>
                       )}
@@ -433,6 +434,7 @@ const MealList = () => {
               alt="Enlarged meal image"
               className="max-w-full max-h-full object-contain" 
               onClick={(e) => e.stopPropagation()} 
+              loading="lazy"
             />
           )}
         </DialogContent>
