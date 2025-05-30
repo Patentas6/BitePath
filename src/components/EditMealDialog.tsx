@@ -6,6 +6,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { showSuccess, showError } from "@/utils/toast";
 import { MEAL_TAG_OPTIONS, MealTag } from "@/lib/constants";
+import { cn, transformSupabaseImage } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -200,6 +201,9 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
 
   if (!meal) return null;
 
+  const transformedDialogImageUrl = transformSupabaseImage(meal.image_url, { width: 600 });
+  const transformedEnlargedImageUrl = viewingImageUrl ? transformSupabaseImage(viewingImageUrl, { width: 1200, height: 1200, resize: 'contain' }) : null;
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -213,13 +217,14 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
                {meal.image_url && (
                   <div
                     className="cursor-pointer w-full h-40 flex items-center justify-center overflow-hidden rounded-md mb-4 bg-muted"
-                    onClick={() => setViewingImageUrl(meal.image_url || null)}
+                    onClick={() => setViewingImageUrl(meal.image_url || null)} 
                   >
                     <img
-                      src={meal.image_url}
+                      src={transformedDialogImageUrl} 
                       alt={`Image of ${meal.name}`}
                       className="h-full object-contain"
                       onError={(e) => (e.currentTarget.style.display = 'none')}
+                      loading="lazy" 
                     />
                   </div>
                 )}
@@ -449,10 +454,11 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
         >
           {viewingImageUrl && (
             <img
-              src={viewingImageUrl}
+              src={transformedEnlargedImageUrl} 
               alt="Enlarged meal image"
               className="max-w-full max-h-full object-contain"
               onClick={(e) => e.stopPropagation()}
+              loading="lazy" 
             />
           )}
         </DialogContent>

@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { format } from "date-fns"; 
 import { showError, showSuccess } from "@/utils/toast";
 import { MEAL_TAG_OPTIONS, MealTag, PLANNING_MEAL_TYPES, PlanningMealType } from "@/lib/constants"; 
+import { cn, transformSupabaseImage } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -31,7 +32,6 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Search, X, Check, ChevronsUpDown } from "lucide-react"; 
-import { cn } from "@/lib/utils";
 
 interface Meal {
   id: string;
@@ -254,41 +254,44 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
                       </CommandEmpty>
                     ) : (
                       <CommandGroup>
-                        {filteredMeals.map((meal) => (
-                          <CommandItem
-                            key={meal.id}
-                            value={meal.id}
-                            onSelect={(currentValue) => {
-                              setSelectedMealId(currentValue === selectedMealId ? undefined : currentValue);
-                              setIsComboboxOpen(false);
-                              setSearchTerm(""); 
-                            }}
-                            className="cursor-pointer"
-                          >
-                            <Check className={cn("mr-2 h-4 w-4", selectedMealId === meal.id ? "opacity-100" : "opacity-0")} />
-                            <div className="flex items-center space-x-2 overflow-hidden">
-                              {meal.image_url && (
-                                <img 
-                                  src={meal.image_url} 
-                                  alt={meal.name} 
-                                  className="h-8 w-8 object-cover rounded-sm flex-shrink-0" 
-                                  onError={(e) => (e.currentTarget.style.display = 'none')} 
-                                  loading="lazy"
-                                />
-                              )}
-                              {!meal.image_url && <div className="h-8 w-8 bg-muted rounded-sm flex-shrink-0"></div>}
-                              <div className="flex flex-col overflow-hidden">
-                                <span className="font-medium truncate">{meal.name}</span>
-                                {meal.meal_tags && meal.meal_tags.length > 0 && (
-                                  <div className="flex flex-wrap gap-1 mt-0.5">
-                                    {meal.meal_tags.slice(0,3).map(tag => <Badge key={tag} variant="secondary" className="text-xs px-1 py-0">{tag}</Badge>)}
-                                    {meal.meal_tags.length > 3 && <Badge variant="secondary" className="text-xs px-1 py-0">...</Badge>}
-                                  </div>
+                        {filteredMeals.map((meal) => {
+                          const transformedImageUrl = transformSupabaseImage(meal.image_url, { width: 100, height: 100 });
+                          return (
+                            <CommandItem
+                              key={meal.id}
+                              value={meal.id}
+                              onSelect={(currentValue) => {
+                                setSelectedMealId(currentValue === selectedMealId ? undefined : currentValue);
+                                setIsComboboxOpen(false);
+                                setSearchTerm(""); 
+                              }}
+                              className="cursor-pointer"
+                            >
+                              <Check className={cn("mr-2 h-4 w-4", selectedMealId === meal.id ? "opacity-100" : "opacity-0")} />
+                              <div className="flex items-center space-x-2 overflow-hidden">
+                                {meal.image_url && (
+                                  <img 
+                                    src={transformedImageUrl} 
+                                    alt={meal.name} 
+                                    className="h-8 w-8 object-cover rounded-sm flex-shrink-0" 
+                                    onError={(e) => (e.currentTarget.style.display = 'none')} 
+                                    loading="lazy"
+                                  />
                                 )}
+                                {!meal.image_url && <div className="h-8 w-8 bg-muted rounded-sm flex-shrink-0"></div>}
+                                <div className="flex flex-col overflow-hidden">
+                                  <span className="font-medium truncate">{meal.name}</span>
+                                  {meal.meal_tags && meal.meal_tags.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mt-0.5">
+                                      {meal.meal_tags.slice(0,3).map(tag => <Badge key={tag} variant="secondary" className="text-xs px-1 py-0">{tag}</Badge>)}
+                                      {meal.meal_tags.length > 3 && <Badge variant="secondary" className="text-xs px-1 py-0">...</Badge>}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          </CommandItem>
-                        ))}
+                            </CommandItem>
+                          );
+                        })}
                       </CommandGroup>
                     )}
                   </CommandList>

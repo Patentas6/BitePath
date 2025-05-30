@@ -23,7 +23,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog"; 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; 
-import { cn } from "@/lib/utils"; 
+import { cn, transformSupabaseImage } from "@/lib/utils"; 
 import { calculateCaloriesPerServing } from '@/utils/mealUtils'; 
 
 interface Meal extends MealForEditing {
@@ -279,6 +279,7 @@ const MealList = () => {
                 const caloriesPerServing = calculateCaloriesPerServing(meal.estimated_calories, meal.servings);
                 const canTrackCalories = userProfile && userProfile.track_calories;
                 const shouldShowCalories = canTrackCalories && caloriesPerServing !== null;
+                const transformedImageUrl = transformSupabaseImage(meal.image_url, { width: 400, height: 300 });
                 
                 return (
                   <div 
@@ -294,7 +295,7 @@ const MealList = () => {
                            onClick={(e) => { e.stopPropagation(); setViewingImageUrl(meal.image_url || null); }}
                          >
                            <img
-                             src={meal.image_url}
+                             src={transformedImageUrl}
                              alt={meal.name}
                              className="h-full w-full object-cover" 
                              onError={(e) => (e.currentTarget.style.display = 'none')} 
@@ -430,7 +431,7 @@ const MealList = () => {
         >
           {viewingImageUrl && (
             <img
-              src={viewingImageUrl}
+              src={transformSupabaseImage(viewingImageUrl, { width: 1200, height: 1200, resize: 'contain' })}
               alt="Enlarged meal image"
               className="max-w-full max-h-full object-contain" 
               onClick={(e) => e.stopPropagation()} 
