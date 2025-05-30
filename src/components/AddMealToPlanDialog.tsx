@@ -8,7 +8,7 @@ import useDebounce from "@/hooks/use-debounce";
 
 import { Button } from "@/components/ui/button";
 import {
-  Dialog as ShadDialog, 
+  Dialog as ShadDialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -63,12 +63,11 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
   const [searchTerm, setSearchTerm] = useState("");
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
   const [selectedTags, setSelectedTags] = useState<MealTag[]>([]);
-  const [isComboboxOpen, setIsComboboxOpen] = useState(false);
-  const queryClient = useQueryClient();
+  const queryClient = useQueryClient(); // Removed unused isComboboxOpen
 
   const fetchMeals = async ({ pageParam = 0, queryKey }: { pageParam?: number, queryKey: any }) => {
     const [_queryName, currentUserId, currentSearchTerm, currentSelectedTagsString] = queryKey;
-    if (!currentUserId) return { data: [], error: null };
+    if (!currentUserId) return { data: [], error: null, nextPage: undefined, totalCount: 0 }; // Ensure all return paths match structure
 
     let query = supabase
       .from("meals")
@@ -97,7 +96,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
     
     return {
       data: data || [],
-      nextPage: count && data.length === DIALOG_PAGE_SIZE ? pageParam + 1 : undefined,
+      nextPage: count && data && data.length === DIALOG_PAGE_SIZE ? pageParam + 1 : undefined,
       totalCount: count || 0,
     };
   };
@@ -106,7 +105,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
 
   const {
     data: mealsData,
-    error: mealsError,
+    // error: mealsError, // Error is handled by query, not directly used here
     isLoading: isLoadingMeals,
     fetchNextPage,
     hasNextPage,
@@ -146,9 +145,8 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
         }
       }
       setSelectedTags(tagsToPreselect);
-    } else {
-      setIsComboboxOpen(false);
-    }
+    } 
+    // Removed setIsComboboxOpen(false) as it's not used
   }, [open, initialMealType]);
 
   useEffect(() => {
@@ -228,19 +226,10 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 py-1 flex-grow overflow-hidden flex flex-col">
-          <div className="flex items-center space-x-2">
-            <Search className="h-4 w-4 text-muted-foreground" />
-            <CommandInput
-              value={searchTerm}
-              onValueChange={setSearchTerm}
-              placeholder="Search meals by name..."
-              className="text-sm h-9"
-              disabled={isLoadingMeals || addMealToPlanMutation.isPending}
-            />
-          </div>
-
-          <div className="mb-1 mt-1">
+        {/* Content area for search, filters, and list */}
+        <div className="flex flex-col gap-3 flex-grow overflow-hidden py-1">
+          {/* Tag filter section - moved before Command */}
+          <div>
             <Label htmlFor="meal-tag-filter" className="text-xs text-muted-foreground">Filter by tags:</Label>
             <div id="meal-tag-filter" className="flex flex-wrap gap-1 mt-1">
               {MEAL_TAG_OPTIONS.map((tag) => (
@@ -257,8 +246,19 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
             </div>
           </div>
           
-          <Command className="rounded-lg border shadow-md flex-grow overflow-hidden">
-            <CommandList className="max-h-[calc(85vh-280px)]"> 
+          {/* Command component now correctly wraps Input and List */}
+          <Command className="rounded-lg border shadow-md flex-grow overflow-hidden flex flex-col">
+            <div className="flex items-center border-b px-3">
+              <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+              <CommandInput
+                value={searchTerm}
+                onValueChange={setSearchTerm}
+                placeholder="Search meals by name..."
+                className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={isLoadingMeals || addMealToPlanMutation.isPending}
+              />
+            </div>
+            <CommandList className="flex-grow overflow-y-auto"> {/* Adjusted for flex grow */}
               {isLoadingMeals && !allFetchedMeals.length && (
                 <div className="p-4 text-center text-sm text-muted-foreground">
                   <Loader2 className="mx-auto h-6 w-6 animate-spin mb-2" />
