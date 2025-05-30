@@ -52,7 +52,6 @@ const ingredientSchema = z.object({
   path: ["unit"],
 });
 
-
 export type MealFormValues = z.infer<typeof mealFormSchema>;
 
 const mealFormSchema = z.object({
@@ -64,7 +63,6 @@ const mealFormSchema = z.object({
   estimated_calories: z.string().optional(),
   servings: z.string().optional(),
 });
-
 
 export interface GenerationStatusInfo {
   generationsUsedThisMonth: number;
@@ -91,7 +89,6 @@ const MealForm: React.FC<MealFormProps> = ({
  }) => {
   const queryClient = useQueryClient();
   const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
-  const [showImageUrlInput, setShowImageUrlInput] = useState(false);
 
   const form = useForm<MealFormValues>({
     resolver: zodResolver(mealFormSchema),
@@ -116,9 +113,6 @@ const MealForm: React.FC<MealFormProps> = ({
       form.reset(initialData);
       replace(initialData.ingredients || []);
 
-      if (initialData.image_url) {
-        setShowImageUrlInput(false);
-      }
       if (onInitialDataProcessed) {
         onInitialDataProcessed();
       }
@@ -133,10 +127,8 @@ const MealForm: React.FC<MealFormProps> = ({
         servings: "",
       });
       replace([{ name: "", quantity: "", unit: "", description: "" }]);
-      setShowImageUrlInput(false);
     }
   }, [initialData, form, onInitialDataProcessed, replace]);
-
 
   const addMealMutation = useMutation({
     mutationFn: async (values: MealFormValues) => {
@@ -148,7 +140,7 @@ const MealForm: React.FC<MealFormProps> = ({
       const ingredientsToSave = values.ingredients?.map(ing => ({
         name: ing.name,
         quantity: ing.quantity !== undefined ? ing.quantity : null,
-        unit: (ing.quantity !== undefined && ing.unit) ? ing.unit : null, // Store null if no quantity or no unit
+        unit: (ing.quantity !== undefined && ing.unit) ? ing.unit : null, 
         description: ing.description,
       })).filter(ing => ing.name.trim() !== "");
 
@@ -194,7 +186,6 @@ const MealForm: React.FC<MealFormProps> = ({
         servings: "",
       });
       replace([{ name: "", quantity: "", unit: "", description: "" }]);
-      setShowImageUrlInput(false);
       queryClient.invalidateQueries({ queryKey: ["meals"] });
       queryClient.invalidateQueries({ queryKey: ['userProfileForAddMealLimits'] });
       queryClient.invalidateQueries({ queryKey: ['userProfileForGenerationLimits'] });
@@ -235,7 +226,6 @@ const MealForm: React.FC<MealFormProps> = ({
     onSuccess: (data) => {
       if (data?.image_url) {
         form.setValue('image_url', data.image_url);
-        setShowImageUrlInput(false);
         showSuccess("Image generated!");
         queryClient.invalidateQueries({ queryKey: ['userProfileForAddMealLimits'] });
         queryClient.invalidateQueries({ queryKey: ['userProfileForGenerationLimits'] });
@@ -265,7 +255,6 @@ const MealForm: React.FC<MealFormProps> = ({
 
   const handleClearImage = () => {
     form.setValue('image_url', '');
-    setShowImageUrlInput(false);
   };
 
   const currentImageUrl = form.watch('image_url');
@@ -542,26 +531,6 @@ const MealForm: React.FC<MealFormProps> = ({
                             )}
                             {isLoadingProfile && "Loading AI generation limit..."}
                           </div>
-
-                          <div className="text-center">
-                            <Button
-                              type="button"
-                              variant="link"
-                              className="text-sm p-0 h-auto"
-                              onClick={() => setShowImageUrlInput(!showImageUrlInput)}
-                            >
-                              <Link2 className="mr-1 h-3 w-3" />
-                              {showImageUrlInput ? 'Hide URL input' : 'Or, use your own image URL'}
-                            </Button>
-                          </div>
-
-                          {showImageUrlInput && (
-                            <Input
-                              placeholder="Paste image URL"
-                              {...field}
-                              value={field.value || ''}
-                            />
-                          )}
                         </>
                       )}
                     </div>
