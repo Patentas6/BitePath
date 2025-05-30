@@ -8,7 +8,7 @@ import useDebounce from "@/hooks/use-debounce";
 
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
+  Dialog as ShadDialog, 
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -215,7 +215,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
   const descriptionDisplayMealType = initialMealType || "Meal"; 
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <ShadDialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Add / Change Meal</DialogTitle> 
@@ -225,115 +225,9 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
         </DialogHeader>
 
         <div className="grid gap-4 py-4 overflow-y-auto flex-grow pr-2">
-          <div>
-            <Label className="text-sm font-medium">Filter by tags:</Label>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {MEAL_TAG_OPTIONS.map(tag => (
-                <Button key={tag} variant={selectedTags.includes(tag) ? "default" : "outline"} size="sm" onClick={() => toggleTagFilter(tag)} className="text-xs px-2 py-1 h-auto">
-                  {tag}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 items-center gap-2">
-            <Label className="text-sm font-medium">Select Meal</Label>
-            <Popover open={isComboboxOpen} onOpenChange={setIsComboboxOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={isComboboxOpen}
-                  className="w-full justify-between font-normal"
-                >
-                  {selectedMealName
-                    ? selectedMealName
-                    : "Select a meal..."}
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                <Command shouldFilter={false}>
-                  <CommandInput 
-                    placeholder="Search meal by name..."
-                    value={searchTerm}
-                    onValueChange={(value) => {
-                      setSearchTerm(value);
-                      if (!isComboboxOpen && value) setIsComboboxOpen(true); 
-                    }}
-                  />
-                  <CommandList className="max-h-[200px] sm:max-h-[250px]">
-                    {isLoadingMeals && !allFetchedMeals.length && (
-                      <div className="p-2 text-sm text-muted-foreground flex items-center justify-center">
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading meals...
-                      </div>
-                    )}
-                    {mealsError && (
-                      <div className="p-2 text-sm text-red-500">Error: {mealsError.message}</div>
-                    )}
-                    {!isLoadingMeals && !mealsError && allFetchedMeals.length === 0 && (
-                      <CommandEmpty>
-                        {totalMealsCount > 0 && (debouncedSearchTerm || selectedTags.length > 0) ? "No meals match your search/filters." : "No meals found. Add some first!"}
-                      </CommandEmpty>
-                    ))
-                    
-                    {allFetchedMeals.length > 0 && (
-                      <CommandGroup>
-                        {allFetchedMeals.map((meal) => (
-                          <CommandItem
-                            key={meal.id}
-                            value={meal.id}
-                            onSelect={(currentValue) => {
-                              setSelectedMealId(currentValue === selectedMealId ? undefined : currentValue);
-                              setIsComboboxOpen(false);
-                            }}
-                            className="cursor-pointer"
-                          >
-                            <Check className={cn("mr-2 h-4 w-4", selectedMealId === meal.id ? "opacity-100" : "opacity-0")} />
-                            <div className="flex items-center space-x-2 overflow-hidden">
-                              {meal.image_url && (
-                                <img 
-                                  src={meal.image_url} 
-                                  alt={meal.name} 
-                                  className="h-8 w-8 object-cover rounded-sm flex-shrink-0" 
-                                  onError={(e) => (e.currentTarget.style.display = 'none')} 
-                                  loading="lazy"
-                                />
-                              )}
-                              {!meal.image_url && <div className="h-8 w-8 bg-muted rounded-sm flex-shrink-0"></div>}
-                              <div className="flex flex-col overflow-hidden">
-                                <span className="font-medium truncate">{meal.name}</span>
-                                {meal.meal_tags && meal.meal_tags.length > 0 && (
-                                  <div className="flex flex-wrap gap-1 mt-0.5">
-                                    {meal.meal_tags.slice(0,3).map(tag => <Badge key={tag} variant="secondary" className="text-xs px-1 py-0">{tag}</Badge>)}
-                                    {meal.meal_tags.length > 3 && <Badge variant="secondary" className="text-xs px-1 py-0">...</Badge>}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    )}
-                    {hasNextPage && (
-                      <CommandItem
-                        onSelect={() => fetchNextPage()}
-                        disabled={isFetchingNextPage}
-                        className="text-center justify-center cursor-pointer text-sm text-primary hover:bg-accent"
-                      >
-                        {isFetchingNextPage ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                          "Load More..."
-                        )}
-                      </CommandItem>
-                    )}
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-          </div>
+          <Label>Content temporarily simplified for debugging.</Label>
         </div>
+        
         <DialogFooter className="mt-auto pt-4 border-t">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={addMealToPlanMutation.isPending}>
             Cancel
@@ -347,7 +241,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
           </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+    </ShadDialog> 
   );
 };
 
