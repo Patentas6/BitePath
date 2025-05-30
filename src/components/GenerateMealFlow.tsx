@@ -436,11 +436,11 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
               disabled={!selectedMealType || isGeneratingRecipe || recipeGenerationMutation.isPending || (!isLoadingProfile && !recipeGenerationStatus.isAdmin && recipeGenerationStatus.limitReached)}
               className="w-full"
             >
-              {recipeGenerationMutation.isPending && generationStatusMessage 
+              {recipeGenerationMutation.isPending && generationStatusMessage && !generateImageMutation.isPending
                 ? generationStatusMessage 
                 : (isGeneratingRecipe || recipeGenerationMutation.isPending ? 'Generating Recipe...' : 'Generate Recipe')}
             </Button>
-            {(recipeGenerationMutation.isPending || generateImageMutation.isPending) && (
+            {recipeGenerationMutation.isPending && (
               <div className="mt-2 text-center">
                 <Progress value={generationProgress} className="w-full h-2 mb-2" />
                 {generationStatusMessage && <p className="text-sm text-muted-foreground">{generationStatusMessage}</p>}
@@ -533,8 +533,16 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
                 variant="outline" 
               >
                 <Edit2 className="mr-2 h-4 w-4" />
-                {isGeneratingRecipe && recipeGenerationMutation.isLoading && recipeGenerationMutation.variables?.isRefinement ? 'Refining...' : 'Refine Recipe'}
+                {recipeGenerationMutation.isPending && recipeGenerationMutation.variables?.isRefinement && generationStatusMessage
+                  ? generationStatusMessage
+                  : (recipeGenerationMutation.isPending && recipeGenerationMutation.variables?.isRefinement ? 'Refining...' : 'Refine Recipe')}
               </Button>
+               {recipeGenerationMutation.isPending && recipeGenerationMutation.variables?.isRefinement && (
+                 <div className="mt-2 text-center">
+                   <Progress value={generationProgress} className="w-full h-2 mb-2" />
+                   {generationStatusMessage && <p className="text-sm text-muted-foreground">{generationStatusMessage}</p>}
+                 </div>
+              )}
                <div className="text-xs text-muted-foreground text-center pt-2">
                   <Info size={14} className="inline mr-1 flex-shrink-0" />
                   {getRecipeLimitText()}
@@ -553,6 +561,12 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
                   ? generationStatusMessage
                   : (isGeneratingImage || generateImageMutation.isPending ? 'Generating Image...' : 'Generate Image for this Meal')}
               </Button>
+              {generateImageMutation.isPending && (
+                <div className="mt-2 text-center">
+                  <Progress value={generationProgress} className="w-full h-2 mb-2" />
+                  {generationStatusMessage && <p className="text-sm text-muted-foreground">{generationStatusMessage}</p>}
+                </div>
+              )}
               {!isLoadingProfile && (
                 <div className="flex items-center justify-center text-xs text-muted-foreground">
                   <Info size={14} className="mr-1 flex-shrink-0 text-primary" />
