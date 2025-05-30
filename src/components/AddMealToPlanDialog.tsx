@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { format } from "date-fns"; 
 import { showError, showSuccess } from "@/utils/toast";
@@ -33,6 +33,8 @@ import { Badge } from "@/components/ui/badge";
 import { Search, X, Check, ChevronsUpDown, Loader2 } from "lucide-react"; 
 import { cn } from "@/lib/utils";
 
+const DIALOG_PAGE_SIZE = 15;
+
 interface Meal {
   id: string;
   name: string;
@@ -64,7 +66,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
   const [isComboboxOpen, setIsComboboxOpen] = useState(false);
   const queryClient = useQueryClient();
 
-  const fetchMeals = async ({ queryKey }: { queryKey: any }) => {
+  const fetchMeals = async ({ pageParam = 0, queryKey }: { pageParam?: number, queryKey: any }) => {
     const [_queryName, currentUserId, currentSearchTerm, currentSelectedTagsString] = queryKey;
     if (!currentUserId) return { data: [], error: null };
 
@@ -82,7 +84,9 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
       query = query.contains("meal_tags", currentSelectedTags); 
     }
     
-    query = query.order("name", { ascending: true });
+    const from = pageParam * DIALOG_PAGE_SIZE;
+    const to = from + DIALOG_PAGE_SIZE - 1;
+    query = query.order("name", { ascending: true }).range(from, to);
 
     const { data, error, count } = await query;
 
@@ -93,24 +97,30 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
     
     return {
       data: data || [],
+      nextPage: count && data.length === DIALOG_PAGE_SIZE ? pageParam + 1 : undefined,
       totalCount: count || 0,
     };
   };
 
   const selectedTagsString = useMemo(() => selectedTags.sort().join(','), [selectedTags]);
 
-  const { 
-    data: mealsResult, 
-    error: mealsError, 
-    isLoading: isLoadingMeals 
-  } = useQuery<Awaited<ReturnType<typeof fetchMeals>>, Error>({
+  const {
+    data: mealsData,
+    error: mealsError,
+    isLoading: isLoadingMeals,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery<Awaited<ReturnType<typeof fetchMeals>>, Error>({
     queryKey: ["userMealsForPlanner", userId, debouncedSearchTerm, selectedTagsString],
     queryFn: fetchMeals,
+    getNextPageParam: (lastPage) => lastPage.nextPage,
+    initialPageParam: 0,
     enabled: !!userId && open,
   });
 
-  const allFetchedMeals = useMemo(() => mealsResult?.data || [], [mealsResult]);
-  const totalMealsCount = useMemo(() => mealsResult?.totalCount || 0, [mealsResult]);
+  const allFetchedMeals = useMemo(() => mealsData?.pages.flatMap(page => page.data) || [], [mealsData]);
+  const totalMealsCount = useMemo(() => mealsData?.pages[0]?.totalCount || 0, [mealsData]);
 
   useEffect(() => {
     if (open) {
@@ -253,7 +263,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
                     }}
                   />
                   <CommandList className="max-h-[200px] sm:max-h-[250px]">
-                    {isLoadingMeals && !allFetchedMeals.length && ( 
+                    {isLoadingMeals && !allFetchedMeals.length && (
                       <div className="p-2 text-sm text-muted-foreground flex items-center justify-center">
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading meals...
                       </div>
@@ -298,6 +308,19 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
                           </CommandItem>
                         ))}
                       </CommandGroup>
+                    )}
+                    {hasNextPage && (
+                      <CommandItem
+                        onSelect={() => fetchNextPage()}
+                        disabled={isFetchingNextPage}
+                        className="text-center justify-center cursor-pointer text-sm text-primary hover:bg-accent"
+                      >
+                        {isFetchingNextPage ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          "Load More..."
+                        )}
+                      </CommandItem>
                     )}
                   </CommandList>
                 </Command>
