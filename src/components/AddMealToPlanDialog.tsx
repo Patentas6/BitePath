@@ -275,7 +275,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
                       <CommandEmpty>
                         {totalMealsCount > 0 && (debouncedSearchTerm || selectedTags.length > 0) ? "No meals match your search/filters." : "No meals found. Add some first!"}
                       </CommandEmpty>
-                    )}
+                    ))
                     
                     {allFetchedMeals.length > 0 && (
                       <CommandGroup>
@@ -292,7 +292,13 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
                             <Check className={cn("mr-2 h-4 w-4", selectedMealId === meal.id ? "opacity-100" : "opacity-0")} />
                             <div className="flex items-center space-x-2 overflow-hidden">
                               {meal.image_url && (
-                                <img src={meal.image_url} alt={meal.name} className="h-8 w-8 object-cover rounded-sm flex-shrink-0" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                                <img 
+                                  src={meal.image_url} 
+                                  alt={meal.name} 
+                                  className="h-8 w-8 object-cover rounded-sm flex-shrink-0" 
+                                  onError={(e) => (e.currentTarget.style.display = 'none')} 
+                                  loading="lazy"
+                                />
                               )}
                               {!meal.image_url && <div className="h-8 w-8 bg-muted rounded-sm flex-shrink-0"></div>}
                               <div className="flex flex-col overflow-hidden">
