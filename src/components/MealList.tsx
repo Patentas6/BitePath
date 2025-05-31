@@ -3,6 +3,7 @@ import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from "@tansta
 import { supabase } from "@/lib/supabase";
 import { showError, showSuccess } from "@/utils/toast";
 import { useNavigate } from "react-router-dom";
+import { useInView } from 'react-intersection-observer';
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -57,6 +58,10 @@ const MealList = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
+  const { ref: scrollTriggerRef, inView: isScrollTriggerVisible } = useInView({ 
+    threshold: 0.2, 
+  });
+
   useEffect(() => {
     const fetchUser = async () => {
       const { data } = await supabase.auth.getUser();
@@ -90,7 +95,6 @@ const MealList = () => {
     isLoading: isLoadingMealsData, 
     isFetchingNextPage, 
     error,
-    refetch: refetchMeals, 
   } = useInfiniteQuery<Meal[], Error, Meal[], Meal[], { userId: string | null; searchTerm: string; selectedCategory: string }>(
     {
       queryKey: ["mealsInfinite", userId, searchTerm, selectedCategory], 
@@ -127,7 +131,13 @@ const MealList = () => {
     }
   );
 
-  const meals = useMemo(() => mealsData?.pages.flatMap(page => page) || [], [mealsData]); 
+  useEffect(() => { 
+    if (isScrollTriggerVisible && hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [isScrollTriggerVisible, hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  const meals = useMemo(() => mealsData?.pages.flatMap(page => page) || [], [mealsData]);
 
   const deleteMealMutation = useMutation({
     mutationFn: async (mealId: string) => {
@@ -415,17 +425,12 @@ const MealList = () => {
             </div>
           )}
           
-          {hasNextPage && ( 
-            <div className="flex justify-center mt-6">
-              <Button
-                onClick={() => fetchNextPage()}
-                disabled={isFetchingNextPage}
-                variant="outline"
-              >
-                {isFetchingNextPage ? 'Loading more...' : 'Load More Meals'}
-              </Button>
+          {isFetchingNextPage && ( 
+            <div className="flex justify-center items-center py-4">
+              <Skeleton className="h-8 w-32" /> 
             </div>
           )}
+          <div ref={scrollTriggerRef} style={{ height: '1px' }} /> 
         </CardContent>
       </Card>
 
