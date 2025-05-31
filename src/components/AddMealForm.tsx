@@ -19,7 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PlusCircle, Trash2 } from "lucide-react";
 import { parseServings } from "@/utils/servingUtils";
 
@@ -35,17 +35,23 @@ const formSchema = z.object({
     message: "Instructions must be at least 10 characters.",
   }),
   meal_tags: z.array(z.string()).optional(),
-  servings: z.coerce
+  servings: z.coerce // Use coerce for transformation from string input
     .number({ invalid_type_error: "Servings must be a number." })
     .min(1, "Servings must be at least 1.")
     .int("Servings must be a whole number."),
-  estimated_calories: z.string().optional(),
+  estimated_calories: z.string().optional().refine(val => val === "" || val === undefined || /^\d+$/.test(val), {
+    message: "Estimated calories must be a number or empty.",
+  }),
 });
 
 export type AddMealFormValues = z.infer<typeof formSchema>;
 
 interface AddMealFormProps {
-  initialData?: Partial<Omit<AddMealFormValues, 'servings'>> & { id?: string; servings?: string | number };
+  initialData?: Partial<Omit<AddMealFormValues, 'servings' | 'estimated_calories'>> & { 
+    id?: string; 
+    servings?: string | number; // Accept string or number
+    estimated_calories?: string | number; // Accept string or number
+  };
   onSuccess?: () => void;
 }
 
@@ -57,15 +63,45 @@ export function AddMealForm({ initialData, onSuccess }: AddMealFormProps) {
 
   const form = useForm<AddMealFormValues>({
     resolver: zodResolver(formSchema),
+    // Default values should align with the schema types
     defaultValues: {
-      name: initialData?.name || "",
-      ingredients: initialData?.ingredients || "",
-      instructions: initialData?.instructions || "",
-      meal_tags: initialData?.meal_tags || [],
+      name: "",
+      ingredients: "",
+      instructions: "",
+      meal_tags: [],
+      servings: 1, // Default to number
+      estimated_calories: "", // Default to empty string
+      ...initialData, // Spread initialData first
+      // Then explicitly set fields that need parsing or specific defaults if not in initialData
       servings: initialData?.servings ? parseServings(initialData.servings) : 1,
-      estimated_calories: initialData?.estimated_calories || "",
+      estimated_calories: initialData?.estimated_calories ? String(initialData.estimated_calories) : "",
     },
   });
+
+  // Effect to reset form when initialData changes (e.g., when editing a different meal or clearing for new)
+  useEffect(() => {
+    if (initialData) {
+      form.reset({
+        name: initialData.name || "",
+        ingredients: initialData.ingredients || "",
+        instructions: initialData.instructions || "",
+        meal_tags: initialData.meal_tags || [],
+        servings: initialData.servings ? parseServings(initialData.servings) : 1,
+        estimated_calories: initialData.estimated_calories ? String(initialData.estimated_calories) : "",
+      });
+    } else {
+      // Reset to default for a new meal form
+      form.reset({
+        name: "",
+        ingredients: "",
+        instructions: "",
+        meal_tags: [],
+        servings: 1,
+        estimated_calories: "",
+      });
+    }
+  }, [initialData, form]);
+
 
   const handleAddTag = () => {
     if (currentTag.trim() !== "") {
@@ -86,7 +122,7 @@ export function AddMealForm({ initialData, onSuccess }: AddMealFormProps) {
 
   async function onSubmit(values: AddMealFormValues) {
     if (!user) {
-      toast.error("You must be logged in to add a meal.");
+      toast.error("You must be logged in to add or update a meal.");
       return;
     }
     setIsLoading(true);
@@ -97,8 +133,8 @@ export function AddMealForm({ initialData, onSuccess }: AddMealFormProps) {
         ingredients: values.ingredients,
         instructions: values.instructions,
         meal_tags: values.meal_tags,
-        servings: String(values.servings), 
-        estimated_calories: values.estimated_calories,
+        servings: String(values.servings), // Ensure servings is a string for DB
+        estimated_calories: values.estimated_calories || null, // Send null if empty
       };
 
       let error;
@@ -121,13 +157,14 @@ export function AddMealForm({ initialData, onSuccess }: AddMealFormProps) {
       }
 
       toast.success(initialData?.id ? "Meal updated successfully!" : "Meal added successfully!");
-      form.reset();
       if (onSuccess) {
         onSuccess();
       } else {
-        router.push("/my-meals");
+        // Only reset form if not programmatically handled by onSuccess (e.g. closing a dialog)
+        form.reset({ name: "", ingredients: "", instructions: "", meal_tags: [], servings: 1, estimated_calories: "" });
+        router.push("/my-meals"); // Navigate to my-meals after successful submission
       }
-      router.refresh();
+      router.refresh(); // Refresh server components
     } catch (error: any) {
       console.error("Error submitting meal:", error);
       toast.error(`Failed to ${initialData?.id ? 'update' : 'add'} meal: ${error.message}`);
@@ -138,10 +175,9 @@ export function AddMealForm({ initialData, onSuccess }: AddMealFormProps) {
 
   return (
     <>
-      {/* TEMPORARY VISUAL MARKER - REMOVE LATER */}
-      <h1 style={{ color: 'red', fontSize: '24px', fontWeight: 'bold', border: '2px solid red', padding: '10px', margin: '10px 0' }}>
-        ADDMEALFORM.TSX UPDATED - TEST MARKER
-      </h1>
+      <h2 style={{ color: 'darkcyan', fontSize: '20px', border: '2px solid darkcyan', padding: '8px', margin: '8px 0' }}>
+        ADDMEALFORM.TSX LOADED (Corrected Version)
+      </h2>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
           <FormField
@@ -169,6 +205,7 @@ export function AddMealForm({ initialData, onSuccess }: AddMealFormProps) {
                     type="number" 
                     placeholder="e.g., 2" // Updated placeholder
                     {...field} 
+                    onChange={event => field.onChange(+event.target.value)} // Ensure value is number
                   />
                 </FormControl>
                 <FormDescription>
@@ -260,7 +297,7 @@ export function AddMealForm({ initialData, onSuccess }: AddMealFormProps) {
                   Add tags to help categorize your meal. Press Enter or click + to add.
                 </FormDescription>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {field.value?.map((tag) => (
+                  {form.watch("meal_tags")?.map((tag) => (
                     <span key={tag} className="bg-muted text-muted-foreground px-2 py-1 rounded-md text-sm flex items-center">
                       {tag}
                       <Button type="button" variant="ghost" size="xs" className="ml-1" onClick={() => handleRemoveTag(tag)}>
