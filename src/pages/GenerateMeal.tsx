@@ -27,7 +27,6 @@ const generationPreferencesSchema = z.object({
 
 type GenerationPreferencesFormData = z.infer<typeof generationPreferencesSchema>;
 
-// Servings will be set programmatically from AI or default, but still part of the data structure
 const mealSchema = z.object({
   mealName: z.string().min(1, "Meal name is required"),
   ingredients: z.string().min(1, "Ingredients are required"),
@@ -132,7 +131,7 @@ const GenerateMealPage: React.FC = () => {
       ingredients: '',
       instructions: '',
       mealTags: '',
-      servings: '2', // Default, will be overwritten by AI if available
+      servings: '2', 
     },
   });
 
@@ -173,7 +172,7 @@ const GenerateMealPage: React.FC = () => {
       data.ingredientsToExclude && `Exclude these ingredients: ${data.ingredientsToExclude}.`,
       data.targetCalories && `Aim for around ${data.targetCalories} calories per serving.`,
       data.specificRequests && `Specific requests: ${data.specificRequests}.`,
-      "Provide the response as a JSON object with the following keys: mealName (string), ingredients (string, newline separated), instructions (string, newline separated), estimatedCalories (string, e.g., 'Approx. X kcal per serving'), servings (string, e.g., '2' or '4 servings'), tags (array of strings). Ensure 'servings' is a string representing the number of servings the recipe makes.",
+      "Provide the response as a JSON object with the following keys: mealName (string), ingredients (string, newline separated), instructions (string, newline separated), estimatedCalories (string, e.g., 'Approx. X kcal per serving'), servings (string, representing a single number for how many people the recipe serves, e.g., '2' or '4'. If you consider a range like '2-3 servings', provide the lower number, e.g., '2'), tags (array of strings).",
       "For ingredients, list each ingredient on a new line. For instructions, list each step on a new line, numbered.",
     ].filter(Boolean).join(' ');
     
@@ -193,10 +192,9 @@ const GenerateMealPage: React.FC = () => {
       console.log("Raw recipe data from function:", recipeData);
 
       if (recipeData && recipeData.mealName) {
-        // Parse servings from AI response. AI might return "X servings" or just "X".
-        let servingsValue = '2'; // Default
+        let servingsValue = '2'; 
         if (recipeData.servings) {
-            const parsedServings = String(recipeData.servings).match(/\d+/); // Extract numbers
+            const parsedServings = String(recipeData.servings).match(/\d+/); 
             if (parsedServings && parsedServings[0]) {
                 servingsValue = parsedServings[0];
             }
@@ -206,9 +204,9 @@ const GenerateMealPage: React.FC = () => {
         setValue('ingredients', recipeData.ingredients);
         setValue('instructions', recipeData.instructions);
         setValue('mealTags', recipeData.tags ? recipeData.tags.join(', ') : '');
-        setValue('servings', servingsValue); // Set the parsed or default servings value for the form
+        setValue('servings', servingsValue); 
 
-        setGeneratedRecipe({ // Also update the state used for display
+        setGeneratedRecipe({ 
             ...recipeData,
             servings: servingsValue 
         });
@@ -259,7 +257,6 @@ const GenerateMealPage: React.FC = () => {
     }
     setIsSaving(true);
     try {
-      // 'data.servings' will now come from the form state, which was populated by AI's response (or default)
       const mealToInsert = {
         user_id: userId,
         name: data.mealName,
@@ -442,7 +439,7 @@ const GenerateMealPage: React.FC = () => {
           <CardHeader>
             <CardTitle>Your Generated Recipe</CardTitle>
             <CardDescription>Review the details below. You can edit them before saving.</CardDescription>
-          </CardHeader>
+          </Header>
           <CardContent>
             <form onSubmit={handleSaveSubmit(onSaveMeal)} className="space-y-4">
               {recipeImageUrl && (
@@ -459,8 +456,6 @@ const GenerateMealPage: React.FC = () => {
                 />
                 {mealErrors.mealName && <p className="text-sm text-red-500 mt-1">{mealErrors.mealName.message}</p>}
               </div>
-
-              {/* Servings input field removed from here */}
 
               <div>
                 <Label htmlFor="ingredients">Ingredients</Label>
@@ -491,9 +486,8 @@ const GenerateMealPage: React.FC = () => {
               {generatedRecipe.estimatedCalories && (
                 <p className="text-sm text-muted-foreground">Estimated Calories: {generatedRecipe.estimatedCalories}</p>
               )}
-              {/* Display the AI-provided servings (or default) */}
               <p className="text-sm text-muted-foreground">
-                Base Servings for this recipe: {getValues('servings') || 'Not set by AI (defaulting)'}
+                Base Servings for this recipe: {getValues('servings') || 'Not set by AI (defaulting to 2)'}
               </p>
 
               <Button type="submit" disabled={isSaving} className="w-full">
