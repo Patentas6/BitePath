@@ -1,309 +1,510 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-import { Configuration, OpenAIApi } from "https://esm.sh/openai@3.3.0";
-import { Database } from "../_shared/supabase_types.ts"; // Corrected import path
+import { create, getNumericDate } from "https://deno.land/x/djwt@v2.4/mod.ts";
+import { format as formatDate, parse as parseDate, difference } from "https://deno.land/std@0.224.0/datetime/mod.ts";
+import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+const IMAGE_GENERATION_LIMIT_PER_MONTH = 30;
+const RECIPE_GENERATION_LIMIT_PER_PERIOD = 100;
+const RECIPE_GENERATION_PERIOD_DAYS = 15;
 
-if (!OPENAI_API_KEY) {
-  console.error("Missing OPENAI_API_KEY environment variable.");
+interface GeneratedIngredient {
+  name: string;
+  quantity: number | string | null; // Allow null for "to taste"
+  unit: string | null; // Allow null for "to taste"
+  description?: string;
 }
 
-const configuration = new Configuration({ apiKey: OPENAI_API_KEY });
-const openai = new OpenAIApi(configuration);
+interface GeneratedMeal {
+  name: string;
+  ingredients: GeneratedIngredient[] | string;
+  instructions: string;
+  meal_tags: string[];
+  image_url?: string;
+  estimated_calories?: string;
+  servings?: string;
+}
 
-const MAX_RECIPE_GENERATIONS = 100; // Example limit
-const MAX_IMAGE_GENERATIONS = 50; // Example limit
-const RESET_INTERVAL_HOURS = 24; // Example reset interval
+async function getAccessToken(serviceAccountJsonString: string): Promise<string> {
+  const getAccessTokenStartTime = Date.now();
+  try {
+    const sa = JSON.parse(serviceAccountJsonString);
+    let privateKeyPem = sa.private_key;
+    const clientEmail = sa.client_email;
+    const projectId = sa.project_id;
 
-serve(async (req: Request) => {
-  console.log("generate-meal function invoked.");
+    if (!privateKeyPem || !clientEmail || !projectId) {
+        console.error("Missing required fields in service account JSON.");
+        throw new Error("Invalid service account key format.");
+    }
 
+    const tokenUri = sa.token_uri || "https://oauth2.googleapis.com/token";
+    const audience = tokenUri;
+
+    const now = getNumericDate(0);
+    const expires = getNumericDate(3600);
+
+    const payload = {
+      iss: clientEmail,
+      scope: "https://www.googleapis.com/auth/cloud-platform",
+      aud: audience,
+      iat: now,
+      exp: expires,
+    };
+
+    let privateKey: CryptoKey;
+    try {
+        privateKeyPem = privateKeyPem
+            .replace('-----BEGIN PRIVATE KEY-----', '')
+            .replace('-----END PRIVATE KEY-----', '')
+            .replace(/\s+/g, '');
+
+        const binaryDer = Uint8Array.from(atob(privateKeyPem), c => c.charCodeAt(0));
+
+        privateKey = await crypto.subtle.importKey(
+            "pkcs8",
+            binaryDer,
+            { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+            false,
+            ["sign"]
+        );
+    } catch (importError) {
+        console.error("Failed to import private key:", importError);
+        throw new Error("Failed to import private key for JWT signing.");
+    }
+
+    const jwt = await create({ alg: "RS256", typ: "JWT" }, payload, privateKey);
+
+    const response = await fetch(tokenUri, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+        assertion: jwt,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      console.error(`Token exchange error: ${response.status} ${response.statusText}`, errorBody);
+      throw new Error(`Failed to obtain access token: ${response.statusText}`);
+    }
+    const data = await response.json();
+    console.log(`[${formatDate(new Date(), "yyyy-MM-dd HH:mm:ss")}] getAccessToken completed. Duration: ${Date.now() - getAccessTokenStartTime}ms`);
+    return data.access_token;
+  } catch (error) {
+    console.error(`[${formatDate(new Date(), "yyyy-MM-dd HH:mm:ss")}] Error in getAccessToken. Duration: ${Date.now() - getAccessTokenStartTime}ms`, error);
+    throw new Error(`Authentication failed: ${(error as Error).message}`);
+  }
+}
+
+serve(async (req) => {
+  const functionStartTime = Date.now();
   if (req.method === 'OPTIONS') {
-    console.log("Handling OPTIONS request.");
     return new Response(null, { headers: corsHeaders });
   }
 
-  let parsedBody: any;
+  let serviceSupabaseClient: SupabaseClient;
   try {
-    // Parse the JSON body ONCE
-    parsedBody = await req.json();
-    console.log("Successfully parsed request body.");
-    // Now log the properties from the parsedBody
-    console.log(`Parsed Body - Prompt: ${parsedBody.prompt}, Preferences: ${parsedBody.preferences}, IsRefinement: ${parsedBody.isRefinement}`);
-    if (parsedBody.mealData) {
-      console.log(`Parsed Body - MealData: ${JSON.stringify(parsedBody.mealData)}`);
-    }
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-  } catch (e: any) {
-    console.error("Failed to parse request body as JSON:", e.message);
-    return new Response(JSON.stringify({ error: "Invalid JSON request body: " + e.message }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400,
-    });
-  }
-
-  // Use the parsedBody for the rest of the logic
-  const { prompt, preferences, mealData, isRefinement, userId: clientUserId } = parsedBody;
-
-  // Validate Supabase client and get user
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader) {
-    console.error("Missing Authorization header.");
-    return new Response(JSON.stringify({ error: 'Missing Authorization header' }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 401,
-    });
-  }
-
-  const supabaseClient = createClient<Database>(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-    { global: { headers: { Authorization: authHeader } } }
-  );
-
-  const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-
-  if (userError || !user) {
-    console.error("Error getting user or no user found:", userError?.message);
-    return new Response(JSON.stringify({ error: 'Authentication failed: ' + (userError?.message || "No user") }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 401,
-    });
-  }
-  console.log(`Authenticated user ID: ${user.id}`);
-  if (clientUserId && clientUserId !== user.id) {
-    console.warn(`Client-provided userId (${clientUserId}) does not match authenticated user ID (${user.id}). Using authenticated user ID.`);
-  }
-  const effectiveUserId = user.id; // Always use the server-validated user ID
-
-  // Fetch user profile for limits
-  const { data: profile, error: profileError } = await supabaseClient
-    .from('profiles')
-    .select('recipe_generation_count, last_recipe_generation_reset, image_generation_count, last_image_generation_reset, ai_preferences')
-    .eq('id', effectiveUserId)
-    .single();
-
-  if (profileError || !profile) {
-    console.error(`Error fetching profile for user ${effectiveUserId}:`, profileError?.message);
-    return new Response(JSON.stringify({ error: 'Failed to fetch user profile: ' + (profileError?.message || "Profile not found") }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
-    });
-  }
-  console.log(`User profile fetched for ${effectiveUserId}: Recipe gens: ${profile.recipe_generation_count}, Image gens: ${profile.image_generation_count}`);
-
-  const now = new Date();
-  const lastRecipeReset = profile.last_recipe_generation_reset ? new Date(profile.last_recipe_generation_reset) : new Date(0);
-  const lastImageReset = profile.last_image_generation_reset ? new Date(profile.last_image_generation_reset) : new Date(0);
-
-  let recipeCount = profile.recipe_generation_count || 0;
-  let imageCount = profile.image_generation_count || 0;
-  let needsProfileUpdate = false;
-
-  // Reset counts if interval passed
-  if (now.getTime() - lastRecipeReset.getTime() > RESET_INTERVAL_HOURS * 60 * 60 * 1000) {
-    console.log(`Resetting recipe generation count for user ${effectiveUserId}.`);
-    recipeCount = 0;
-    needsProfileUpdate = true;
-  }
-  if (now.getTime() - lastImageReset.getTime() > RESET_INTERVAL_HOURS * 60 * 60 * 1000) {
-    console.log(`Resetting image generation count for user ${effectiveUserId}.`);
-    imageCount = 0;
-    needsProfileUpdate = true;
-  }
-  
-  // Determine if this is primarily an image generation request or recipe generation
-  // A simple heuristic: if mealData is present and has a name, and no new prompt, it might be for image.
-  // However, the function is 'generate-meal', so 'prompt' should be the primary driver for recipe text.
-  // If 'prompt' is missing, it's an issue.
-
-  if (!prompt && mealData?.name) {
-    // This block handles image generation if a prompt for recipe text is NOT provided,
-    // but mealData (presumably for an existing meal) IS provided.
-    console.log(`Request for user ${effectiveUserId} identified as image generation for meal: ${mealData.name}.`);
-    if (imageCount >= MAX_IMAGE_GENERATIONS) {
-      console.warn(`User ${effectiveUserId} has reached image generation limit.`);
-      return new Response(JSON.stringify({ error: 'Image generation limit reached for this period.' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 429,
+    if (!supabaseUrl || !serviceRoleKey) {
+      console.error("Supabase URL or Service Role Key not configured.");
+      return new Response(JSON.stringify({ error: "Server configuration error." }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    try {
-      const imagePrompt = `A high-quality, appetizing photo of a dish called "${mealData.name}". Ingredients: ${mealData.ingredients}. Style: ${preferences || profile.ai_preferences || 'realistic food photography'}.`;
-      console.log(`Generating image with prompt: ${imagePrompt.substring(0, 100)}...`);
-      
-      const imageResponse = await openai.createImage({
-        prompt: imagePrompt,
-        n: 1,
-        size: "512x512",
-      });
-      const imageUrl = imageResponse.data.data[0].url;
-      console.log(`Image generated for user ${effectiveUserId}: ${imageUrl}`);
+    serviceSupabaseClient = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false }
+    });
 
-      imageCount++;
-      needsProfileUpdate = true;
-      
-      if (needsProfileUpdate) {
-        const { error: updateError } = await supabaseClient
-          .from('profiles')
-          .update({ 
-            image_generation_count: imageCount, 
-            last_image_generation_reset: now.toISOString() 
-          })
-          .eq('id', effectiveUserId);
-        if (updateError) console.error(`Error updating profile after image generation for user ${effectiveUserId}:`, updateError.message);
-        else console.log(`Profile updated for user ${effectiveUserId} after image generation.`);
-      }
+    console.log(`[${formatDate(new Date(), "yyyy-MM-dd HH:mm:ss")}] Edge Function received request.`);
+    let stageStartTime = Date.now();
+    const authHeader = req.headers.get('Authorization');
+    const token = authHeader?.replace('Bearer ', '');
 
-      // Return the mealData along with the new image_url
-      return new Response(JSON.stringify({ ...mealData, image_url: imageUrl, message: "Image generated successfully" }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      });
-
-    } catch (error: any) {
-      console.error(`Error during OpenAI image generation for user ${effectiveUserId}:`, error.response?.data?.error || error.message);
-      return new Response(JSON.stringify({ error: 'Failed to generate image: ' + (error.response?.data?.error?.message || error.message) }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
-      });
-    }
-  } else if (prompt) {
-    // This block handles recipe text generation (and potentially image if it's not a refinement)
-    console.log(`Request for user ${effectiveUserId} identified as recipe generation/refinement with prompt: "${prompt.substring(0, 50)}..."`);
-    if (recipeCount >= MAX_RECIPE_GENERATIONS && !isRefinement) { // Refinements might not count or have different limits
-      console.warn(`User ${effectiveUserId} has reached recipe generation limit.`);
-      return new Response(JSON.stringify({ error: 'Recipe generation limit reached for this period.' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 429,
+    if (!token) {
+      console.error("Authentication failed: Authorization header missing.");
+      return new Response(JSON.stringify({ error: "Authentication required." }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    try {
-      const systemPrompt = `You are a culinary assistant. Generate a recipe based on the user's prompt and preferences.
-User's overall AI preferences: ${profile.ai_preferences || 'None specified'}.
-The recipe should include:
-1. A unique and appealing "name" for the dish.
-2. A detailed "ingredients" list (string, use newline characters for separation).
-3. Step-by-step "instructions" (string, use newline characters for separation).
-4. "estimated_calories" (string, e.g., "300-400 calories per serving").
-5. "servings" (string, e.g., "2 servings").
-Respond ONLY with a JSON object containing these fields. Do not include any other text or explanations.`;
+    const { data: { user }, error: userError } = await createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY') ?? '', {
+        global: { headers: { Authorization: `Bearer ${token}` } },
+        auth: { autoRefreshToken: false, persistSession: false }
+    }).auth.getUser();
 
-      const fullPrompt = `User prompt: "${prompt}". User preferences for this recipe: "${preferences || 'None specified'}".`;
-      console.log(`Generating recipe text for user ${effectiveUserId} with full prompt: ${fullPrompt.substring(0,100)}...`);
+    console.log(`[${formatDate(new Date(), "yyyy-MM-dd HH:mm:ss")}] User authentication completed. Duration: ${Date.now() - stageStartTime}ms`);
+    stageStartTime = Date.now();
 
-      const completion = await openai.createChatCompletion({
-        model: "gpt-3.5-turbo",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: fullPrompt },
-        ],
-        temperature: 0.7,
+    if (userError || !user) {
+      console.error("Authentication failed:", userError?.message || "Invalid token");
+      return new Response(JSON.stringify({ error: "Authentication failed: Invalid or expired token." }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+    console.log("Authenticated user:", user.id);
 
-      const recipeContent = completion.data.choices[0].message?.content?.trim();
-      if (!recipeContent) {
-        console.error(`OpenAI returned empty content for recipe generation for user ${effectiveUserId}.`);
-        throw new Error("OpenAI returned empty content.");
-      }
-      console.log(`OpenAI recipe content (raw) for user ${effectiveUserId}: ${recipeContent.substring(0,100)}...`);
-      
-      let recipeJson;
-      try {
-        recipeJson = JSON.parse(recipeContent);
-      } catch (parseError: any) {
-        console.error(`Failed to parse OpenAI recipe content as JSON for user ${effectiveUserId}: ${parseError.message}. Content was: ${recipeContent}`);
-        // Attempt to extract JSON from a potentially markdown-formatted response
-        const jsonMatch = recipeContent.match(/```json\s*([\s\S]*?)\s*```/);
-        if (jsonMatch && jsonMatch[1]) {
-          try {
-            recipeJson = JSON.parse(jsonMatch[1]);
-            console.log(`Successfully extracted and parsed JSON from markdown for user ${effectiveUserId}.`);
-          } catch (nestedParseError: any) {
-            console.error(`Failed to parse extracted JSON for user ${effectiveUserId}: ${nestedParseError.message}`);
-            throw new Error("OpenAI response was not valid JSON, even after attempting to extract from markdown.");
-          }
-        } else {
-          throw new Error("OpenAI response was not valid JSON.");
+    const { data: profile, error: profileErrorDb } = await serviceSupabaseClient
+      .from('profiles')
+      .select('ai_preferences, is_admin, image_generation_count, last_image_generation_reset, recipe_generation_count, last_recipe_generation_reset, track_calories, preferred_unit_system')
+      .eq('id', user.id)
+      .single();
+
+    console.log(`[${formatDate(new Date(), "yyyy-MM-dd HH:mm:ss")}] User profile fetch completed. Duration: ${Date.now() - stageStartTime}ms`);
+    stageStartTime = Date.now();
+
+    if (profileErrorDb && profileErrorDb.code !== 'PGRST116') {
+        console.error("Error fetching user profile:", profileErrorDb);
+        return new Response(JSON.stringify({ error: "Could not retrieve user profile." }), {
+            status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+    }
+
+    const userIsAdmin = profile?.is_admin || false;
+    let userAiPreferences = profile?.ai_preferences || '';
+    const userTracksCalories = profile?.track_calories || false;
+    const userPreferredUnitSystem = profile?.preferred_unit_system || 'imperial';
+
+    let userImageGenerationCount = profile?.image_generation_count || 0;
+    let userLastImageGenerationReset = profile?.last_image_generation_reset || '';
+
+    let userRecipeGenerationCount = profile?.recipe_generation_count || 0;
+    let userLastRecipeGenerationResetDateStr = profile?.last_recipe_generation_reset || '';
+
+    console.log(`User profile for ${user.id}: admin=${userIsAdmin}, track_calories=${userTracksCalories}, preferred_unit_system=${userPreferredUnitSystem}, img_count=${userImageGenerationCount}, img_reset='${userLastImageGenerationReset}', recipe_count=${userRecipeGenerationCount}, recipe_reset='${userLastRecipeGenerationResetDateStr}'`);
+
+    const requestBody = await req.json();
+    const { mealType, kinds, styles, preferences, mealData, existingRecipeText, refinementInstructions } = requestBody;
+
+    let generatedMealData: GeneratedMeal | undefined;
+    let mealNameForImage: string | undefined;
+    let anImageShouldBeGenerated = false;
+
+    if (mealData) {
+        console.log("Received existing meal data for image generation (or re-generation):", mealData.name);
+        generatedMealData = mealData as GeneratedMeal;
+        mealNameForImage = mealData.name;
+        if (typeof generatedMealData.ingredients === 'string') {
+             try { generatedMealData.ingredients = JSON.parse(generatedMealData.ingredients); }
+             catch (e) { console.warn("Failed to parse ingredients string from mealData:", e); generatedMealData.ingredients = []; }
+        } else if (!Array.isArray(generatedMealData.ingredients)) { generatedMealData.ingredients = []; }
+        if (!Array.isArray(generatedMealData.meal_tags)) { generatedMealData.meal_tags = []; }
+
+        anImageShouldBeGenerated = true;
+        console.log("Proceeding to generate/re-generate image for:", mealNameForImage);
+
+    } else {
+        if (!userIsAdmin) {
+            const today = new Date();
+            const todayStr = formatDate(today, "yyyy-MM-dd");
+            let resetRecipePeriod = false;
+
+            if (!userLastRecipeGenerationResetDateStr) {
+                resetRecipePeriod = true;
+            } else {
+                try {
+                    const lastResetDate = parseDate(userLastRecipeGenerationResetDateStr, "yyyy-MM-dd");
+                    const daysSinceLastReset = difference(today, lastResetDate, { units: ["days"] }).days || 0;
+                    if (daysSinceLastReset >= RECIPE_GENERATION_PERIOD_DAYS) {
+                        resetRecipePeriod = true;
+                    }
+                } catch (dateParseError) {
+                    console.error(`Error parsing last_recipe_generation_reset date '${userLastRecipeGenerationResetDateStr}':`, dateParseError);
+                    resetRecipePeriod = true;
+                }
+            }
+
+            if (resetRecipePeriod) {
+                userRecipeGenerationCount = 0;
+                userLastRecipeGenerationResetDateStr = todayStr;
+            }
+
+            if (userRecipeGenerationCount >= RECIPE_GENERATION_LIMIT_PER_PERIOD) {
+                return new Response(JSON.stringify({
+                    error: `You have reached your recipe generation limit of ${RECIPE_GENERATION_LIMIT_PER_PERIOD} per ${RECIPE_GENERATION_PERIOD_DAYS} days. Please try again later.`
+                }), {
+                    status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+                });
+            }
         }
-      }
-      
-      console.log(`Recipe generated successfully for user ${effectiveUserId}: ${recipeJson.name}`);
-      
-      let imageUrl;
-      if (!isRefinement) { // Only generate image for new recipes, not refinements (unless specified)
-        console.log(`Generating image for new recipe "${recipeJson.name}" for user ${effectiveUserId}.`);
-        if (imageCount >= MAX_IMAGE_GENERATIONS) {
-          console.warn(`User ${effectiveUserId} reached image limit, recipe generated without new image.`);
-          recipeJson.image_url_message = "Image generation limit reached; recipe saved without new image.";
-        } else {
-          try {
-            const imagePromptContent = `A high-quality, appetizing photo of a dish called "${recipeJson.name}". Ingredients: ${recipeJson.ingredients}. Style: ${preferences || profile.ai_preferences || 'realistic food photography'}.`;
-            console.log(`Generating image with prompt: ${imagePromptContent.substring(0,100)}...`);
-            const imageResponse = await openai.createImage({
-              prompt: imagePromptContent,
-              n: 1,
-              size: "512x512",
-            });
-            imageUrl = imageResponse.data.data[0].url;
-            recipeJson.image_url = imageUrl;
-            imageCount++; // Increment image count only if successful
-            console.log(`Image generated for new recipe for user ${effectiveUserId}: ${imageUrl}`);
-          } catch (imgError: any) {
-            console.error(`Error generating image for new recipe for user ${effectiveUserId}:`, imgError.response?.data?.error || imgError.message);
-            recipeJson.image_url_message = "Failed to generate image for this recipe.";
-          }
+
+        console.log(`[${formatDate(new Date(), "yyyy-MM-dd HH:mm:ss")}] Starting recipe generation specific logic.`);
+        const recipeGenerationStartTime = Date.now();
+
+        const serviceAccountJsonStringForGemini = Deno.env.get("VERTEX_SERVICE_ACCOUNT_KEY_JSON");
+        if (!serviceAccountJsonStringForGemini) {
+            console.error("VERTEX_SERVICE_ACCOUNT_KEY_JSON secret not set for Gemini.");
+            throw new Error("AI service (Gemini) not configured.");
         }
-      } else {
-        console.log(`Skipping new image generation for refined recipe for user ${effectiveUserId}.`);
-      }
+        const preGeminiCallTime = Date.now();
+        const accessTokenForGemini = await getAccessToken(serviceAccountJsonStringForGemini);
+        console.log(`[${formatDate(new Date(), "yyyy-MM-dd HH:mm:ss")}] getAccessToken and prompt construction completed. Duration: ${Date.now() - preGeminiCallTime}ms`);
 
-      if (!isRefinement) recipeCount++;
-      needsProfileUpdate = true;
+        const saGemini = JSON.parse(serviceAccountJsonStringForGemini);
+        const projectIdGemini = saGemini.project_id;
+        const regionGemini = "us-central1";
+        const geminiModelId = "gemini-2.5-flash-preview-05-20"; 
+        const geminiEndpoint = `https://${regionGemini}-aiplatform.googleapis.com/v1/projects/${projectIdGemini}/locations/${regionGemini}/publishers/google/models/${geminiModelId}:generateContent`;
 
-      if (needsProfileUpdate) {
-        const updatePayload: any = {
-          recipe_generation_count: recipeCount,
-          last_recipe_generation_reset: now.toISOString()
+        let prompt = `Generate a detailed meal recipe in JSON format. The JSON object must have the following structure:
+        {
+          "name": "Meal Name (string, e.g., Spicy Chicken Stir-fry)",
+          "ingredients": [
+            { "name": "Ingredient Name (string)", "quantity": "Quantity (number or string like '1/2', or null if 'to taste')", "unit": "Unit (string, e.g., 'cup', 'tbsp', 'g', 'piece', or null if 'to taste')", "description": "Optional description (string, e.g., 'finely chopped', or 'to taste' if applicable)" }
+          ],
+          "instructions": "Detailed cooking instructions (string, newline separated steps).",
+          "meal_tags": ["Tag1 (string)", "Tag2 (string)"],
+          "servings": "Estimated number of servings this recipe makes (string, e.g., '4' or '2-3 servings'). THIS FIELD IS MANDATORY."`;
+
+        if (userTracksCalories) {
+            prompt += `,\n          "estimated_calories": "Estimated total calories for the ENTIRE recipe (all servings) (string, e.g., '2200 kcal' or '500-600 kcal total'). THIS FIELD IS MANDATORY if calorie tracking is enabled for the user."`;
+        }
+        prompt += `\n        }
+        IMPORTANT:
+        - The "servings" field MUST contain the number of servings (e.g., "4", "2 servings").
+        - If calorie tracking is enabled for the user (indicated in the prompt), the "estimated_calories" field MUST contain the total calorie count for the entire recipe (e.g., "2000 kcal total", "550 kcal"). Do NOT put per-serving calories here.
+        - Do NOT embed serving information within the "estimated_calories" string. Keep them separate. For example, "estimated_calories": "2000 kcal", "servings": "4". NOT "estimated_calories": "500 kcal per serving (serves 4)".
+        - For ingredients like salt, pepper, or others specified 'to taste':
+            - Set the \`quantity\` field to \`null\`.
+            - Set the \`unit\` field to \`null\`.
+            - Set the \`description\` field to the string \`"to taste"\`.
+            Example: { "name": "Black Pepper", "quantity": null, "unit": null, "description": "to taste" }`;
+
+        if (userPreferredUnitSystem === 'metric') {
+            prompt += `\nUNIT SYSTEM: The user's preferred unit system is METRIC. Please provide all ingredient quantities primarily in grams (g), kilograms (kg), milliliters (ml), or liters (L). For common small measurements like spices, you can use teaspoons (tsp) or tablespoons (tbsp). For items counted as whole units, use 'piece' or similar. Avoid imperial units like ounces, pounds, fluid ounces, and especially cups for bulk ingredients like flour/sugar (these should be in grams or ml).`;
+        } else {
+            prompt += `\nUNIT SYSTEM: The user's preferred unit system is IMPERIAL. Please provide ingredient quantities in common imperial units (e.g., cups, oz, lbs, tsp, tbsp, fl oz).`;
+        }
+
+        if (existingRecipeText && refinementInstructions) {
+            prompt += `\n\nYou previously generated the following recipe:
+Name: ${existingRecipeText.name}
+Ingredients: ${typeof existingRecipeText.ingredients === 'string' ? existingRecipeText.ingredients : JSON.stringify(existingRecipeText.ingredients)}
+Instructions: ${existingRecipeText.instructions}
+Original Tags: ${JSON.stringify(existingRecipeText.meal_tags)}
+${existingRecipeText.estimated_calories ? `Original Estimated Calories: ${existingRecipeText.estimated_calories}` : ''}
+${existingRecipeText.servings ? `Original Servings: ${existingRecipeText.servings}` : ''}
+
+Now, please refine this recipe based on the following request: "${refinementInstructions}".
+Ensure the output is a *complete new recipe* in the specified JSON format, incorporating the changes.
+The meal should still generally be a ${mealType || 'general'} type.`;
+            if (kinds && kinds.length > 0) prompt += ` It should still generally fit these kinds: ${kinds.join(', ')}.`;
+            if (styles && styles.length > 0) prompt += ` The style should still generally be: ${styles.join(', ')}.`;
+            prompt += `\nCRITICAL INSTRUCTION FOR SCALING SERVINGS: If the refinement request involves changing the number of servings (e.g., from '2 servings' to '4 servings', or vice-versa), you MUST adjust ALL ingredient quantities. Calculate the scaling factor (new servings / old servings). For EACH ingredient, multiply its original quantity by this scaling factor. For example, if changing from 2 to 4 servings, the factor is 2, so all quantities double. If changing from 4 to 2 servings, the factor is 0.5, so all quantities halve. This scaling MUST be applied consistently to every ingredient. Do not selectively scale or invert the scaling for any ingredients. Update the 'servings' field to the new number of servings. If calorie tracking is enabled, also update the 'estimated_calories' field by multiplying the original total calories by the same scaling factor.`;
+        } else {
+            prompt += `\nThe meal should be a ${mealType || 'general'} type.`;
+            if (kinds && kinds.length > 0) prompt += ` It should fit these kinds: ${kinds.join(', ')}.`;
+            if (styles && styles.length > 0) prompt += ` The style should be: ${styles.join(', ')}.`;
+        }
+
+        if (userAiPreferences) prompt += ` Consider these user profile preferences: ${userAiPreferences}.`;
+        if (preferences && !existingRecipeText) {
+             prompt += ` Also consider these specific request preferences: ${preferences}.`;
+        }
+        if (userTracksCalories) {
+            prompt += `\nUser has calorie tracking enabled. Ensure "estimated_calories" (total for recipe) and "servings" are provided.`;
+        } else {
+            prompt += `\nUser does NOT have calorie tracking enabled. You can omit "estimated_calories", but "servings" is still required.`;
+        }
+        prompt += `\nEnsure the response is ONLY the JSON object, nothing else. Do not wrap it in markdown backticks.`;
+
+        const geminiPayload = {
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseMimeType: "application/json",
+            temperature: 0.7,
+            maxOutputTokens: 8192,
+          },
         };
-        if (imageUrl || (!isRefinement && recipeJson.image_url_message)) { // if image was attempted for new recipe
-            updatePayload.image_generation_count = imageCount;
-            updatePayload.last_image_generation_reset = now.toISOString();
+
+        console.log(`[${formatDate(new Date(), "yyyy-MM-dd HH:mm:ss")}] Starting Gemini API call for user ${user.id}. Model: ${geminiModelId}`);
+        const geminiStartTime = Date.now();
+        const geminiResponse = await fetch(geminiEndpoint, {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${accessTokenForGemini}`, "Content-Type": "application/json" },
+            body: JSON.stringify(geminiPayload),
+        });
+        const geminiEndTime = Date.now();
+        console.log(`[${formatDate(new Date(), "yyyy-MM-dd HH:mm:ss")}] Gemini API call completed for user ${user.id}. Duration: ${geminiEndTime - geminiStartTime}ms. Status: ${geminiResponse.status}`);
+        console.log(`[${formatDate(new Date(), "yyyy-MM-dd HH:mm:ss")}] Recipe generation completed. Duration: ${Date.now() - recipeGenerationStartTime}ms`);
+
+        if (!geminiResponse.ok) {
+            const errorText = await geminiResponse.text();
+            console.error("Gemini API error:", errorText);
+            let errorMessage = errorText;
+            try { const errorJson = JSON.parse(errorText); errorMessage = errorJson.error?.message || errorText; } catch (e) { /* ignore */ }
+            throw new Error(`Gemini API request failed: ${geminiResponse.status} ${errorMessage}. Duration: ${geminiEndTime - geminiStartTime}ms`);
         }
-        const { error: updateError } = await supabaseClient
-          .from('profiles')
-          .update(updatePayload)
-          .eq('id', effectiveUserId);
-        if (updateError) console.error(`Error updating profile after recipe generation for user ${effectiveUserId}:`, updateError.message);
-        else console.log(`Profile updated for user ${effectiveUserId} after recipe generation.`);
-      }
+        const geminiData = await geminiResponse.json();
+        const generatedContentString = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
 
-      return new Response(JSON.stringify(recipeJson), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      });
+        if (!generatedContentString) {
+            console.error("No content string from Gemini. Full response:", JSON.stringify(geminiData, null, 2));
+            throw new Error("Failed to generate recipe: No content from AI.");
+        }
+        try {
+            generatedMealData = JSON.parse(generatedContentString);
+            if (!generatedMealData || !generatedMealData.name || !Array.isArray(generatedMealData.ingredients) || !generatedMealData.instructions || generatedMealData.servings === undefined) {
+                console.error("Invalid recipe format from Gemini (missing servings or other core fields):", generatedMealData);
+                throw new Error("Invalid recipe format from AI. Check Gemini output structure (especially 'servings').");
+            }
+            if (userTracksCalories && generatedMealData.estimated_calories === undefined) {
+                console.warn("User tracks calories, but AI did not return 'estimated_calories'.");
+            }
+        } catch (parseError) {
+            console.error("Failed to parse Gemini JSON response:", parseError, "Raw content from Gemini:", generatedContentString);
+            throw new Error("Failed to parse recipe from AI. The AI may have returned non-JSON text or incomplete JSON.");
+        }
 
-    } catch (error: any) {
-      console.error(`Error during OpenAI recipe generation for user ${effectiveUserId}:`, error.response?.data?.error || error.message);
-      return new Response(JSON.stringify({ error: 'Failed to generate recipe: ' + (error.response?.data?.error?.message || error.message) }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
-      });
+        if (generatedMealData) {
+            mealNameForImage = generatedMealData.name;
+            anImageShouldBeGenerated = true;
+            console.log(existingRecipeText ? "Refined Recipe Text:" : "Generated Recipe Text:", generatedMealData.name);
+            if (generatedMealData.estimated_calories) console.log("Estimated Calories:", generatedMealData.estimated_calories);
+            if (generatedMealData.servings) console.log("Servings:", generatedMealData.servings);
+        }
+
+        if (!userIsAdmin) {
+            userRecipeGenerationCount += 1;
+            const { error: updateRecipeCountError } = await serviceSupabaseClient
+                .from('profiles')
+                .update({
+                    recipe_generation_count: userRecipeGenerationCount,
+                    last_recipe_generation_reset: userLastRecipeGenerationResetDateStr
+                })
+                .eq('id', user.id);
+            if (updateRecipeCountError) {
+                console.error(`Failed to update recipe generation count for user ${user.id}:`, updateRecipeCountError);
+            }
+            console.log(`[${formatDate(new Date(), "yyyy-MM-dd HH:mm:ss")}] Recipe count update completed. Duration: ${Date.now() - stageStartTime}ms`);
+        }
     }
-  } else {
-    // Neither a valid prompt for recipe generation nor valid mealData for image generation was found.
-    console.error(`Invalid request for user ${effectiveUserId}: Missing 'prompt' for recipe generation or sufficient 'mealData' for image generation.`);
-    return new Response(JSON.stringify({ error: "Invalid request: 'prompt' is required for recipe generation. If generating an image for an existing meal, ensure 'mealData' with at least a 'name' is provided." }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400,
-    });
+
+    if (anImageShouldBeGenerated && mealNameForImage) {
+        if (!userIsAdmin) {
+            const currentMonthYear = formatDate(new Date(), "yyyy-MM");
+            if (userLastImageGenerationReset !== currentMonthYear) {
+                userImageGenerationCount = 0;
+                userLastImageGenerationReset = currentMonthYear;
+            }
+
+            if (userImageGenerationCount >= IMAGE_GENERATION_LIMIT_PER_MONTH) {
+                if (!requestBody.mealData && generatedMealData) {
+                    console.warn(`Image generation limit reached for user ${user.id}, but returning generated recipe text.`);
+                    generatedMealData.image_url = undefined;
+                } else {
+                    return new Response(JSON.stringify({
+                        error: `You have reached your monthly image generation limit of ${IMAGE_GENERATION_LIMIT_PER_MONTH}.`,
+                        ...(requestBody.mealData && {
+                            mealData: {
+                                ...generatedMealData,
+                                image_url: generatedMealData?.image_url
+                            }
+                        })
+                    }), {
+                        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+                    });
+                }
+            }
+        }
+
+        if (userIsAdmin || userImageGenerationCount < IMAGE_GENERATION_LIMIT_PER_MONTH || userLastImageGenerationReset !== formatDate(new Date(), "yyyy-MM")) {
+            const serviceAccountJsonStringForImagen = Deno.env.get("VERTEX_SERVICE_ACCOUNT_KEY_JSON");
+            if (!serviceAccountJsonStringForImagen) {
+                console.error("VERTEX_SERVICE_ACCOUNT_KEY_JSON secret not set for Imagen.");
+                if (generatedMealData) generatedMealData.image_url = undefined;
+            } else {
+                const accessTokenForImagen = await getAccessToken(serviceAccountJsonStringForImagen);
+                const saImagen = JSON.parse(serviceAccountJsonStringForImagen);
+                const projectIdImagen = saImagen.project_id;
+                const regionImagen = "us-central1";
+                const imagenModelId = "imagegeneration@006";
+                const imagenEndpoint = `https://${regionImagen}-aiplatform.googleapis.com/v1/projects/${projectIdImagen}/locations/${regionImagen}/publishers/google/models/${imagenModelId}:predict`;
+
+                const imagePromptText = `A vibrant, appetizing, realistic photo of the meal "${mealNameForImage}". Focus on the finished dish presented nicely on a plate or in a bowl, suitable for a food blog. Ensure main ingredients are clearly visible. Good lighting, sharp focus.`;
+
+                const imagenPayload = {
+                  instances: [{ prompt: imagePromptText }],
+                  parameters: { 
+                    sampleCount: 1, 
+                    aspectRatio: "1:1", 
+                    outputFormat: "png" 
+                  }
+                };
+
+                const imagenResponse = await fetch(imagenEndpoint, {
+                    method: "POST",
+                    headers: { "Authorization": `Bearer ${accessTokenForImagen}`, "Content-Type": "application/json" },
+                    body: JSON.stringify(imagenPayload),
+                });
+
+                let imageUrl: string | undefined = undefined;
+                if (!imagenResponse.ok) {
+                    const errorBody = await imagenResponse.text();
+                    console.error(`Vertex AI Imagen API error for user ${user.id}: ${imagenResponse.status} ${imagenResponse.statusText}`, errorBody);
+                } else {
+                    const imagenData = await imagenResponse.json();
+                    const base64EncodedImage = imagenData.predictions?.[0]?.bytesBase64Encoded;
+                    if (base64EncodedImage) {
+                        imageUrl = `data:image/png;base64,${base64EncodedImage}`;
+                    }
+                }
+
+                if (generatedMealData) generatedMealData.image_url = imageUrl;
+
+                if (!userIsAdmin) {
+                    userImageGenerationCount += 1;
+                    const { error: updateError } = await serviceSupabaseClient
+                        .from('profiles')
+                        .update({
+                            image_generation_count: userImageGenerationCount,
+                            last_image_generation_reset: userLastImageGenerationReset
+                        })
+                        .eq('id', user.id);
+                    if (updateError) {
+                        console.error(`Failed to update image generation count for user ${user.id}:`, updateError);
+                    }
+                }
+            }
+        }
+    }
+
+    if (requestBody.mealData) {
+         return new Response(
+            JSON.stringify({
+                image_url: generatedMealData?.image_url,
+                estimated_calories: generatedMealData?.estimated_calories,
+                servings: generatedMealData?.servings
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+         );
+    } else if (generatedMealData) {
+        return new Response(
+          JSON.stringify(generatedMealData),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+        );
+    } else {
+        console.error("Critical error: No meal data to return after processing.");
+        return new Response(JSON.stringify({ error: "Failed to process or generate meal data." }), {
+            status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+    }
+
+  } catch (error) {
+    console.error(`[${formatDate(new Date(), "yyyy-MM-dd HH:mm:ss")}] Error in Edge Function. Total duration: ${Date.now() - functionStartTime}ms`, error.message, error.stack);
+    return new Response(
+      JSON.stringify({ error: `Failed to process request: ${error.message || 'Unknown error'}` }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+    );
   }
+  console.log(`[${formatDate(new Date(), "yyyy-MM-dd HH:mm:ss")}] Edge Function processing complete. Total duration: ${Date.now() - functionStartTime}ms`);
 });
