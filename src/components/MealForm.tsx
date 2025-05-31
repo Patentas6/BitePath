@@ -273,7 +273,7 @@ const MealForm: React.FC<MealFormProps> = ({
     <>
       <Card>
         <CardHeader>
-          <CardTitle>Add New Meal</CardTitle>
+          <CardTitle>Manually Add Your Own Meal</CardTitle>
         </CardHeader>
         <CardContent>
           <Form {...form}>
