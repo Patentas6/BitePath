@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-import { GoogleAuth } from 'https://deno.land/x/google_auth@v0.4.0/mod.ts';
+// Updated Google Auth import URL
+import { GoogleAuth } from 'https://deno.land/x/google_auth@v0.6.0/mod.ts'; 
 import { HarmBlockThreshold, HarmCategory } from "https://esm.sh/@google/generative-ai@0.15.0";
 
 const corsHeaders = {
@@ -9,8 +10,8 @@ const corsHeaders = {
 };
 
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-const GOOGLE_PROJECT_ID = "bitepath"; // Replace with your Google Cloud Project ID if different
-const VERTEX_AI_REGION = "us-central1"; // Or your Vertex AI region
+const GOOGLE_PROJECT_ID = "bitepath"; 
+const VERTEX_AI_REGION = "us-central1"; 
 
 // Helper function to parse servings string
 function parseServings(servingsText?: string): string {
@@ -18,19 +19,17 @@ function parseServings(servingsText?: string): string {
     return "2"; // Default if no text or invalid type
   }
 
-  // Look for patterns like "2-3 servings", "serves 2-3", "2 to 3"
   const rangeMatch = servingsText.match(/(\d+)\s*[-to]+\s*(\d+)/);
   if (rangeMatch && rangeMatch[1]) {
-    return parseInt(rangeMatch[1], 10).toString(); // Return the lower number of the range
+    return parseInt(rangeMatch[1], 10).toString(); 
   }
 
-  // Look for patterns like "Servings: 4", "4 servings"
   const singleMatch = servingsText.match(/(\d+)/);
   if (singleMatch && singleMatch[1]) {
     return parseInt(singleMatch[1], 10).toString();
   }
 
-  return "2"; // Default if no specific number found
+  return "2"; 
 }
 
 // Helper function to parse quantity string to number
@@ -42,7 +41,6 @@ function parseQuantity(quantityStr?: string | number): number | null {
     return null;
   }
 
-  // Handle fractions like "1/2"
   if (quantityStr.includes('/')) {
     const parts = quantityStr.split('/');
     if (parts.length === 2) {
@@ -70,8 +68,7 @@ interface MealData {
   ingredients?: Array<{ name?: string; quantity?: string | number; unit?: string; description?: string }>;
   instructions?: string;
   meal_tags?: string[];
-  ai_preferences?: string; // User's AI preferences
-  // other fields from MealFormValues
+  ai_preferences?: string; 
 }
 
 serve(async (req: Request) => {
@@ -82,7 +79,7 @@ serve(async (req: Request) => {
   try {
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!, // Use anon key for invoking as user
+      Deno.env.get("SUPABASE_ANON_KEY")!, 
       { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
     );
 
@@ -94,7 +91,6 @@ serve(async (req: Request) => {
       });
     }
 
-    // Fetch user profile for generation limits
     const { data: profile, error: profileError } = await supabaseClient
       .from('profiles')
       .select('image_generation_count, last_image_generation_reset, is_admin, ai_preferences, preferred_unit_system')
@@ -109,17 +105,16 @@ serve(async (req: Request) => {
       });
     }
     
-    const IMAGE_GENERATION_LIMIT_PER_MONTH = 10; // Define this limit here or fetch from config
+    const IMAGE_GENERATION_LIMIT_PER_MONTH = 10; 
     let currentCount = profile.image_generation_count || 0;
     const lastReset = profile.last_image_generation_reset ? new Date(profile.last_image_generation_reset) : new Date(0);
     const now = new Date();
 
     if (now.getFullYear() > lastReset.getFullYear() || now.getMonth() > lastReset.getMonth()) {
       currentCount = 0;
-      // Update last_recipe_generation_reset in profile (async, don't wait)
        supabaseClient.from('profiles').update({ 
           image_generation_count: 0,
-          last_image_generation_reset: now.toISOString().split('T')[0] // YYYY-MM-DD
+          last_image_generation_reset: now.toISOString().split('T')[0] 
        }).eq('id', user.id).then();
     }
     
@@ -166,7 +161,6 @@ serve(async (req: Request) => {
       Output ONLY the JSON object. Do not include any other text before or after the JSON.
     `;
 
-    // Gemini API Call (Vertex AI)
     const auth = new GoogleAuth();
     const token = await auth.getAccessToken('https://www.googleapis.com/auth/cloud-platform');
     
@@ -185,7 +179,6 @@ serve(async (req: Request) => {
             topK: 30,
             topP: 0.9,
             maxOutputTokens: 2048,
-            // responseMimeType: "application/json", // Enable if model supports strict JSON output
           },
            safetySettings: [
             { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
@@ -211,7 +204,6 @@ serve(async (req: Request) => {
         throw new Error("Failed to get recipe details from AI: No text in response.");
     }
     
-    // Clean the response to ensure it's valid JSON
     recipeJsonText = recipeJsonText.replace(/^```json\s*|```\s*$/g, '').trim();
 
     let parsedRecipe;
@@ -231,18 +223,11 @@ serve(async (req: Request) => {
       description: ing.description || null,
     }));
 
-    // Placeholder for actual image generation using parsedRecipe.imagePrompt
-    // For now, let's use a placeholder or a pre-defined image if imagePrompt is available
     let imageUrl = mealData.name ? `https://source.unsplash.com/500x300/?${encodeURIComponent(parsedRecipe.imagePrompt || mealData.name)}` : "/placeholder-image.png";
     if (parsedRecipe.imagePrompt) {
-        // In a real scenario, you'd call an image generation API here
-        // For example, using another Vertex AI model or a service like DALL-E via API
-        // For now, we just use Unsplash with the prompt
         imageUrl = `https://source.unsplash.com/500x300/?${encodeURIComponent(parsedRecipe.imagePrompt)}`;
     }
 
-
-    // Increment generation count
     if (!profile.is_admin) {
       await supabaseClient
         .from('profiles')
