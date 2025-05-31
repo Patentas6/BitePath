@@ -91,7 +91,7 @@ const MealForm: React.FC<MealFormProps> = ({
  }) => {
   const queryClient = useQueryClient();
   const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
-  const [showImageUrlInput, setShowImageUrlInput] = useState(false);
+  // Removed showImageUrlInput state
 
   const form = useForm<MealFormValues>({
     resolver: zodResolver(mealFormSchema),
@@ -115,10 +115,7 @@ const MealForm: React.FC<MealFormProps> = ({
     if (initialData) {
       form.reset(initialData);
       replace(initialData.ingredients || []);
-
-      if (initialData.image_url) {
-        setShowImageUrlInput(false);
-      }
+      // No need to manage showImageUrlInput based on initialData.image_url anymore
       if (onInitialDataProcessed) {
         onInitialDataProcessed();
       }
@@ -133,7 +130,6 @@ const MealForm: React.FC<MealFormProps> = ({
         servings: "",
       });
       replace([{ name: "", quantity: "", unit: "", description: "" }]);
-      setShowImageUrlInput(false);
     }
   }, [initialData, form, onInitialDataProcessed, replace]);
 
@@ -193,7 +189,6 @@ const MealForm: React.FC<MealFormProps> = ({
         servings: "",
       });
       replace([{ name: "", quantity: "", unit: "", description: "" }]);
-      setShowImageUrlInput(false);
       queryClient.invalidateQueries({ queryKey: ["meals"] });
       queryClient.invalidateQueries({ queryKey: ['userProfileForAddMealLimits'] });
       queryClient.invalidateQueries({ queryKey: ['userProfileForGenerationLimits'] });
@@ -234,7 +229,6 @@ const MealForm: React.FC<MealFormProps> = ({
     onSuccess: (data) => {
       if (data?.image_url) {
         form.setValue('image_url', data.image_url);
-        setShowImageUrlInput(false);
         showSuccess("Image generated!");
         queryClient.invalidateQueries({ queryKey: ['userProfileForAddMealLimits'] });
         queryClient.invalidateQueries({ queryKey: ['userProfileForGenerationLimits'] });
@@ -264,7 +258,6 @@ const MealForm: React.FC<MealFormProps> = ({
 
   const handleClearImage = () => {
     form.setValue('image_url', '');
-    setShowImageUrlInput(false);
   };
 
   const currentImageUrl = form.watch('image_url');
@@ -273,7 +266,7 @@ const MealForm: React.FC<MealFormProps> = ({
     <>
       <Card>
         <CardHeader>
-          <CardTitle>Manually Add Your Own Meal</CardTitle>
+          <CardTitle>Add New Meal</CardTitle>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -544,28 +537,7 @@ const MealForm: React.FC<MealFormProps> = ({
                             )}
                             {isLoadingProfile && "Loading AI generation limit..."}
                           </div>
-
-                          <div className="text-center">
-                            <Button
-                              type="button"
-                              variant="link"
-                              className="text-sm p-0 h-auto"
-                              onClick={() => setShowImageUrlInput(!showImageUrlInput)}
-                              disabled={generateImageMutation.isPending} 
-                            >
-                              <Link2 className="mr-1 h-3 w-3" />
-                              {showImageUrlInput ? 'Hide URL input' : 'Or, use your own image URL'}
-                            </Button>
-                          </div>
-
-                          {showImageUrlInput && (
-                            <Input
-                              placeholder="Paste image URL"
-                              {...field}
-                              value={field.value || ''}
-                              disabled={generateImageMutation.isPending} 
-                            />
-                          )}
+                          {/* Removed the "Or, use your own image URL" button and Input field */}
                         </>
                       )}
                     </div>
