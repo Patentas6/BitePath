@@ -42,11 +42,9 @@ const formSchema = z.object({
   estimated_calories: z.string().optional(),
 });
 
-// Updated type: removed image_url
 export type AddMealFormValues = z.infer<typeof formSchema>;
 
 interface AddMealFormProps {
-  // Updated props: removed image_url from initialData possibility
   initialData?: Partial<Omit<AddMealFormValues, 'servings'>> & { id?: string; servings?: string | number };
   onSuccess?: () => void;
 }
@@ -66,7 +64,6 @@ export function AddMealForm({ initialData, onSuccess }: AddMealFormProps) {
       meal_tags: initialData?.meal_tags || [],
       servings: initialData?.servings ? parseServings(initialData.servings) : 1,
       estimated_calories: initialData?.estimated_calories || "",
-      // image_url removed from defaultValues
     },
   });
 
@@ -94,7 +91,6 @@ export function AddMealForm({ initialData, onSuccess }: AddMealFormProps) {
     }
     setIsLoading(true);
     try {
-      // Updated mealData: removed image_url
       const mealData = {
         user_id: user.id,
         name: values.name,
@@ -141,142 +137,148 @@ export function AddMealForm({ initialData, onSuccess }: AddMealFormProps) {
   }
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-        <FormField
-          control={form.control}
-          name="name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Meal Name</FormLabel>
-              <FormControl>
-                <Input placeholder="e.g., Chicken Alfredo" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+    <>
+      {/* TEMPORARY VISUAL MARKER - REMOVE LATER */}
+      <h1 style={{ color: 'red', fontSize: '24px', fontWeight: 'bold', border: '2px solid red', padding: '10px', margin: '10px 0' }}>
+        ADDMEALFORM.TSX UPDATED - TEST MARKER
+      </h1>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+          <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Meal Name</FormLabel>
+                <FormControl>
+                  <Input placeholder="e.g., Chicken Alfredo" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-        <FormField
-          control={form.control}
-          name="servings"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Number of Servings</FormLabel>
-              <FormControl>
-                <Input 
-                  type="number" 
-                  placeholder="e.g., 2" // Updated placeholder
-                  {...field} 
-                />
-              </FormControl>
-              <FormDescription>
-                Enter a whole number for how many portions this recipe makes (e.g., 1, 2, 4).
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+          <FormField
+            control={form.control}
+            name="servings"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Number of Servings</FormLabel>
+                <FormControl>
+                  <Input 
+                    type="number" 
+                    placeholder="e.g., 2" // Updated placeholder
+                    {...field} 
+                  />
+                </FormControl>
+                <FormDescription>
+                  Enter a whole number for how many portions this recipe makes (e.g., 1, 2, 4).
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-        <FormField
-          control={form.control}
-          name="ingredients"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Ingredients</FormLabel>
-              <FormControl>
-                <Textarea
-                  placeholder="List all ingredients, one per line if possible. e.g.,&#10;1 cup flour&#10;2 eggs&#10;100g chicken breast"
-                  className="min-h-[150px]"
-                  {...field}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+          <FormField
+            control={form.control}
+            name="ingredients"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Ingredients</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder="List all ingredients, one per line if possible. e.g.,&#10;1 cup flour&#10;2 eggs&#10;100g chicken breast"
+                    className="min-h-[150px]"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-        <FormField
-          control={form.control}
-          name="instructions"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Instructions</FormLabel>
-              <FormControl>
-                <Textarea
-                  placeholder="Provide step-by-step cooking instructions."
-                  className="min-h-[150px]"
-                  {...field}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        
-        <FormField
-          control={form.control}
-          name="estimated_calories"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Estimated Calories (per serving)</FormLabel>
-              <FormControl>
-                <Input placeholder="e.g., 550" {...field} />
-              </FormControl>
-              <FormDescription>
-                Optional: Estimated calories for one serving of the meal.
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+          <FormField
+            control={form.control}
+            name="instructions"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Instructions</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder="Provide step-by-step cooking instructions."
+                    className="min-h-[150px]"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          
+          <FormField
+            control={form.control}
+            name="estimated_calories"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Estimated Calories (per serving)</FormLabel>
+                <FormControl>
+                  <Input placeholder="e.g., 550" {...field} />
+                </FormControl>
+                <FormDescription>
+                  Optional: Estimated calories for one serving of the meal.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-        {/* Image URL FormField has been removed */}
+          {/* Image URL FormField has been removed */}
 
-        <FormField
-          control={form.control}
-          name="meal_tags"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Meal Tags</FormLabel>
-              <div className="flex items-center gap-2">
-                <Input
-                  placeholder="e.g., breakfast, quick, vegan"
-                  value={currentTag}
-                  onChange={(e) => setCurrentTag(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleAddTag();
-                    }
-                  }}
-                />
-                <Button type="button" variant="outline" size="icon" onClick={handleAddTag}>
-                  <PlusCircle className="h-4 w-4" />
-                </Button>
-              </div>
-              <FormDescription>
-                Add tags to help categorize your meal. Press Enter or click + to add.
-              </FormDescription>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {field.value?.map((tag) => (
-                  <span key={tag} className="bg-muted text-muted-foreground px-2 py-1 rounded-md text-sm flex items-center">
-                    {tag}
-                    <Button type="button" variant="ghost" size="xs" className="ml-1" onClick={() => handleRemoveTag(tag)}>
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </span>
-                ))}
-              </div>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+          <FormField
+            control={form.control}
+            name="meal_tags"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Meal Tags</FormLabel>
+                <div className="flex items-center gap-2">
+                  <Input
+                    placeholder="e.g., breakfast, quick, vegan"
+                    value={currentTag}
+                    onChange={(e) => setCurrentTag(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddTag();
+                      }
+                    }}
+                  />
+                  <Button type="button" variant="outline" size="icon" onClick={handleAddTag}>
+                    <PlusCircle className="h-4 w-4" />
+                  </Button>
+                </div>
+                <FormDescription>
+                  Add tags to help categorize your meal. Press Enter or click + to add.
+                </FormDescription>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {field.value?.map((tag) => (
+                    <span key={tag} className="bg-muted text-muted-foreground px-2 py-1 rounded-md text-sm flex items-center">
+                      {tag}
+                      <Button type="button" variant="ghost" size="xs" className="ml-1" onClick={() => handleRemoveTag(tag)}>
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </span>
+                  ))}
+                </div>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-        <Button type="submit" disabled={isLoading}>
-          {isLoading ? (initialData?.id ? "Updating Meal..." : "Adding Meal...") : (initialData?.id ? "Update Meal" : "Add Meal")}
-        </Button>
-      </form>
-    </Form>
+          <Button type="submit" disabled={isLoading}>
+            {isLoading ? (initialData?.id ? "Updating Meal..." : "Adding Meal...") : (initialData?.id ? "Update Meal" : "Add Meal")}
+          </Button>
+        </form>
+      </Form>
+    </>
   );
 }
