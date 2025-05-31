@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { Configuration, OpenAIApi } from "https://esm.sh/openai@3.3.0";
-import { Database } from "../_shared/supabase_types.ts"; // Updated import path
+import { Database } from "../../../src/types/supabase.ts"; // Reverted import path
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -294,7 +294,7 @@ Respond ONLY with a JSON object containing these fields. Do not include any othe
     } catch (error: any) {
       console.error(`Error during OpenAI recipe generation for user ${effectiveUserId}:`, error.response?.data?.error || error.message);
       return new Response(JSON.stringify({ error: 'Failed to generate recipe: ' + (error.response?.data?.error?.message || error.message) }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, // Corrected typo here
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
       });
     }
