@@ -21,6 +21,7 @@ import { useUser } from "@clerk/nextjs";
 import { toast } from "sonner";
 import { useState } from "react";
 import { PlusCircle, Trash2 } from "lucide-react";
+import { parseServings } from "@/utils/servingUtils"; // Import the utility
 
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -33,18 +34,18 @@ const formSchema = z.object({
     message: "Instructions must be at least 10 characters.",
   }),
   meal_tags: z.array(z.string()).optional(),
-  servings: z.coerce // Ensures the value is treated as a number
+  servings: z.coerce
     .number({ invalid_type_error: "Servings must be a number." })
     .min(1, "Servings must be at least 1.")
     .int("Servings must be a whole number."),
-  estimated_calories: z.string().optional(), // Keeping as string for now, can be refined
+  estimated_calories: z.string().optional(),
   image_url: z.string().url({ message: "Please enter a valid URL." }).optional().or(z.literal('')),
 });
 
 export type AddMealFormValues = z.infer<typeof formSchema>;
 
 interface AddMealFormProps {
-  initialData?: Partial<AddMealFormValues> & { id?: string };
+  initialData?: Partial<Omit<AddMealFormValues, 'servings'>> & { id?: string; servings?: string | number }; // Allow string for initial servings
   onSuccess?: () => void;
 }
 
@@ -61,7 +62,7 @@ export function AddMealForm({ initialData, onSuccess }: AddMealFormProps) {
       ingredients: initialData?.ingredients || "",
       instructions: initialData?.instructions || "",
       meal_tags: initialData?.meal_tags || [],
-      servings: initialData?.servings || 1, // Default to 1 if no initial data
+      servings: initialData?.servings ? parseServings(initialData.servings) : 1, // Use parser for initial servings
       estimated_calories: initialData?.estimated_calories || "",
       image_url: initialData?.image_url || "",
     },
@@ -97,10 +98,9 @@ export function AddMealForm({ initialData, onSuccess }: AddMealFormProps) {
         ingredients: values.ingredients,
         instructions: values.instructions,
         meal_tags: values.meal_tags,
-        // Ensure servings is stored as a string if the DB column is text,
-        // or as a number if the DB column is integer.
-        // Given current schema `servings` is text, we convert it back.
-        // Ideally, `meals.servings` should be an INTEGER column.
+        // values.servings is now guaranteed to be a number by the form.
+        // Store as string because 'meals.servings' column is text.
+        // Ideally, 'meals.servings' should be INTEGER.
         servings: String(values.servings), 
         estimated_calories: values.estimated_calories,
         image_url: values.image_url,
@@ -108,7 +108,6 @@ export function AddMealForm({ initialData, onSuccess }: AddMealFormProps) {
 
       let error;
       if (initialData?.id) {
-        // Update existing meal
         const { error: updateError } = await supabase
           .from("meals")
           .update(mealData)
@@ -116,7 +115,6 @@ export function AddMealForm({ initialData, onSuccess }: AddMealFormProps) {
           .eq("user_id", user.id);
         error = updateError;
       } else {
-        // Insert new meal
         const { error: insertError } = await supabase
           .from("meals")
           .insert(mealData);
@@ -132,9 +130,9 @@ export function AddMealForm({ initialData, onSuccess }: AddMealFormProps) {
       if (onSuccess) {
         onSuccess();
       } else {
-        router.push("/my-meals"); // Default redirect
+        router.push("/my-meals");
       }
-      router.refresh(); // Refresh server components
+      router.refresh();
     } catch (error: any) {
       console.error("Error submitting meal:", error);
       toast.error(`Failed to ${initialData?.id ? 'update' : 'add'} meal: ${error.message}`);
@@ -171,7 +169,9 @@ export function AddMealForm({ initialData, onSuccess }: AddMealFormProps) {
                   type="number" 
                   placeholder="e.g., 4" 
                   {...field} 
-                  onChange={event => field.onChange(+event.target.value)} // Ensure value is number
+                  // value is already handled by react-hook-form, coercion happens in schema
+                  // onChange is also handled by RHF, but if specific transformation needed:
+                  // onChange={event => field.onChange(event.target.value === '' ? null : +event.target.value)}
                 />
               </FormControl>
               <FormDescription>
