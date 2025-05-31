@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect } from "react"; 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { showError, showSuccess } from "@/utils/toast";
 import { useNavigate } from "react-router-dom";
@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Trash2, Edit3, Search, ChefHat, List, Grid3X3, Zap, Users } from "lucide-react"; 
+import { Trash2, Edit3, Search, ChefHat, List, Grid3X3, Zap, Users, Loader2 } from "lucide-react";
 import EditMealDialog, { MealForEditing } from "./EditMealDialog";
 import {
   AlertDialog,
@@ -21,39 +21,51 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent } from "@/components/ui/dialog"; 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; 
-import { cn } from "@/lib/utils"; 
-import { calculateCaloriesPerServing } from '@/utils/mealUtils'; 
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
+import { calculateCaloriesPerServing } from '@/utils/mealUtils';
 import { LazyLoadImage } from 'react-lazy-load-image-component';
 import 'react-lazy-load-image-component/src/effects/blur.css';
 
 interface Meal extends MealForEditing {
   meal_tags?: string[] | null;
-  image_url?: string | null; 
-  estimated_calories?: string | null; 
-  servings?: string | null; 
+  image_url?: string | null;
+  estimated_calories?: string | null;
+  servings?: string | null;
 }
 
-interface ParsedIngredient {
-  name: string;
-  quantity: number | string | null; 
-  unit: string;
-  description?: string;
-}
+// interface ParsedIngredient { // Keep if formatIngredientsDisplay is complex, otherwise can be simplified
+//   name: string;
+//   quantity: number | string | null;
+//   unit: string;
+//   description?: string;
+// }
+
+const PAGE_SIZE = 10; // Number of meals to fetch per page
 
 const MealList = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string | 'all'>('all'); 
-  const [layoutView, setLayoutView] = useState<'list' | 'grid'>('list'); 
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string | 'all'>('all');
+  const [layoutView, setLayoutView] = useState<'list' | 'grid'>('list');
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [mealToEdit, setMealToEdit] = useState<MealForEditing | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [mealToDelete, setMealToDelete] = useState<MealForEditing | null>(null);
-  const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null); 
+  const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500); // Debounce search term by 500ms
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -74,53 +86,93 @@ const MealList = () => {
         .single();
       if (error && error.code !== 'PGRST116') {
         console.error("[MealList] Error fetching profile for meal list calorie display:", error);
-        return { track_calories: false }; 
+        return { track_calories: false };
       }
       return data || { track_calories: false };
     },
     enabled: !!userId,
   });
 
+  const fetchMeals = async ({ pageParam = 0 }) => {
+    if (!userId) return { data: [], nextPage: undefined, totalCount: 0 };
 
-  const { data: meals, isLoading: isLoadingMealsData, error } = useQuery<Meal[]>({
-    queryKey: ["meals", userId], 
-    queryFn: async () => {
-      if (!userId) return []; 
-      const { data: { user } } = await supabase.auth.getUser(); 
-      if (!user) throw new Error("User not logged in.");
-      const { data, error } = await supabase
-        .from("meals")
-        .select("id, name, ingredients, instructions, user_id, meal_tags, image_url, estimated_calories, servings") 
-        .eq("user_id", user.id)
-        .order('created_at', { ascending: false });
+    let query = supabase
+      .from("meals")
+      .select("id, name, ingredients, instructions, user_id, meal_tags, image_url, estimated_calories, servings", { count: 'exact' })
+      .eq("user_id", userId)
+      .order('created_at', { ascending: false })
+      .range(pageParam, pageParam + PAGE_SIZE - 1);
 
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!userId, 
+    if (debouncedSearchTerm.trim()) {
+      query = query.ilike('name', `%${debouncedSearchTerm.trim()}%`);
+    }
+    if (selectedCategory !== 'all') {
+      query = query.cs('meal_tags', `{${selectedCategory}}`); // Assumes meal_tags is array of strings
+    }
+
+    const { data, error, count } = await query;
+    if (error) throw error;
+
+    return {
+      data: data || [],
+      nextPage: (data && data.length === PAGE_SIZE) ? pageParam + PAGE_SIZE : undefined,
+      totalCount: count || 0,
+    };
+  };
+
+  const {
+    data: mealsData,
+    fetchNextPage,
+    hasNextPage,
+    isLoading: isLoadingMeals,
+    isFetchingNextPage,
+    error: mealsError,
+    status,
+  } = useInfiniteQuery({
+    queryKey: ["meals", userId, debouncedSearchTerm, selectedCategory],
+    queryFn: fetchMeals,
+    getNextPageParam: (lastPage) => lastPage.nextPage,
+    enabled: !!userId,
+    initialPageParam: 0, // Ensure initialPageParam is set
   });
+
+  const allMeals = useMemo(() => mealsData?.pages.flatMap(page => page.data) ?? [], [mealsData]);
+
+  // Intersection Observer for infinite scrolling
+  useEffect(() => {
+    if (observerRef.current) observerRef.current.disconnect();
+
+    observerRef.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+        fetchNextPage();
+      }
+    });
+
+    if (loadMoreRef.current) {
+      observerRef.current.observe(loadMoreRef.current);
+    }
+
+    return () => {
+      if (observerRef.current) observerRef.current.disconnect();
+    };
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
 
   const deleteMealMutation = useMutation({
     mutationFn: async (mealId: string) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not logged in.");
-
-      const { error } = await supabase
-        .from("meals")
-        .delete()
-        .eq("id", mealId)
-        .eq("user_id", user.id);
-
+      // User check already in original code, assuming it's fine
+      const { error } = await supabase.from("meals").delete().eq("id", mealId).eq("user_id", userId!); // Added userId check
       if (error) throw error;
     },
     onSuccess: () => {
       showSuccess("Meal deleted successfully!");
-      queryClient.invalidateQueries({ queryKey: ["meals", userId] });
+      queryClient.invalidateQueries({ queryKey: ["meals", userId, debouncedSearchTerm, selectedCategory] });
+      // Invalidate other relevant queries
       queryClient.invalidateQueries({ queryKey: ["mealPlans"] });
       queryClient.invalidateQueries({ queryKey: ["groceryListSource"] });
       queryClient.invalidateQueries({ queryKey: ["todaysGroceryListSource"] });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       console.error("Error deleting meal:", error);
       showError(`Failed to delete meal: ${error.message}`);
     },
@@ -144,50 +196,67 @@ const MealList = () => {
     }
   };
 
-  const uniqueCategories = useMemo(() => {
-    if (!meals) return [];
-    const allTags = meals.flatMap(meal => meal.meal_tags || []).filter(Boolean) as string[];
-    return Array.from(new Set(allTags)).sort();
-  }, [meals]);
+  // Fetch unique categories - this could be a separate query for better UX
+  // For now, deriving from loaded meals. This means it might not show all available tags initially.
+  const { data: uniqueCategoriesData } = useQuery<string[]>({
+    queryKey: ['mealCategories', userId],
+    queryFn: async () => {
+        if (!userId) return [];
+        const { data, error } = await supabase.rpc('get_unique_meal_tags', { p_user_id: userId });
+        if (error) {
+            console.error("Error fetching unique categories:", error);
+            return [];
+        }
+        return data || [];
+    },
+    enabled: !!userId,
+  });
+  const uniqueCategories = useMemo(() => uniqueCategoriesData || [], [uniqueCategoriesData]);
 
-  const filteredMeals = useMemo(() => {
-    if (!meals) return [];
-    return meals.filter(meal => {
-      const nameMatch = meal.name.toLowerCase().includes(searchTerm.toLowerCase());
-      const categoryMatch = selectedCategory === 'all' || (meal.meal_tags && meal.meal_tags.includes(selectedCategory));
-      return nameMatch && categoryMatch;
-    });
-  }, [meals, searchTerm, selectedCategory]);
 
   const formatIngredientsDisplay = (ingredientsString: string | null | undefined): string => {
     if (!ingredientsString) return 'No ingredients listed.';
     try {
-      const parsedIngredients: ParsedIngredient[] = JSON.parse(ingredientsString);
+      // Assuming ingredientsString is a JSON array of objects like [{name: "Tomato"}, {name: "Basil"}]
+      // or a simple comma-separated string for fallback.
+      let parsedIngredients: { name: string }[];
+      if (ingredientsString.startsWith('[')) {
+        parsedIngredients = JSON.parse(ingredientsString);
+      } else {
+        // Handle simple comma-separated string if not JSON
+        parsedIngredients = ingredientsString.split(',').map(name => ({ name: name.trim() }));
+      }
+      
       if (Array.isArray(parsedIngredients) && parsedIngredients.length > 0) {
         const names = parsedIngredients.filter(ing => ing.name && ing.name.trim() !== '').map(ing => ing.name);
         if (names.length === 0) return 'Ingredients listed (check format).';
-
-        let displayText = names.slice(0, 5).join(', '); 
-        if (names.length > 5) {
-          displayText += ', ...';
-        }
+        let displayText = names.slice(0, 5).join(', ');
+        if (names.length > 5) displayText += ', ...';
         return displayText;
       }
       return 'No ingredients listed or format error.';
     } catch (e) {
-      const maxLength = 70; 
+      // Fallback for non-JSON or malformed JSON string
+      const maxLength = 70;
       return ingredientsString.substring(0, maxLength) + (ingredientsString.length > maxLength ? '...' : '');
     }
   };
-  
-  const overallIsLoading = isLoadingUserProfile || isLoadingMealsData;
 
-  if (overallIsLoading && !meals) { 
+  const overallIsLoading = (isLoadingUserProfile && !userProfile) || (isLoadingMeals && !mealsData?.pages.length);
+
+  if (status === 'pending' && !allMeals.length) { // Changed from overallIsLoading
     return (
       <Card className="hover:shadow-lg transition-shadow duration-200">
         <CardHeader><CardTitle>My Meals</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-          <Skeleton className="h-10 w-full mb-4" />
+          <div className="flex flex-col sm:flex-row gap-4 items-center">
+            <Skeleton className="h-10 flex-grow" />
+            <Skeleton className="h-10 w-full sm:w-[180px]" />
+            <div className="hidden sm:flex space-x-2">
+                <Skeleton className="h-10 w-10" />
+                <Skeleton className="h-10 w-10" />
+            </div>
+          </div>
           <Skeleton className="h-20 w-full" />
           <Skeleton className="h-20 w-full" />
           <Skeleton className="h-20 w-full" />
@@ -196,12 +265,12 @@ const MealList = () => {
     );
   }
 
-  if (error) {
-    console.error("Error fetching meals:", error);
+  if (status === 'error' && mealsError) {
+    console.error("Error fetching meals:", mealsError);
     return (
       <Card className="hover:shadow-lg transition-shadow duration-200">
         <CardHeader><CardTitle>My Meals</CardTitle></CardHeader>
-        <CardContent><p className="text-red-500">Error loading meals. Please try again later.</p></CardContent>
+        <CardContent><p className="text-red-500">Error loading meals: {mealsError.message}. Please try again later.</p></CardContent>
       </Card>
     );
   }
@@ -241,7 +310,7 @@ const MealList = () => {
                 size="icon"
                 onClick={() => setLayoutView('list')}
                 aria-label="Switch to list view"
-                className="hidden sm:inline-flex" 
+                className="hidden sm:inline-flex"
               >
                 <List className="h-5 w-5" />
               </Button>
@@ -257,41 +326,39 @@ const MealList = () => {
             </div>
           </div>
 
-          {meals && meals.length === 0 && !overallIsLoading && (
+          {status !== 'pending' && allMeals.length === 0 && (
             <div className="text-center py-6 text-muted-foreground">
               <ChefHat className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500 mb-4" />
-              <p className="text-lg font-semibold mb-1">No Meals Yet!</p>
-              <p className="text-sm">Looks like your recipe book is empty. <br/>Add a meal using the "Add Meal" button above or discover new ones!</p>
+              <p className="text-lg font-semibold mb-1">
+                {debouncedSearchTerm || selectedCategory !== 'all' ? "No Meals Found" : "No Meals Yet!"}
+              </p>
+              <p className="text-sm">
+                {debouncedSearchTerm || selectedCategory !== 'all' 
+                  ? "Try adjusting your search or filters." 
+                  : "Looks like your recipe book is empty. Add a meal or discover new ones!"}
+              </p>
             </div>
           )}
 
-          {meals && meals.length > 0 && filteredMeals.length === 0 && !overallIsLoading && (
-            <div className="text-center py-6 text-muted-foreground">
-              <Search className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500 mb-3" />
-              <p className="text-lg">No meals match your current filters.</p>
-              <p className="text-sm">Try a different search term or category.</p>
-            </div>
-          )}
-
-          {filteredMeals && filteredMeals.length > 0 && (
+          {allMeals.length > 0 && (
             <div className={cn(
               layoutView === 'list' ? 'space-y-3' : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'
             )}>
-              {filteredMeals.map((meal) => {
+              {allMeals.map((meal) => {
                 const caloriesPerServing = calculateCaloriesPerServing(meal.estimated_calories, meal.servings);
                 const canTrackCalories = userProfile && userProfile.track_calories;
                 const shouldShowCalories = canTrackCalories && caloriesPerServing !== null;
-                
+
                 return (
-                  <div 
-                    key={meal.id} 
+                  <div
+                    key={meal.id}
                     className="border p-3 sm:p-4 rounded-lg shadow-sm bg-card hover:shadow-md transition-shadow duration-150 flex flex-col cursor-pointer"
                     onClick={() => navigate(`/meal/${meal.id}`)}
                   >
                     <div className="flex flex-col sm:flex-row items-start">
                       {meal.image_url && (
                          <div
-                           className="w-full sm:w-24 md:w-28 h-40 sm:h-24 md:h-28 object-cover rounded-md mb-2 sm:mb-0 sm:mr-4 flex-shrink-0 flex items-center justify-center overflow-hidden bg-muted" 
+                           className="w-full sm:w-24 md:w-28 h-40 sm:h-24 md:h-28 object-cover rounded-md mb-2 sm:mb-0 sm:mr-4 flex-shrink-0 flex items-center justify-center overflow-hidden bg-muted"
                            onClick={(e) => { e.stopPropagation(); setViewingImageUrl(meal.image_url || null); }}
                          >
                            <LazyLoadImage
@@ -301,11 +368,14 @@ const MealList = () => {
                              wrapperClassName="h-full w-full"
                              className="h-full w-full object-cover"
                              placeholderSrc="/placeholder-image.png"
-                             onError={(e: any) => (e.currentTarget.style.display = 'none')}
+                             onError={(e: any) => {
+                               const parent = e.currentTarget.closest('div');
+                               if(parent) parent.style.display = 'none';
+                             }}
                            />
                          </div>
                       )}
-                      <div className="flex-grow min-w-0"> 
+                      <div className="flex-grow min-w-0">
                         <h3 className="text-lg sm:text-xl font-semibold text-foreground">{meal.name}</h3>
                         {meal.meal_tags && meal.meal_tags.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-1.5">
@@ -328,27 +398,27 @@ const MealList = () => {
                         )}
                       </div>
                       <div className="hidden sm:flex flex-col space-y-2 ml-2 flex-shrink-0">
-                        <Button 
-                          variant="outline" 
-                          onClick={(e) => { e.stopPropagation(); handleEditClick(meal); }} 
+                        <Button
+                          variant="outline"
+                          onClick={(e) => { e.stopPropagation(); handleEditClick(meal); }}
                           aria-label="Edit meal"
-                          className="h-10 w-10 sm:h-12 sm:w-12 md:h-14 md:w-14 p-0" 
+                          className="h-10 w-10 sm:h-12 sm:w-12 md:h-14 md:w-14 p-0"
                         >
-                          <Edit3 className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7" /> 
+                          <Edit3 className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7" />
                         </Button>
-                        <Button 
-                          variant="destructive" 
-                          onClick={(e) => { e.stopPropagation(); handleDeleteClick(meal); }} 
+                        <Button
+                          variant="destructive"
+                          onClick={(e) => { e.stopPropagation(); handleDeleteClick(meal); }}
                           aria-label="Delete meal"
-                          className="h-10 w-10 sm:h-12 sm:w-12 md:h-14 md:w-14 p-0" 
+                          className="h-10 w-10 sm:h-12 sm:w-12 md:h-14 md:w-14 p-0"
                         >
-                          <Trash2 className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7" /> 
+                          <Trash2 className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7" />
                         </Button>
                       </div>
                     </div>
 
                     {(meal.ingredients || (meal.instructions && meal.instructions.trim() !== "")) && (
-                      <div className="space-y-2 mt-2 pt-2 border-t sm:border-t-0 sm:pt-2 flex-grow"> 
+                      <div className="space-y-2 mt-2 pt-2 border-t sm:border-t-0 sm:pt-2 flex-grow">
                         {meal.ingredients && (
                           <div>
                             <p className="text-sm font-medium text-muted-foreground">Ingredients:</p>
@@ -369,19 +439,19 @@ const MealList = () => {
                     )}
 
                     <div className="flex sm:hidden space-x-2 mt-3 pt-3 border-t">
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         size="icon"
-                        onClick={(e) => { e.stopPropagation(); handleEditClick(meal); }} 
+                        onClick={(e) => { e.stopPropagation(); handleEditClick(meal); }}
                         aria-label="Edit meal"
                         className="flex-1 h-10"
                       >
                         <Edit3 className="h-5 w-5" />
                       </Button>
-                      <Button 
-                        variant="destructive" 
+                      <Button
+                        variant="destructive"
                         size="icon"
-                        onClick={(e) => { e.stopPropagation(); handleDeleteClick(meal); }} 
+                        onClick={(e) => { e.stopPropagation(); handleDeleteClick(meal); }}
                         aria-label="Delete meal"
                         className="flex-1 h-10"
                       >
@@ -393,6 +463,14 @@ const MealList = () => {
               })}
             </div>
           )}
+
+          <div ref={loadMoreRef} className="h-10 flex justify-center items-center">
+            {isFetchingNextPage && <Loader2 className="h-6 w-6 animate-spin text-primary" />}
+            {!hasNextPage && allMeals.length > 0 && status !== 'pending' && (
+              <p className="text-sm text-muted-foreground">No more meals to load.</p>
+            )}
+          </div>
+
         </CardContent>
       </Card>
 
@@ -424,7 +502,7 @@ const MealList = () => {
       )}
 
       <Dialog open={!!viewingImageUrl} onOpenChange={(open) => !open && setViewingImageUrl(null)}>
-        <DialogContent 
+        <DialogContent
           className="max-w-screen-md w-[90vw] h-[90vh] p-0 flex items-center justify-center bg-transparent border-none"
           onClick={() => setViewingImageUrl(null)}
         >
@@ -432,8 +510,8 @@ const MealList = () => {
             <img
               src={viewingImageUrl}
               alt="Enlarged meal image"
-              className="max-w-full max-h-full object-contain" 
-              onClick={(e) => e.stopPropagation()} 
+              className="max-w-full max-h-full object-contain"
+              onClick={(e) => e.stopPropagation()}
             />
           )}
         </DialogContent>
