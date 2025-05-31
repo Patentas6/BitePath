@@ -25,3 +25,12 @@ export const MEAL_TAG_OPTIONS = [
 ] as const;
 
 export type MealTagOption = typeof MEAL_TAG_OPTIONS[number];
+
+export const PLANNING_MEAL_TYPES = [
+  "Breakfast",
+  "Lunch",
+  "Dinner",
+  "Snack"
+] as const;
+
+export type PlanningMealType = typeof PLANNING_MEAL_TYPES[number];
