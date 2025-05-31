@@ -34,45 +34,26 @@ const Auth = () => {
 
   useEffect(() => {
     const queryParams = new URLSearchParams(location.search);
-    const mode = queryParams.get('mode');
-    console.log('[Auth.tsx] Mount/Location Change. Mode:', mode);
-    setIsLogin(mode !== 'signup');
+    setIsLogin(queryParams.get('mode') !== 'signup');
     form.reset();
   }, [location.search, form]);
 
   useEffect(() => {
     const checkSessionAndRedirect = async () => {
-      console.log('[Auth.tsx] checkSessionAndRedirect: Checking session...');
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError) {
-        console.error('[Auth.tsx] checkSessionAndRedirect: Error getting session:', sessionError);
-        // Potentially show an error to the user or handle appropriately
-        return;
-      }
-
+      const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        console.log('[Auth.tsx] checkSessionAndRedirect: Active session found for user:', session.user.id);
-        const { data: profile, error: profileError } = await supabase
+        const { data: profile } = await supabase
           .from('profiles')
-          .select('first_name, has_completed_tour')
+          .select('first_name')
           .eq('id', session.user.id)
           .single();
-
-        if (profileError && profileError.code !== 'PGRST116') {
-          console.error("[Auth.tsx] checkSessionAndRedirect: Error fetching profile:", profileError);
-          showError("Error checking your profile. Redirecting to dashboard.");
-          console.log('[Auth.tsx] checkSessionAndRedirect: Navigating to /dashboard (profile error).');
-          navigate("/dashboard", { replace: true });
-          return;
-        }
         
-        if (!profile || !profile.first_name) {
-          console.log('[Auth.tsx] checkSessionAndRedirect: Profile incomplete or not found. Navigating to /profile.');
-          navigate("/profile", { replace: true });
-        } else {
-          console.log(`[Auth.tsx] checkSessionAndRedirect: Profile complete (First Name: ${profile.first_name}, Tour: ${profile.has_completed_tour}). Navigating to /dashboard.`);
+        if (profile && profile.first_name) {
+          console.log('[Auth.tsx] checkSessionAndRedirect: Session exists, profile seems complete. Navigating to dashboard.');
           navigate("/dashboard", { replace: true });
+        } else {
+          console.log('[Auth.tsx] checkSessionAndRedirect: Session exists, profile might be incomplete. Navigating to profile.');
+          navigate("/profile", { replace: true });
         }
       } else {
         console.log('[Auth.tsx] checkSessionAndRedirect: No active session.');
@@ -81,22 +62,21 @@ const Auth = () => {
     checkSessionAndRedirect();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('[Auth.tsx] onAuthStateChange event:', event, 'Session:', session ? session.user.id : 'null');
+      console.log('[Auth.tsx] onAuthStateChange event:', event);
       if (event === "SIGNED_IN" && session) {
         showSuccess("Logged in successfully!");
-        console.log('[Auth.tsx] SIGNED_IN: User ID:', session.user.id);
         
+        // Check profile completeness
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('first_name, has_completed_tour')
+          .select('first_name')
           .eq('id', session.user.id)
           .single();
 
-        if (profileError && profileError.code !== 'PGRST116') { 
-          console.error("[Auth.tsx] SIGNED_IN: Error fetching profile:", profileError);
-          showError("Error checking your profile after login. Redirecting to dashboard.");
-          console.log('[Auth.tsx] SIGNED_IN: Navigating to /dashboard (profile error).');
-          navigate("/dashboard", { replace: true, state: { justLoggedInForTour: true } });
+        if (profileError && profileError.code !== 'PGRST116') { // PGRST116 means no rows found, which is fine for a new user
+          console.error("[Auth.tsx] Error fetching profile on SIGNED_IN:", profileError);
+          showError("Error checking profile. Please try again.");
+          navigate("/dashboard", { replace: true, state: { justLoggedInForTour: true } }); // Fallback to dashboard
           return;
         }
 
@@ -104,19 +84,16 @@ const Auth = () => {
           console.log('[Auth.tsx] SIGNED_IN: Profile incomplete or not found. Navigating to /profile.');
           navigate("/profile", { replace: true });
         } else {
-          console.log(`[Auth.tsx] SIGNED_IN: Profile complete (First Name: ${profile.first_name}, Tour: ${profile.has_completed_tour}). Navigating to /dashboard.`);
-          navigate("/dashboard", { replace: true, state: { justLoggedInForTour: !profile.has_completed_tour } });
+          console.log('[Auth.tsx] SIGNED_IN: Profile complete. Navigating to /dashboard with justLoggedInForTour: true state.');
+          navigate("/dashboard", { replace: true, state: { justLoggedInForTour: true } });
         }
-      } else if (event === "SIGNED_OUT") {
-        console.log('[Auth.tsx] SIGNED_OUT: User signed out.');
-        // No explicit navigation here, as being on /auth is fine, or ProtectedRoute will handle.
       }
     });
     return () => {
       console.log('[Auth.tsx] Unsubscribing auth listener.');
       authListener?.subscription.unsubscribe();
     };
-  }, [navigate, form]);
+  }, [navigate]);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground p-4 relative">
@@ -185,11 +162,7 @@ const Auth = () => {
           <div className="mt-6 text-center text-sm">
             {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
             <button
-              onClick={() => {
-                const newMode = isLogin ? 'signup' : '';
-                console.log(`[Auth.tsx] Toggling mode to: ${newMode || 'login'}`);
-                navigate(`/auth${newMode ? '?mode=signup' : ''}`, { replace: true });
-              }}
+              onClick={() => navigate(`/auth${isLogin ? '?mode=signup' : ''}`, { replace: true })}
               className="text-blue-600 hover:underline" 
               disabled={isLoading}
             >

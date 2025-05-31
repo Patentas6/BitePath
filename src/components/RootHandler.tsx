@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import { supabase } from '@/lib/supabase';
 import Index from '@/pages/Index'; 
@@ -8,7 +8,6 @@ import { Progress } from "@/components/ui/progress";
 
 const RootHandler = () => {
   const navigate = useNavigate();
-  const location = useLocation(); 
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [environmentChecked, setEnvironmentChecked] = useState(false);
@@ -17,61 +16,53 @@ const RootHandler = () => {
   useEffect(() => {
     const pwa = window.matchMedia('(display-mode: standalone)').matches;
     const native = Capacitor.isNativePlatform();
-    const appEnv = pwa || native;
-    setIsAppEnvironment(appEnv);
+    setIsAppEnvironment(pwa || native);
     setEnvironmentChecked(true);
-    console.log(`[RootHandler] Environment Check: PWA=${pwa}, Native=${native}, IsAppEnv=${appEnv}`);
+    console.log(`Environment Check: PWA=${pwa}, Native=${native}, IsAppEnv=${pwa || native}`);
   }, []);
 
   useEffect(() => {
-    console.log('[RootHandler] Initializing auth state listener and fetching session.');
-    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
-      console.log('[RootHandler] Initial session fetched:', initialSession ? initialSession.user.id : 'null');
-      setSession(initialSession);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
       setAuthLoading(false); 
+      console.log('Initial session fetched:', session);
     });
 
-    const { data: authSubscription } = supabase.auth.onAuthStateChange( 
-      (_event, currentSession) => {
-        console.log('[RootHandler] Auth state changed:', _event, 'New session:', currentSession ? currentSession.user.id : 'null');
-        setSession(currentSession);
-        if (_event === 'INITIAL_SESSION' || _event === 'SIGNED_IN' || _event === 'SIGNED_OUT' || _event === 'TOKEN_REFRESHED') {
+    const { data } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        console.log('Auth state changed:', _event, session);
+        setSession(session);
+        if (_event === 'INITIAL_SESSION' || _event === 'SIGNED_IN' || _event === 'SIGNED_OUT') {
             setAuthLoading(false);
         }
       }
     );
 
     return () => {
-      console.log('[RootHandler] Unsubscribing auth listener.');
-      authSubscription.subscription?.unsubscribe(); 
+      data.subscription?.unsubscribe(); 
     };
   }, []);
 
   useEffect(() => {
     if (!environmentChecked || authLoading) {
-      console.log(`[RootHandler] Redirection check: Waiting. EnvChecked=${environmentChecked}, AuthLoading=${authLoading}`);
+      console.log(`Redirection check: Waiting. EnvChecked=${environmentChecked}, AuthLoading=${authLoading}`);
       return; 
     }
 
-    console.log(`[RootHandler] Redirection check: Ready. IsAppEnv=${isAppEnvironment}, Session=${!!session}, CurrentPath=${location.pathname}`);
-    
-    if (isAppEnvironment && location.pathname === '/') { 
+    console.log(`Redirection check: Ready. IsAppEnv=${isAppEnvironment}, Session=${!!session}`);
+    if (isAppEnvironment) {
       if (session) {
-        console.log('[RootHandler] Redirecting from / to /dashboard (PWA/Native, Authenticated)');
+        console.log('Redirecting to /dashboard (PWA/Native, Authenticated)');
         navigate('/dashboard', { replace: true });
       } else {
-        console.log('[RootHandler] Redirecting from / to /auth (PWA/Native, Not Authenticated)');
+        console.log('Redirecting to /auth (PWA/Native, Not Authenticated)');
         navigate('/auth', { replace: true });
       }
-    } else if (isAppEnvironment) {
-      console.log(`[RootHandler] In App Environment but not on '/'. Path: ${location.pathname}. No redirection by RootHandler.`);
-    } else {
-      console.log(`[RootHandler] Not in App Environment. Path: ${location.pathname}. No redirection by RootHandler.`);
     }
-  }, [environmentChecked, authLoading, isAppEnvironment, session, navigate, location.pathname]); 
+  }, [environmentChecked, authLoading, isAppEnvironment, session, navigate]);
 
-  if (!environmentChecked || (isAppEnvironment && authLoading && location.pathname === '/')) { 
-    console.log('[RootHandler] Rendering: Loader (Initial checks pending or AppEnv + AuthLoading on root)');
+  if (!environmentChecked || (isAppEnvironment && authLoading)) {
+    console.log('Rendering: Loader (Initial checks pending or AppEnv + AuthLoading)');
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-background p-4">
         <BitePathStyledText />
@@ -81,14 +72,19 @@ const RootHandler = () => {
     );
   }
 
-  if (isAppEnvironment && location.pathname !== '/') {
-     console.log(`[RootHandler] Rendering: Letting child route handle rendering for ${location.pathname} in AppEnv.`);
+  if (isAppEnvironment) {
+    console.log('Rendering: Loader (AppEnv, redirection should be in progress)');
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-background p-4">
+        <BitePathStyledText />
+        <Progress value={90} className="w-1/2 md:w-1/4 mt-4" />
+        <p className="mt-2 text-sm text-muted-foreground">Almost there...</p>
+      </div>
+    );
   }
 
-  console.log(`[RootHandler] Rendering: Defaulting to router (e.g., Index for '/' or specific page for other paths). IsAppEnv=${isAppEnvironment}, Path=${location.pathname}`);
-  if (location.pathname === '/') return <Index />; 
-
-  return <Index />; 
+  console.log('Rendering: Index page (Browser)');
+  return <Index />;
 };
 
 const BitePathStyledText = () => (
