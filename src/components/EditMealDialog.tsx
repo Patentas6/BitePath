@@ -98,7 +98,6 @@ interface GenerationStatusInfo {
 const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, meal }) => {
   const queryClient = useQueryClient();
   const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
-  const [showImageUrlInput, setShowImageUrlInput] = useState(false); 
 
   const form = useForm<MealFormValues>({
     resolver: zodResolver(mealFormSchema),
@@ -184,7 +183,6 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
         servings: meal.servings || "", 
         image_url: meal.image_url || "", 
       });
-      setShowImageUrlInput(false); 
     } else if (!open) {
       form.reset({
         name: "",
@@ -195,7 +193,6 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
         servings: "", 
         image_url: "", 
       });
-      setShowImageUrlInput(false); 
     }
   }, [meal, open, form]);
 
@@ -295,7 +292,6 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
     onSuccess: (data) => {
       if (data?.image_url) {
         form.setValue('image_url', data.image_url);
-        setShowImageUrlInput(false); 
         showSuccess("Image generated successfully!");
         queryClient.invalidateQueries({ queryKey: ['userProfileForEditMealImageGeneration', meal?.user_id] });
       } else if (data !== null) { 
@@ -323,7 +319,6 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
 
   const handleClearImage = () => {
     form.setValue('image_url', '');
-    setShowImageUrlInput(false); 
   };
 
   const currentImageUrl = form.watch('image_url'); 
@@ -340,23 +335,10 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4 max-h-[70vh] overflow-y-auto pr-2">
-               {meal.image_url && (
-                  <div
-                    className="cursor-pointer w-full h-40 flex items-center justify-center overflow-hidden rounded-md mb-4 bg-muted"
-                    onClick={() => setViewingImageUrl(meal.image_url || null)}
-                  >
-                    <img
-                      src={meal.image_url}
-                      alt={`Image of ${meal.name}`}
-                      className="h-full object-contain"
-                      onError={(e) => (e.currentTarget.style.display = 'none')}
-                    />
-                  </div>
-                )}
               <FormField
                 control={form.control}
                 name="image_url"
-                render={({ field }) => (
+                render={({ field }) => ( 
                   <FormItem>
                     <FormLabel>Meal Image (Optional)</FormLabel>
                     <FormControl>
@@ -377,7 +359,6 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
                                 type="button"
                                 variant="ghost"
                                 size="sm"
-                                className="absolute top-1 right-1 h-7 w-7 p-0 text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20"
                                 onClick={(e) => { e.stopPropagation(); handleClearImage(); }}
                                 aria-label="Clear image"
                               >
@@ -409,27 +390,6 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
                                     : `AI Generations Used: ${generationStatus.generationsUsedThisMonth}/${IMAGE_GENERATION_LIMIT_PER_MONTH}.`
                                 )}
                               </div>
-                            )}
-                            <div className="text-center">
-                              <Button
-                                type="button"
-                                variant="link"
-                                className="text-sm p-0 h-auto"
-                                onClick={() => setShowImageUrlInput(!showImageUrlInput)}
-                                disabled={generateImageMutation.isPending}
-                              >
-                                <Link2 className="mr-1 h-3 w-3" />
-                                {showImageUrlInput ? 'Hide URL input' : 'Or, use your own image URL'}
-                              </Button>
-                            </div>
-                            {showImageUrlInput && (
-                              <Input
-                                placeholder="Paste image URL"
-                                {...field}
-                                value={field.value || ''} 
-                                onChange={(e) => field.onChange(e.target.value)}
-                                disabled={generateImageMutation.isPending}
-                              />
                             )}
                           </>
                         )}
