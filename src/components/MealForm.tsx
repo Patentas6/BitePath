@@ -1,366 +1,242 @@
 "use client";
 
-import { useEffect, useState, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { supabase } from '@/lib/supabase';
-import { useQueryClient } from '@tanstack/react-query';
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Trash2, PlusCircle, Image as ImageIcon, Loader2, AlertCircle, Info } from 'lucide-react';
-import TagInput from '@/components/TagInput';
-import { IMAGE_GENERATION_LIMIT_PER_MONTH } from '@/lib/constants'; // Assuming this is used for display or logic
+import IngredientInput from './IngredientInput';
+import TagInput from './TagInput'; 
+import { Loader2, Info } from 'lucide-react';
+import { UNITS, Unit, MEAL_TAG_OPTIONS, MealTagOption } from '@/lib/constants'; // CRITICAL: Import from constants
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
-// Schema definition (assuming it exists and includes image_url, which might now be optional or AI-populated)
-const mealFormSchema = z.object({
-  name: z.string().min(1, 'Meal name is required'),
-  ingredients: z.array(z.object({
-    name: z.string().min(1, 'Ingredient name is required'),
-    quantity: z.string().optional(),
-    unit: z.string().optional(),
-    description: z.string().optional(),
-  })).min(1, 'At least one ingredient is required'),
-  instructions: z.string().min(1, 'Instructions are required'),
-  meal_tags: z.array(z.string()).optional(),
-  image_url: z.string().url('Must be a valid URL if provided.').optional().or(z.literal('')), // Kept in schema for AI generation or initial data
-  estimated_calories: z.string().optional(),
-  servings: z.string().optional(),
+const MAX_INGREDIENTS = 20;
+const MAX_TAGS = 10;
+
+const ingredientSchema = z.object({
+  name: z.string().min(1, 'Ingredient name is required').max(100, 'Ingredient name too long'),
+  quantity: z.string().min(1, 'Quantity is required').max(20, 'Quantity too long'),
+  unit: z.enum(UNITS, { errorMap: () => ({ message: "Please select a valid unit." }) })
 });
 
-export type MealFormValues = z.infer<typeof mealFormSchema>;
+const mealFormSchema = z.object({
+  name: z.string().min(1, 'Meal name is required').max(150, 'Meal name too long'),
+  ingredients: z.array(ingredientSchema).min(1, 'At least one ingredient is required').max(MAX_INGREDIENTS, `Maximum ${MAX_INGREDIENTS} ingredients`),
+  instructions: z.string().min(1, 'Instructions are required').max(5000, 'Instructions too long'),
+  meal_tags: z.array(z.string()).max(MAX_TAGS, `Maximum ${MAX_TAGS} tags`),
+  image_url: z.string().url('Must be a valid URL').optional().or(z.literal('')),
+  servings: z.string().optional(),
+  estimated_calories: z.string().optional(),
+});
 
-export interface GenerationStatusInfo {
-  generationsUsedThisMonth: number;
-  limitReached: boolean;
-  isAdmin: boolean;
-}
+export type MealFormData = z.infer<typeof mealFormSchema>;
 
 interface MealFormProps {
-  initialData?: MealFormValues | null;
-  onSaveSuccess?: (savedMeal: { id: string; name: string }) => void;
-  generationStatus: GenerationStatusInfo;
-  isLoadingProfile: boolean;
-  showCaloriesField: boolean;
-  onInitialDataProcessed?: () => void;
+  onSubmit: (data: MealFormData, currentImageUrl?: string) => Promise<void>;
+  initialData?: Partial<MealFormData & { id?: string; image_url?: string | null }>;
+  isLoading: boolean;
+  userId: string; 
 }
 
-const MealForm: React.FC<MealFormProps> = ({ 
-  initialData, 
-  onSaveSuccess,
-  generationStatus,
-  isLoadingProfile,
-  showCaloriesField,
-  onInitialDataProcessed
-}) => {
-  const queryClient = useQueryClient();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
-  
-  // State for AI image generation prompt (if you keep AI generation)
-  const [imagePrompt, setImagePrompt] = useState('');
+const MealForm: React.FC<MealFormProps> = ({ onSubmit, initialData, isLoading, userId }) => {
+  const [showImageUrlInput, setShowImageUrlInput] = useState(!!initialData?.image_url);
+  const [currentImageUrl, setCurrentImageUrl] = useState(initialData?.image_url || undefined);
 
-
-  const form = useForm<MealFormValues>({
+  const { control, handleSubmit, reset, watch, formState: { errors } } = useForm<MealFormData>({
     resolver: zodResolver(mealFormSchema),
     defaultValues: {
-      name: '',
-      ingredients: [{ name: '', quantity: '', unit: '', description: '' }],
-      instructions: '',
-      meal_tags: [],
-      image_url: '',
-      estimated_calories: '',
-      servings: '',
-      ...initialData,
+      name: initialData?.name || '',
+      ingredients: initialData?.ingredients || [{ name: '', quantity: '', unit: UNITS[0] }],
+      instructions: initialData?.instructions || '',
+      meal_tags: initialData?.meal_tags || [],
+      image_url: initialData?.image_url || '',
+      servings: initialData?.servings || '',
+      estimated_calories: initialData?.estimated_calories || '',
     },
   });
 
   const { fields, append, remove } = useFieldArray({
-    control: form.control,
+    control,
     name: "ingredients",
   });
 
   useEffect(() => {
-    const fetchUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUserId(user?.id || null);
-    };
-    fetchUser();
-  }, []);
-
-  useEffect(() => {
     if (initialData) {
-      form.reset({
+      const resetData = {
         name: initialData.name || '',
-        ingredients: initialData.ingredients?.length ? initialData.ingredients.map(ing => ({
-            name: ing.name || "",
-            quantity: ing.quantity !== undefined && ing.quantity !== null ? String(ing.quantity) : "",
-            unit: ing.unit || "",
-            description: ing.description || "",
-        })) : [{ name: '', quantity: '', unit: '', description: '' }],
+        ingredients: initialData.ingredients?.length ? initialData.ingredients.map(ing => ({...ing, unit: ing.unit || UNITS[0]})) : [{ name: '', quantity: '', unit: UNITS[0] }],
         instructions: initialData.instructions || '',
         meal_tags: initialData.meal_tags || [],
-        image_url: initialData.image_url || '', // Still set from initialData
-        estimated_calories: initialData.estimated_calories || '',
+        image_url: initialData.image_url || '',
         servings: initialData.servings || '',
-      });
-      if (onInitialDataProcessed) {
-        onInitialDataProcessed();
-      }
+        estimated_calories: initialData.estimated_calories || '',
+      };
+      reset(resetData);
+      setShowImageUrlInput(!!initialData.image_url);
+      setCurrentImageUrl(initialData.image_url || undefined);
     }
-  }, [initialData, form, onInitialDataProcessed]);
+  }, [initialData, reset]);
 
-  const onSubmit = async (data: MealFormValues) => {
-    if (!userId) {
-      toast.error("User not found. Please log in again.");
-      return;
-    }
-    setIsSubmitting(true);
-    try {
-      const { data: mealData, error } = await supabase
-        .from('meals')
-        .upsert({
-          ...(initialData && form.getValues('name') === initialData.name ? { id: (await supabase.from('meals').select('id').eq('name', initialData.name).eq('user_id', userId).single())?.data?.id } : {}),
-          user_id: userId,
-          name: data.name,
-          ingredients: JSON.stringify(data.ingredients), // Store as JSON string
-          instructions: data.instructions,
-          meal_tags: data.meal_tags,
-          image_url: data.image_url, // image_url is still part of the data
-          estimated_calories: data.estimated_calories,
-          servings: data.servings,
-        })
-        .select('id, name')
-        .single();
-
-      if (error) throw error;
-
-      toast.success(`Meal "${mealData.name}" ${initialData ? 'updated' : 'saved'} successfully!`);
-      queryClient.invalidateQueries({ queryKey: ['meals', userId] });
-      queryClient.invalidateQueries({ queryKey: ['mealPlans', userId] });
-      queryClient.invalidateQueries({ queryKey: ['uniqueMealTags', userId] });
-      form.reset();
-      if (onSaveSuccess && mealData) {
-        onSaveSuccess({ id: mealData.id, name: mealData.name });
-      }
-    } catch (error: any) {
-      console.error("Error saving meal:", error);
-      toast.error(`Error saving meal: ${error.message}`);
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleFormSubmit = async (data: MealFormData) => {
+    console.log("Form data submitted:", data);
+    await onSubmit(data, currentImageUrl);
   };
 
-  const handleGenerateImage = async () => {
-    if (!userId) {
-      toast.error("User not found. Please log in again.");
-      return;
-    }
-    if (generationStatus.limitReached && !generationStatus.isAdmin) {
-      toast.error("Image generation limit reached for this month.");
-      return;
-    }
-    if (!form.getValues('name') && !imagePrompt) {
-        toast.error("Please enter a meal name or a custom prompt to generate an image.");
-        return;
-    }
+  const watchedImageUrl = watch('image_url');
+  useEffect(() => {
+    setCurrentImageUrl(watchedImageUrl);
+  }, [watchedImageUrl]);
 
-    setIsGeneratingImage(true);
-    const effectivePrompt = imagePrompt || `A delicious looking plate of ${form.getValues('name') || 'food'}`;
-
-    try {
-      // IMPORTANT: Replace with your actual Supabase Edge Function invocation
-      const { data: functionData, error: functionError } = await supabase.functions.invoke('generate-image-prod', {
-        body: { 
-          prompt: effectivePrompt,
-          userId: userId, // Pass userId to the function
-        },
-      });
-
-      if (functionError) throw functionError;
-
-      if (functionData.error) {
-        throw new Error(functionData.error);
-      }
-      
-      if (functionData.imageUrl) {
-        form.setValue('image_url', functionData.imageUrl, { shouldValidate: true });
-        toast.success("Image generated and URL updated!");
-        // Invalidate queries related to user profile if generation count is updated server-side by the function
-        queryClient.invalidateQueries({ queryKey: ['userProfileForMealEntryLimits', userId] });
-        queryClient.invalidateQueries({ queryKey: ['userProfile', userId] });
-
-      } else {
-        throw new Error("Image URL not found in function response.");
-      }
-    } catch (error: any) {
-      console.error("Error generating image:", error);
-      toast.error(`Error generating image: ${error.message || 'Unknown error'}`);
-    } finally {
-      setIsGeneratingImage(false);
-      setImagePrompt(''); // Clear prompt after attempt
+  const handleAddIngredient = () => {
+    if (fields.length < MAX_INGREDIENTS) {
+      append({ name: '', quantity: '', unit: UNITS[0] });
+    } else {
+      toast.error(`You can add a maximum of ${MAX_INGREDIENTS} ingredients.`);
     }
   };
   
-  const currentImageUrl = form.watch('image_url');
+  const handleRemoveIngredient = (index: number) => {
+    if (fields.length > 1) {
+      remove(index);
+    } else {
+      toast.error("At least one ingredient is required.");
+    }
+  };
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>{initialData ? 'Edit Meal' : 'Add New Meal'}</CardTitle>
-        <CardDescription>
-          {initialData ? 'Update the details of your meal.' : 'Fill in the details of your new meal. You can generate an image using AI.'}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <div>
-            <Label htmlFor="name">Meal Name</Label>
-            <Input id="name" {...form.register("name")} placeholder="e.g., Spaghetti Carbonara" />
-            {form.formState.errors.name && <p className="text-sm text-destructive mt-1">{form.formState.errors.name.message}</p>}
-          </div>
+    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6 p-4 sm:p-6 bg-white shadow-md rounded-lg">
+      <div>
+        <label htmlFor="name" className="block text-sm font-medium text-gray-700">Meal Name</label>
+        <Controller
+          name="name"
+          control={control}
+          render={({ field }) => <Input id="name" {...field} placeholder="e.g., Spaghetti Bolognese" className="mt-1" />}
+        />
+        {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
+      </div>
 
-          <div>
-            <Label>Ingredients</Label>
-            {fields.map((field, index) => (
-              <div key={field.id} className="flex items-start gap-2 mb-2 p-2 border rounded-md relative">
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 flex-grow">
-                  <div>
-                    <Label htmlFor={`ingredients.${index}.name`} className="text-xs">Name</Label>
-                    <Input {...form.register(`ingredients.${index}.name`)} placeholder="e.g., Eggs" />
-                    {form.formState.errors.ingredients?.[index]?.name && <p className="text-sm text-destructive mt-1">{form.formState.errors.ingredients?.[index]?.name?.message}</p>}
-                  </div>
-                  <div>
-                    <Label htmlFor={`ingredients.${index}.quantity`} className="text-xs">Quantity</Label>
-                    <Input {...form.register(`ingredients.${index}.quantity`)} placeholder="e.g., 2" type="text" />
-                  </div>
-                  <div>
-                    <Label htmlFor={`ingredients.${index}.unit`} className="text-xs">Unit</Label>
-                    <Input {...form.register(`ingredients.${index}.unit`)} placeholder="e.g., large, grams" />
-                  </div>
-                  <div>
-                    <Label htmlFor={`ingredients.${index}.description`} className="text-xs">Notes (e.g. diced)</Label>
-                    <Input {...form.register(`ingredients.${index}.description`)} placeholder="e.g., finely chopped" />
-                  </div>
-                </div>
-                <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="mt-5 text-destructive hover:text-destructive-foreground hover:bg-destructive/10">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-            <Button type="button" variant="outline" size="sm" onClick={() => append({ name: '', quantity: '', unit: '', description: '' })} className="mt-2">
-              <PlusCircle className="h-4 w-4 mr-2" /> Add Ingredient
-            </Button>
-            {form.formState.errors.ingredients && typeof form.formState.errors.ingredients.message === 'string' && <p className="text-sm text-destructive mt-1">{form.formState.errors.ingredients.message}</p>}
+      <div>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">Ingredients</h3>
+        {fields.map((item, index) => (
+          <IngredientInput
+            key={item.id}
+            index={index}
+            ingredient={item as any} // Cast to any to match IngredientInputProps, RHF provides 'id'
+            onChange={(idx, fieldName, value) => {
+              const currentIngredients = watch('ingredients');
+              const updatedIngredients = [...currentIngredients];
+              updatedIngredients[idx] = { ...updatedIngredients[idx], [fieldName]: value };
+              control.setValue(`ingredients`, updatedIngredients, { shouldValidate: true });
+            }}
+            onRemove={handleRemoveIngredient}
+          />
+        ))}
+        {errors.ingredients && !errors.ingredients.root && errors.ingredients.length === 0 && (
+            <p className="text-red-500 text-xs mt-1">{errors.ingredients.message}</p>
+        )}
+        {errors.ingredients?.root && <p className="text-red-500 text-xs mt-1">{errors.ingredients.root.message}</p>}
+         {Array.isArray(errors.ingredients) && errors.ingredients.map((err, index) => (
+          <div key={index}>
+            {err?.name && <p className="text-red-500 text-xs mt-1">Ingredient {index + 1}: {err.name.message}</p>}
+            {err?.quantity && <p className="text-red-500 text-xs mt-1">Ingredient {index + 1}: {err.quantity.message}</p>}
+            {err?.unit && <p className="text-red-500 text-xs mt-1">Ingredient {index + 1}: {err.unit.message}</p>}
           </div>
+        ))}
+        <Button type="button" variant="outline" onClick={handleAddIngredient} className="mt-2">
+          Add Ingredient
+        </Button>
+      </div>
 
-          <div>
-            <Label htmlFor="instructions">Instructions</Label>
-            <Textarea id="instructions" {...form.register("instructions")} placeholder="Step 1: Boil water..." rows={5} />
-            {form.formState.errors.instructions && <p className="text-sm text-destructive mt-1">{form.formState.errors.instructions.message}</p>}
-          </div>
-
-          <div>
-            <Label htmlFor="meal_tags">Tags (e.g., breakfast, quick, vegetarian)</Label>
-            <Controller
-              name="meal_tags"
-              control={form.control}
-              render={({ field }) => (
+      <div>
+        <label htmlFor="instructions" className="block text-sm font-medium text-gray-700">Instructions</label>
+        <Controller
+          name="instructions"
+          control={control}
+          render={({ field }) => <Textarea id="instructions" {...field} placeholder="e.g., 1. Cook pasta. 2. Prepare sauce..." rows={6} className="mt-1" />}
+        />
+        {errors.instructions && <p className="text-red-500 text-xs mt-1">{errors.instructions.message}</p>}
+      </div>
+      
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Meal Tags (Optional)</label>
+        <Controller
+            name="meal_tags"
+            control={control}
+            render={({ field }) => (
                 <TagInput
-                  value={field.value || []}
-                  onChange={field.onChange}
-                  placeholder="Type and press Enter to add a tag"
+                    tags={field.value as MealTagOption[]}
+                    setTags={(newTags) => field.onChange(newTags)}
+                    availableTags={MEAL_TAG_OPTIONS as ReadonlyArray<string>} // Cast for TagInput
+                    maxTags={MAX_TAGS}
+                    placeholder="Add tags like 'Vegan', 'Quick Meal'..."
                 />
-              )}
+            )}
+        />
+        {errors.meal_tags && <p className="text-red-500 text-xs mt-1">{errors.meal_tags.message}</p>}
+      </div>
+
+      <div>
+        <label htmlFor="servings" className="block text-sm font-medium text-gray-700">Servings (Optional)</label>
+        <Controller
+          name="servings"
+          control={control}
+          render={({ field }) => <Input id="servings" {...field} placeholder="e.g., 4" className="mt-1" />}
+        />
+        {errors.servings && <p className="text-red-500 text-xs mt-1">{errors.servings.message}</p>}
+      </div>
+
+      <div>
+        <label htmlFor="estimated_calories" className="block text-sm font-medium text-gray-700">Estimated Calories (Optional)</label>
+        <Controller
+          name="estimated_calories"
+          control={control}
+          render={({ field }) => <Input id="estimated_calories" {...field} placeholder="e.g., 500 kcal" className="mt-1" />}
+        />
+        {errors.estimated_calories && <p className="text-red-500 text-xs mt-1">{errors.estimated_calories.message}</p>}
+      </div>
+
+      <div>
+        {showImageUrlInput ? (
+          <>
+            <label htmlFor="image_url" className="block text-sm font-medium text-gray-700">Image URL (Optional)</label>
+            <Controller
+              name="image_url"
+              control={control}
+              render={({ field }) => <Input id="image_url" {...field} placeholder="https://example.com/image.jpg" className="mt-1" />}
             />
-          </div>
-          
-          {/* Image Section - Manual URL input removed */}
-          <div className="space-y-2">
-            <Label>Meal Image</Label>
-            {currentImageUrl && (
-              <div className="mt-2">
-                <img src={currentImageUrl} alt="Current meal image" className="rounded-md max-h-48 w-auto object-cover" />
-              </div>
-            )}
-            
-            {/* AI Image Generation Button and Prompt Input */}
-            {!generationStatus.limitReached || generationStatus.isAdmin ? (
-              <div className="p-3 border rounded-md bg-muted/20 space-y-3">
-                <div className="flex items-center text-sm text-muted-foreground">
-                  <ImageIcon className="h-4 w-4 mr-2 flex-shrink-0" />
-                  <span>Generate an image for your meal using AI.</span>
-                </div>
-                <Input 
-                  value={imagePrompt}
-                  onChange={(e) => setImagePrompt(e.target.value)}
-                  placeholder="Optional: Describe the image (e.g., 'rustic, top-down view')" 
-                  disabled={isGeneratingImage || isLoadingProfile}
-                />
-                <Button 
-                  type="button" 
-                  onClick={handleGenerateImage} 
-                  disabled={isGeneratingImage || isLoadingProfile || (!form.getValues('name') && !imagePrompt)}
-                  className="w-full sm:w-auto"
-                >
-                  {isGeneratingImage ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImageIcon className="mr-2 h-4 w-4" />}
-                  Generate Image
-                </Button>
-                {!generationStatus.isAdmin && (
-                  <p className="text-xs text-muted-foreground">
-                    Generations used this month: {generationStatus.generationsUsedThisMonth}/{IMAGE_GENERATION_LIMIT_PER_MONTH}.
-                  </p>
-                )}
-              </div>
-            ) : (
-              !isLoadingProfile && (
-                <div className="p-3 border rounded-md bg-amber-50 border-amber-200 text-amber-700 text-sm">
-                  <div className="flex items-center">
-                    <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0" />
-                    <p>You've reached your AI image generation limit for this month ({IMAGE_GENERATION_LIMIT_PER_MONTH} images).</p>
-                  </div>
-                </div>
-              )
-            )}
-            {isLoadingProfile && (
-                <div className="p-3 border rounded-md bg-muted/20 text-sm text-muted-foreground">
-                    <div className="flex items-center">
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        <span>Loading image generation status...</span>
-                    </div>
-                </div>
-            )}
-            {/* The form.register for image_url is implicitly handled by form.setValue in handleGenerateImage */}
-            {/* No direct input field for image_url is provided to the user anymore */}
-            {form.formState.errors.image_url && <p className="text-sm text-destructive mt-1">{form.formState.errors.image_url.message}</p>}
-          </div>
-
-
-          {showCaloriesField && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="estimated_calories">Estimated Calories (per serving)</Label>
-                <Input id="estimated_calories" {...form.register("estimated_calories")} placeholder="e.g., 550" />
-              </div>
-              <div>
-                <Label htmlFor="servings">Number of Servings</Label>
-                <Input id="servings" {...form.register("servings")} placeholder="e.g., 4" />
-              </div>
-            </div>
-          )}
-
-          <Button type="submit" disabled={isSubmitting || isGeneratingImage} className="w-full sm:w-auto">
-            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            {initialData ? 'Update Meal' : 'Save Meal'}
+            {errors.image_url && <p className="text-red-500 text-xs mt-1">{errors.image_url.message}</p>}
+            <Button type="button" variant="ghost" size="sm" onClick={() => { control.setValue('image_url', ''); setShowImageUrlInput(false); }} className="mt-1 text-xs text-blue-600 hover:text-blue-800">
+              Remove Image URL
+            </Button>
+          </>
+        ) : (
+          <Button type="button" variant="outline" onClick={() => setShowImageUrlInput(true)} className="mt-2">
+            Add Image URL (Optional)
           </Button>
-        </form>
-      </CardContent>
-    </Card>
+        )}
+      </div>
+      
+      {initialData?.id && (
+        <Alert variant="default" className="mt-4">
+          <Info className="h-4 w-4" />
+          <AlertTitle>Note</AlertTitle>
+          <AlertDescription>
+            You are editing an existing meal. Submitting will update the current meal details.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <Button type="submit" disabled={isLoading} className="w-full sm:w-auto">
+        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        {initialData?.id ? 'Update Meal' : 'Add Meal'}
+      </Button>
+    </form>
   );
 };
 
