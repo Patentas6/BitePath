@@ -1,5 +1,6 @@
 "use client";
 
+// ... (all existing imports: React, Button, Input, Textarea, Card, Select, supabase, useToast, useNavigate, icons, useForm, zodResolver, z, Label)
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -71,16 +72,14 @@ const AddMealPage: React.FC = () => {
         name: data.mealName,
         ingredients: data.ingredients,
         instructions: data.instructions,
-        servings: data.servings, // Value comes directly from the Select component
+        servings: data.servings, 
         meal_tags: data.mealTags?.split(',').map(tag => tag.trim()).filter(tag => tag) || [],
         estimated_calories: data.estimatedCalories,
-        image_url: null, // Image URL is no longer collected from this form
+        image_url: null, 
       };
 
       console.log("Saving manual meal:", mealToInsert);
-
       const { error } = await supabase.from('meals').insert([mealToInsert]);
-
       if (error) throw error;
 
       toast({ title: "Meal Added!", description: `${data.mealName} has been successfully added.` });
@@ -99,6 +98,12 @@ const AddMealPage: React.FC = () => {
 
   return (
     <div className="container mx-auto p-4 max-w-2xl">
+      {/* VERY OBVIOUS TEST HEADING */}
+      <h1 className="text-4xl font-bold text-red-500 bg-yellow-200 p-4 text-center my-4">
+        DYAD TEST - IF YOU SEE THIS, ADDMEALPAGE.TSX IS BEING RENDERED!
+      </h1>
+      {/* END OF VERY OBVIOUS TEST HEADING */}
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center"><PlusCircle className="mr-2 h-6 w-6 text-primary" /> Add New Meal Manually</CardTitle>
@@ -116,7 +121,6 @@ const AddMealPage: React.FC = () => {
               {errors.mealName && <p className="text-sm text-red-500 mt-1">{errors.mealName.message}</p>}
             </div>
 
-            {/* Servings input is now a Select component */}
             <div>
               <Label htmlFor="servings">Number of Servings</Label>
               <Controller
@@ -135,7 +139,6 @@ const AddMealPage: React.FC = () => {
                       <SelectItem value="4">4 Servings</SelectItem>
                       <SelectItem value="5">5 Servings</SelectItem>
                       <SelectItem value="6">6 Servings</SelectItem>
-                      {/* Add more items if needed */}
                     </SelectContent>
                   </Select>
                 )}
@@ -181,8 +184,6 @@ const AddMealPage: React.FC = () => {
                 render={({ field }) => <Input id="mealTags" placeholder="e.g., quick, healthy, dinner, vegetarian" {...field} />}
               />
             </div>
-
-            {/* The input field for Image URL has been completely removed from this form. */}
 
             <Button type="submit" disabled={isSaving} className="w-full">
               {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
