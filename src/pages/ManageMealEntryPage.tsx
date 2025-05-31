@@ -7,10 +7,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { useRouter } from 'next/navigation';
+import { useNavigate } from 'react-router-dom'; // Changed from next/navigation
 import { Loader2, Wand2, PlusCircle } from 'lucide-react';
 import { generateMealWithAI } from '@/lib/ai';
-import { useSession } from '@/integrations/supabase/SessionContext'; // Assuming you have this for user info
+import { useSession } from '@/integrations/supabase/SessionContext';
 
 const ManageMealEntryPage = () => {
   const [entryMode, setEntryMode] = useState<'select' | 'ai' | 'manual'>('select');
@@ -21,15 +21,17 @@ const ManageMealEntryPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
   const { toast } = useToast();
-  const router = useRouter();
-  const { session } = useSession(); // Get session
+  const navigate = useNavigate(); // Changed from useRouter
+  const { session } = useSession();
   const user = session?.user;
 
   useEffect(() => {
-    if (!user) {
-      router.push('/login');
+    if (!user && !session) { // Check if session is also null to avoid redirect during initial load
+      // Only navigate if the session has been checked and there's no user
+    } else if (!user && session !== undefined) {
+      navigate('/login');
     }
-  }, [user, router]);
+  }, [user, session, navigate]);
 
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,7 +56,7 @@ const ManageMealEntryPage = () => {
       if (error) throw error;
 
       toast({ title: "Success!", description: "Meal added manually." });
-      router.push('/my-meals'); // Redirect to a page showing user's meals
+      navigate('/my-meals'); // Changed from router.push
     } catch (error: any) {
       console.error("Error adding meal manually:", error);
       toast({ title: "Error adding meal", description: error.message, variant: "destructive" });
@@ -74,7 +76,7 @@ const ManageMealEntryPage = () => {
     }
     setIsLoading(true);
     try {
-      const generatedMeal = await generateMealWithAI(aiPrompt, user.id); // Pass user_id
+      const generatedMeal = await generateMealWithAI(aiPrompt, user.id);
       
       setMealName(generatedMeal.name || '');
       setIngredients(generatedMeal.ingredients || '');
@@ -82,7 +84,7 @@ const ManageMealEntryPage = () => {
       setMealTags((generatedMeal.meal_tags || []).join(', '));
       
       toast({ title: "AI Meal Populated!", description: "Review and save the meal, or regenerate." });
-      setEntryMode('manual'); // Switch to manual mode to show the populated form
+      setEntryMode('manual');
     } catch (error: any) {
       console.error("Error generating meal with AI:", error);
       toast({ title: "AI Generation Failed", description: error.message || "Could not generate meal. Please try again.", variant: "destructive" });
