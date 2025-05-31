@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/integrations/supabase/client';
-import { MealForm, MealFormData } from '@/components/MealForm';
+import { MealForm, MealFormData } from '@/components/MealForm'; // Correctly imports MealForm and MealFormData
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -83,7 +83,6 @@ const ManageMealEntry: React.FC = () => {
       }
       
       if (response.data) {
-        // Redirect to the meal detail page or my-meals page
         router.push(`/my-meals/${response.data.id}`);
       } else {
         router.push('/my-meals');
@@ -129,22 +128,21 @@ const ManageMealEntry: React.FC = () => {
         toast.error("You must be logged in to generate images.");
         return null;
     }
-    // Here you might want to check user's image generation limits if implemented
     try {
         const imageUrl = await generateImageWithAI(prompt, user.id);
+        // Assuming generateImageWithAI now handles profile updates or returns info to do so
         if (imageUrl) {
-            // Optionally update profile with new generation count if that logic is here
-            // await supabase.rpc('increment_user_image_generation_count', { p_user_id: user.id });
             return imageUrl;
         }
         return null;
     } catch (error: any) {
         console.error("Error in handleGenerateImageForForm:", error);
-        toast.error(error.message || "Failed to generate image.");
+        // Ensure error.message is a string, provide a fallback.
+        const errorMessage = typeof error.message === 'string' ? error.message : "Failed to generate image due to an unknown error.";
+        toast.error(errorMessage);
         return null;
     }
   };
-
 
   if (isLoading && isEditing) {
     return (
@@ -192,7 +190,7 @@ const ManageMealEntry: React.FC = () => {
         onSubmit={handleFormSubmit} 
         defaultValues={initialData} 
         isEditing={isEditing}
-        onGenerateImageWithAI={handleGenerateImageForForm}
+        onGenerateImageWithAI={handleGenerateImageForForm} // Ensure this prop is correctly named and handled in MealForm
       />
     </div>
   );
