@@ -300,22 +300,24 @@ const MealList = () => {
             </div>
           </div>
 
-          {meals.length === 0 && !isLoadingMealsData && !isFetchingNextPage && !overallIsLoading && (
-            <div className="text-center py-6 text-muted-foreground">
-              <ChefHat className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500 mb-4" />
-              <p className="text-lg font-semibold mb-1">No Meals Yet!</p>
-              <p className="text-sm">Looks like your recipe book is empty. <br/>Add a meal using the "Add Meal" button above or discover new ones!</p>
-            </div>
+          {!isLoadingMealsData && !isFetchingNextPage && !overallIsLoading && (
+            <>
+              {meals.length === 0 && (debouncedSearchTerm || selectedCategory !== 'all') && (
+                <div className="text-center py-6 text-muted-foreground">
+                  <Search className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500 mb-3" />
+                  <p className="text-lg">No meals match your current filters.</p>
+                  <p className="text-sm">Try a different search term or category.</p>
+                </div>
+              )}
+              {meals.length === 0 && !debouncedSearchTerm && selectedCategory === 'all' && (
+                <div className="text-center py-6 text-muted-foreground">
+                  <ChefHat className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500 mb-4" />
+                  <p className="text-lg font-semibold mb-1">No Meals Yet!</p>
+                  <p className="text-sm">Looks like your recipe book is empty. <br/>Add a meal or discover new ones!</p>
+                </div>
+              )}
+            </>
           )}
-
-          {meals.length > 0 && filteredMeals.length === 0 && !isLoadingMealsData && !isFetchingNextPage && !overallIsLoading && (
-             <div className="text-center py-6 text-muted-foreground">
-               <Search className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500 mb-3" />
-               <p className="text-lg">No meals match your current search or category.</p>
-               <p className="text-sm">Try a different search term or category.</p>
-             </div>
-          )}
-
 
           {filteredMeals && filteredMeals.length > 0 && (
             <div className={cn(
