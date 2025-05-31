@@ -1,217 +1,280 @@
-"use client";
+import { useState, useEffect, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase';
+import { format as formatDateFns, startOfWeek, addDays } from "date-fns";
+import { IMAGE_GENERATION_LIMIT_PER_MONTH, RECIPE_GENERATION_LIMIT_PER_PERIOD, RECIPE_GENERATION_PERIOD_DAYS } from '@/lib/constants';
+import { useIsMobile } from "@/hooks/use-mobile"; 
+import { cn } from "@/lib/utils";
 
-import React, { useState, useEffect } from 'react'; // Corrected import
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useToast } from '@/components/ui/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { useNavigate } from 'react-router-dom';
-import { Loader2, Wand2, PlusCircle } from 'lucide-react';
-import { generateMealWithAI } from '@/lib/ai';
-import { useSession } from '@/integrations/supabase/SessionContext';
+import AppHeader from "@/components/AppHeader";
+import MealForm, { GenerationStatusInfo as MealFormGenerationStatus, MealFormValues } from "@/components/MealForm";
+import GenerateMealFlow, { GeneratedMeal } from "@/components/GenerateMealFlow"; 
+import WeeklyPlanner from "@/components/WeeklyPlanner"; 
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'; 
+import { Button } from '@/components/ui/button'; 
+import { PlusCircle, Brain, X, ChevronLeft, ChevronRight } from 'lucide-react'; 
+
+interface UserProfileDataForLimits {
+  is_admin: boolean;
+  image_generation_count: number;
+  last_image_generation_reset: string | null; 
+  recipe_generation_count: number | null;
+  last_recipe_generation_reset: string | null; 
+  track_calories?: boolean;
+  ai_preferences?: string | null;
+}
+
+export interface CombinedGenerationLimits {
+  image: MealFormGenerationStatus; 
+  recipe: { 
+    generationsUsedThisPeriod: number;
+    limitReached: boolean;
+    daysRemainingInPeriod: number;
+    periodResetsToday: boolean;
+    isAdmin: boolean;
+  };
+  showCaloriesField: boolean;
+  isLoadingProfile: boolean;
+}
 
 const ManageMealEntryPage = () => {
-  const [entryMode, setEntryMode] = useState<'select' | 'ai' | 'manual'>('select');
-  const [mealName, setMealName] = useState('');
-  const [ingredients, setIngredients] = useState('');
-  const [instructions, setInstructions] = useState('');
-  const [mealTags, setMealTags] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [aiPrompt, setAiPrompt] = useState('');
-  const { toast } = useToast();
-  const navigate = useNavigate();
-  const { session } = useSession();
-  const user = session?.user;
+  const [userId, setUserId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'generate' | 'add'>('generate');
+  const [mealDataForManualForm, setMealDataForManualForm] = useState<GeneratedMeal | null>(null);
+  const isMobile = useIsMobile();
+  
+  const [showPostSavePlanner, setShowPostSavePlanner] = useState(false);
+  const [newlySavedMealInfo, setNewlySavedMealInfo] = useState<{id: string, name: string} | null>(null);
+  const [plannerWeekStart, setPlannerWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
+
+  const queryClient = useQueryClient();
 
   useEffect(() => {
-    if (!user && !session) { 
-      // Session still loading or not available
-    } else if (!user && session !== undefined) { // Session loaded, but no user
-      navigate('/login');
-    }
-  }, [user, session, navigate]);
+    const fetchUser = async () => {
+      const { data } = await supabase.auth.getUser();
+      setUserId(data.user?.id || null);
+    };
+    fetchUser();
+  }, []);
 
-  const handleManualSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) {
-      toast({ title: "Error", description: "You must be logged in to add a meal.", variant: "destructive" });
-      return;
-    }
-    setIsLoading(true);
-    try {
-      const tagsArray = mealTags.split(',').map(tag => tag.trim()).filter(tag => tag);
+  const { data: userProfile, isLoading: isLoadingProfile } = useQuery<UserProfileDataForLimits | null>({
+    queryKey: ['userProfileForMealEntryLimits', userId],
+    queryFn: async () => {
+      if (!userId) return null;
       const { data, error } = await supabase
-        .from('meals')
-        .insert([{ 
-          user_id: user.id, 
-          name: mealName, 
-          ingredients, 
-          instructions, 
-          meal_tags: tagsArray 
-        }])
-        .select();
+        .from('profiles')
+        .select('is_admin, image_generation_count, last_image_generation_reset, recipe_generation_count, last_recipe_generation_reset, track_calories, ai_preferences')
+        .eq('id', userId)
+        .single();
+      if (error && error.code !== 'PGRST116') {
+        throw error;
+      }
+      return data;
+    },
+    enabled: !!userId,
+  });
 
-      if (error) throw error;
+  const combinedGenerationLimits = useMemo((): CombinedGenerationLimits => {
+    const defaultImageStatus: MealFormGenerationStatus = { generationsUsedThisMonth: 0, limitReached: true, isAdmin: false };
+    const defaultRecipeStatus = {
+      generationsUsedThisPeriod: 0,
+      limitReached: true,
+      daysRemainingInPeriod: RECIPE_GENERATION_PERIOD_DAYS,
+      periodResetsToday: false,
+      isAdmin: false
+    };
 
-      toast({ title: "Success!", description: "Meal added manually." });
-      navigate('/my-meals');
-    } catch (error: any) {
-      console.error("Error adding meal manually:", error);
-      toast({ title: "Error adding meal", description: error.message, variant: "destructive" });
-    } finally {
-      setIsLoading(false);
+    if (!userProfile) {
+      return { 
+        image: defaultImageStatus, 
+        recipe: defaultRecipeStatus,
+        showCaloriesField: false,
+        isLoadingProfile: isLoadingProfile 
+      };
     }
+    const isAdmin = userProfile.is_admin || false;
+    const currentMonthYear = formatDateFns(new Date(), "yyyy-MM");
+    let imgGenerationsUsed = userProfile.image_generation_count || 0;
+    if (userProfile.last_image_generation_reset !== currentMonthYear) {
+      imgGenerationsUsed = 0;
+    }
+    const imageStatus: MealFormGenerationStatus = {
+      generationsUsedThisMonth: imgGenerationsUsed,
+      limitReached: !isAdmin && (imgGenerationsUsed >= IMAGE_GENERATION_LIMIT_PER_MONTH),
+      isAdmin: isAdmin
+    };
+    const today = new Date();
+    let recipeGenerationsUsed = userProfile.recipe_generation_count || 0;
+    let daysRemaining = RECIPE_GENERATION_PERIOD_DAYS;
+    let recipePeriodResetsToday = false;
+    if (userProfile.last_recipe_generation_reset) {
+      try {
+        const lastResetDate = formatDateFns(new Date(userProfile.last_recipe_generation_reset), "yyyy-MM-dd");
+        const diffInDays = Math.floor((today.getTime() - new Date(lastResetDate).getTime()) / (1000 * 3600 * 24));
+        if (diffInDays >= RECIPE_GENERATION_PERIOD_DAYS) {
+          recipeGenerationsUsed = 0;
+          recipePeriodResetsToday = true;
+        } else {
+          daysRemaining = RECIPE_GENERATION_PERIOD_DAYS - diffInDays;
+        }
+      } catch (e) {
+        recipeGenerationsUsed = 0;
+        recipePeriodResetsToday = true;
+      }
+    } else {
+      recipeGenerationsUsed = 0;
+      recipePeriodResetsToday = true;
+    }
+    const recipeStatus = {
+      generationsUsedThisPeriod: recipeGenerationsUsed,
+      limitReached: !isAdmin && (recipeGenerationsUsed >= RECIPE_GENERATION_LIMIT_PER_PERIOD),
+      daysRemainingInPeriod: daysRemaining,
+      periodResetsToday: recipePeriodResetsToday,
+      isAdmin: isAdmin
+    };
+    return {
+      image: imageStatus,
+      recipe: recipeStatus,
+      showCaloriesField: userProfile.track_calories || false,
+      isLoadingProfile: isLoadingProfile
+    };
+  }, [userProfile, isLoadingProfile]);
+
+  const handleEditGeneratedMeal = (meal: GeneratedMeal) => {
+    setMealDataForManualForm(meal);
+    setActiveTab('add'); 
   };
 
-  const handleAiGenerate = async () => {
-    if (!user) {
-      toast({ title: "Error", description: "You must be logged in to generate a meal.", variant: "destructive" });
-      return;
-    }
-    if (!aiPrompt.trim()) {
-      toast({ title: "Prompt needed", description: "Please enter a description for the AI to generate a meal.", variant: "destructive" });
-      return;
-    }
-    setIsLoading(true);
-    try {
-      const generatedMeal = await generateMealWithAI(aiPrompt, user.id);
-      
-      setMealName(generatedMeal.name || '');
-      setIngredients(generatedMeal.ingredients || '');
-      setInstructions(generatedMeal.instructions || '');
-      setMealTags((generatedMeal.meal_tags || []).join(', '));
-      
-      toast({ title: "AI Meal Populated!", description: "Review and save the meal, or regenerate." });
-      setEntryMode('manual');
-    } catch (error: any) {
-      console.error("Error generating meal with AI:", error);
-      toast({ title: "AI Generation Failed", description: error.message || "Could not generate meal. Please try again.", variant: "destructive" });
-    } finally {
-      setIsLoading(false);
-    }
+  const mealFormInitialData = useMemo((): MealFormValues | null => {
+    if (!mealDataForManualForm) return null;
+    
+    // Ensure ingredients is always an array, even if empty
+    const ingredientsForForm = (mealDataForManualForm.ingredients || []).map(ing => ({
+      name: ing.name || "",
+      quantity: ing.quantity !== undefined && ing.quantity !== null ? String(ing.quantity) : "",
+      unit: ing.unit || "",
+      description: ing.description || "",
+    }));
+
+    return {
+      name: mealDataForManualForm.name || "",
+      ingredients: ingredientsForForm, // This will be [] if source was undefined or []
+      instructions: mealDataForManualForm.instructions || "",
+      meal_tags: mealDataForManualForm.meal_tags || [],
+      image_url: mealDataForManualForm.image_url || "",
+      estimated_calories: mealDataForManualForm.estimated_calories || "",
+      servings: mealDataForManualForm.servings || "",
+    };
+  }, [mealDataForManualForm]);
+
+  const handleMealFormInitialDataProcessed = () => {
+    // This callback could be used to clear mealDataForManualForm if needed,
+    // but the key change on MealForm might make this less critical.
+    // For now, let MealForm handle its own state once initialData is processed.
+  };
+  
+  const handleMealSaveSuccess = (savedMeal: {id: string, name: string}) => {
+    setMealDataForManualForm(null); // Clear data used for editing
+    setNewlySavedMealInfo(savedMeal);
+    setShowPostSavePlanner(true);
   };
 
-  const renderSelectionMode = () => (
-    <div className="flex flex-col items-center space-y-6">
-      <h2 className="text-2xl font-semibold text-gray-700 dark:text-gray-200">How would you like to add your meal?</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-md">
-        <Button 
-          onClick={() => setEntryMode('ai')} 
-          className="w-full py-6 text-lg bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
-          size="lg"
-        >
-          <Wand2 className="mr-2 h-6 w-6" /> Generate with AI
-        </Button>
-        <Button 
-          onClick={() => setEntryMode('manual')} 
-          className="w-full py-6 text-lg bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600"
-          size="lg"
-        >
-          <PlusCircle className="mr-2 h-6 w-6" /> Add Manually
-        </Button>
-      </div>
-    </div>
-  );
+  const handleClosePostSavePlanner = () => {
+    setShowPostSavePlanner(false);
+    setNewlySavedMealInfo(null);
+    setActiveTab('generate'); 
+  };
+  
+  const handleWeekNavigate = (direction: "prev" | "next") => {
+    setPlannerWeekStart(prev => addDays(prev, direction === "next" ? 7 : -7));
+  };
 
-  const renderAiMode = () => (
-    <Card className="w-full max-w-lg mx-auto">
-      <CardHeader>
-        <CardTitle className="text-2xl">Generate Meal with AI</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <Textarea
-          placeholder="e.g., 'A healthy chicken stir-fry with broccoli and brown rice, ready in 30 minutes'"
-          value={aiPrompt}
-          onChange={(e) => setAiPrompt(e.target.value)}
-          rows={4}
-          className="dark:bg-gray-700 dark:text-white"
-        />
-        <div className="flex justify-between items-center">
-          <Button onClick={() => setEntryMode('select')} variant="outline" className="dark:text-white dark:border-gray-600">Back</Button>
-          <Button onClick={handleAiGenerate} disabled={isLoading} className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600">
-            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-            Generate Meal
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-
-  const renderManualMode = () => (
-    <Card className="w-full max-w-lg mx-auto">
-      <CardHeader>
-        <CardTitle className="text-2xl">Add Meal Manually</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleManualSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="mealName" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Meal Name</label>
-            <Input
-              id="mealName"
-              type="text"
-              value={mealName}
-              onChange={(e) => setMealName(e.target.value)}
-              placeholder="e.g., Spaghetti Bolognese"
-              required
-              className="mt-1 dark:bg-gray-700 dark:text-white"
-            />
-          </div>
-          <div>
-            <label htmlFor="ingredients" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Ingredients</label>
-            <Textarea
-              id="ingredients"
-              value={ingredients}
-              onChange={(e) => setIngredients(e.target.value)}
-              placeholder="e.g., 200g pasta, 100g ground beef, 1 can chopped tomatoes..."
-              rows={5}
-              required
-              className="mt-1 dark:bg-gray-700 dark:text-white"
-            />
-             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Tip: You can list ingredients, or paste a block of text. The AI can help parse this later if needed.</p>
-          </div>
-          <div>
-            <label htmlFor="instructions" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Instructions</label>
-            <Textarea
-              id="instructions"
-              value={instructions}
-              onChange={(e) => setInstructions(e.target.value)}
-              placeholder="e.g., 1. Boil pasta. 2. Brown beef. 3. Add tomatoes and simmer..."
-              rows={8}
-              required
-              className="mt-1 dark:bg-gray-700 dark:text-white"
-            />
-          </div>
-          <div>
-            <label htmlFor="mealTags" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Meal Tags (comma-separated)</label>
-            <Input
-              id="mealTags"
-              type="text"
-              value={mealTags}
-              onChange={(e) => setMealTags(e.target.value)}
-              placeholder="e.g., italian, quick, dinner"
-              className="mt-1 dark:bg-gray-700 dark:text-white"
-            />
-          </div>
-          <div className="flex justify-between items-center pt-2">
-            <Button type="button" onClick={() => setEntryMode('select')} variant="outline" className="dark:text-white dark:border-gray-600">Back to Selection</Button>
-            <Button type="submit" disabled={isLoading} className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600">
-              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-              Add Meal
+  if (showPostSavePlanner && userId) {
+    return (
+      <div className={cn("min-h-screen bg-background text-foreground", isMobile ? "pt-4 pb-20 px-2" : "p-4")}>
+        <AppHeader />
+        <div className="container mx-auto space-y-6">
+          <div className="relative p-4 border rounded-lg shadow-lg bg-card">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="absolute top-2 left-2 text-muted-foreground hover:text-foreground"
+              onClick={handleClosePostSavePlanner}
+              aria-label="Close planner"
+            >
+              <X className="h-5 w-5" />
             </Button>
+            <h2 className="text-xl font-semibold text-center mb-2">
+              "{newlySavedMealInfo?.name}" saved!
+            </h2>
+            <p className="text-sm text-muted-foreground text-center mb-4">
+              Click a slot below to add it to your plan.
+            </p>
+            
+            <div className="flex justify-between items-center mb-4">
+              <Button variant="outline" size="sm" onClick={() => handleWeekNavigate("prev")}><ChevronLeft className="h-4 w-4 mr-1" /> Previous</Button>
+              <h3 className="text-lg font-semibold text-center text-foreground">{formatDateFns(plannerWeekStart, 'MMM dd')} - {formatDateFns(addDays(plannerWeekStart, 6), 'MMM dd, yyyy')}</h3>
+              <Button variant="outline" size="sm" onClick={() => handleWeekNavigate("next")}>Next <ChevronRight className="h-4 w-4 ml-1" /></Button>
+            </div>
+            <WeeklyPlanner 
+              userId={userId} 
+              currentWeekStart={plannerWeekStart} 
+              preSelectedMealId={newlySavedMealInfo?.id || null}
+              onMealPreSelectedAndPlanned={handleClosePostSavePlanner}
+            />
+            <div className="mt-6 text-center">
+              <Button onClick={handleClosePostSavePlanner}>Done Planning</Button>
+            </div>
           </div>
-        </form>
-      </CardContent>
-    </Card>
-  );
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="container mx-auto p-4 flex flex-col items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
-      <h1 className="text-5xl font-bold text-red-500 mb-8">TESTING</h1>
-      {entryMode === 'select' && renderSelectionMode()}
-      {entryMode === 'ai' && renderAiMode()}
-      {entryMode === 'manual' && renderManualMode()}
+    <div className={cn("min-h-screen bg-background text-foreground", isMobile ? "pt-4 pb-20 px-2" : "p-4")}>
+      <AppHeader />
+      <div className={cn("space-y-6", !isMobile && "container mx-auto")}>
+        
+        <div className="flex justify-between items-center mb-0">
+            <h1 className="text-xl sm:text-3xl font-bold flex items-center">
+              {activeTab === 'generate' ? <Brain className="mr-2 h-6 w-6" /> : <PlusCircle className="mr-2 h-6 w-6" />}
+              {activeTab === 'add' ? 'Add Your Own Meal' : 'Generate Meal with AI'}
+            </h1>
+        </div>
+        
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'generate' | 'add')} className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="generate">Generate with AI</TabsTrigger>
+            <TabsTrigger value="add">Add Manually</TabsTrigger>
+          </TabsList>
+          <TabsContent value="add" className="mt-4">
+            <MealForm 
+              key={mealDataForManualForm ? 'edit-mode' : 'add-mode'} // Key to force remount
+              generationStatus={combinedGenerationLimits.image} 
+              isLoadingProfile={combinedGenerationLimits.isLoadingProfile}
+              showCaloriesField={combinedGenerationLimits.showCaloriesField}
+              initialData={mealFormInitialData}
+              onInitialDataProcessed={handleMealFormInitialDataProcessed}
+              onSaveSuccess={handleMealSaveSuccess}
+            />
+          </TabsContent>
+          <TabsContent value="generate" className="mt-4">
+            <GenerateMealFlow 
+              recipeGenerationStatus={combinedGenerationLimits.recipe}
+              imageGenerationStatus={combinedGenerationLimits.image}
+              isLoadingProfile={combinedGenerationLimits.isLoadingProfile}
+              userProfile={userProfile ? { 
+                ai_preferences: userProfile.ai_preferences, 
+                track_calories: userProfile.track_calories 
+              } : null}
+              onEditGeneratedMeal={handleEditGeneratedMeal}
+              onSaveSuccess={handleMealSaveSuccess}
+            />
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 };
