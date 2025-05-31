@@ -332,17 +332,17 @@ const MealList = () => {
                           variant="outline" 
                           onClick={(e) => { e.stopPropagation(); handleEditClick(meal); }} 
                           aria-label="Edit meal"
-                          className="h-7 w-7 sm:h-8 sm:w-8 md:h-10 md:w-10 p-0" 
+                          className="h-8 w-8 p-0" 
                         >
-                          <Edit3 className="h-4 w-4 sm:h-4 sm:w-4 md:h-5 md:w-5" /> 
+                          <Edit3 className="h-4 w-4" /> 
                         </Button>
                         <Button 
                           variant="destructive" 
                           onClick={(e) => { e.stopPropagation(); handleDeleteClick(meal); }} 
                           aria-label="Delete meal"
-                          className="h-7 w-7 sm:h-8 sm:w-8 md:h-10 md:w-10 p-0" 
+                          className="h-8 w-8 p-0"
                         >
-                          <Trash2 className="h-4 w-4 sm:h-4 sm:w-4 md:h-5 md:w-5" /> 
+                          <Trash2 className="h-4 w-4" /> 
                         </Button>
                       </div>
                     </div>
@@ -371,7 +371,7 @@ const MealList = () => {
                     <div className="flex sm:hidden space-x-2 mt-3 pt-3 border-t">
                       <Button 
                         variant="outline" 
-                        className="flex-1 h-7 p-0 flex items-center justify-center"
+                        className="flex-1 h-8 p-0 flex items-center justify-center"
                         onClick={(e) => { e.stopPropagation(); handleEditClick(meal); }} 
                         aria-label="Edit meal"
                       >
@@ -379,7 +379,7 @@ const MealList = () => {
                       </Button>
                       <Button 
                         variant="destructive" 
-                        className="flex-1 h-7 p-0 flex items-center justify-center"
+                        className="flex-1 h-8 p-0 flex items-center justify-center"
                         onClick={(e) => { e.stopPropagation(); handleDeleteClick(meal); }} 
                         aria-label="Delete meal"
                       >

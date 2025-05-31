@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { showSuccess, showError, showLoading, dismissToast } from "@/utils/toast";
 import { MEAL_TAG_OPTIONS, MealTag } from "@/lib/constants";
@@ -137,7 +137,24 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
     enabled: !!meal && open, 
   });
 
-  const generationStatus = useState<GenerationStatusInfo | null>(null);
+  const generationStatus = useMemo((): GenerationStatusInfo | null => {
+    if (!userProfile) return null;
+    const { image_generation_count = 0, last_image_generation_reset, is_admin = false } = userProfile;
+
+    let generationsUsed = image_generation_count;
+    const today = new Date();
+    const currentMonth = today.getFullYear() + '-' + (today.getMonth() + 1); 
+
+    if (last_image_generation_reset !== currentMonth) {
+      generationsUsed = 0; 
+    }
+
+    return {
+      generationsUsedThisMonth: generationsUsed,
+      limitReached: !is_admin && generationsUsed >= IMAGE_GENERATION_LIMIT_PER_MONTH,
+      isAdmin: is_admin,
+    };
+  }, [userProfile]);
 
   useEffect(() => {
     if (meal && open) {
@@ -376,20 +393,20 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
                                 !form.watch('name') ||
                                 generateImageMutation.isPending ||
                                 isLoadingUserProfile ||
-                                (userProfile && !userProfile.is_admin && userProfile.image_generation_count >= IMAGE_GENERATION_LIMIT_PER_MONTH)
+                                (generationStatus && !generationStatus.isAdmin && generationStatus.limitReached) 
                               }
                               className="w-full"
                             >
                               <Brain className="mr-2 h-4 w-4" /> Generate Image with AI
                             </Button>
-                            {(isLoadingUserProfile || userProfile) && (
+                            {(isLoadingUserProfile || generationStatus) && (
                               <div className="text-xs text-muted-foreground text-center">
                                 <Info size={14} className="inline mr-1 flex-shrink-0" />
                                 {isLoadingUserProfile && "Loading AI generation limit..."}
-                                {!isLoadingUserProfile && userProfile && (
-                                  userProfile.is_admin
+                                {!isLoadingUserProfile && generationStatus && (
+                                  generationStatus.isAdmin
                                     ? "Admin: Limits bypassed for AI generation."
-                                    : `AI Generations Used: ${userProfile.image_generation_count}/${IMAGE_GENERATION_LIMIT_PER_MONTH}.`
+                                    : `AI Generations Used: ${generationStatus.generationsUsedThisMonth}/${IMAGE_GENERATION_LIMIT_PER_MONTH}.`
                                 )}
                               </div>
                             )}
