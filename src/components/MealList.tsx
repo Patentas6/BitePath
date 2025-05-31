@@ -73,8 +73,8 @@ const MealList = () => {
 
   useEffect(() => {
     const handler = setTimeout(() => {
-      setDebouncedSearchTerm(searchInput);
-    }, 500); 
+      setDebouncedSearchTerm(searchInput.toLowerCase()); 
+    }, 300); 
 
     return () => {
       clearTimeout(handler);
@@ -106,26 +106,16 @@ const MealList = () => {
     isLoading: isLoadingMealsData, 
     isFetchingNextPage, 
     error,
-  } = useInfiniteQuery<Meal[], Error, Meal[], Meal[], { userId: string | null; searchTerm: string; selectedCategory: string }>(
+  } = useInfiniteQuery<Meal[], Error, Meal[], Meal[], { userId: string | null }>(
     {
-      queryKey: ["mealsInfinite", userId, debouncedSearchTerm, selectedCategory], 
-      queryFn: async ({ pageParam = 0, queryKey: [, , currentSearchTerm, currentSelectedCategory] }) => { 
-        if (!userId) return [];
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error("User not logged in.");
-
+      queryKey: ["mealsInfinite", userId], 
+      queryFn: async ({ pageParam = 0, queryKey: [, currentUserId] }) => { 
+        if (!currentUserId) return [];
         let query = supabase
           .from("meals")
           .select("id, name, ingredients, instructions, user_id, meal_tags, image_url, estimated_calories, servings")
-          .eq("user_id", user.id);
+          .eq("user_id", currentUserId); 
 
-        if (currentSearchTerm) {
-          query = query.ilike("name", `%${currentSearchTerm}%`);
-        }
-        if (currentSelectedCategory !== 'all') {
-          query = query.contains("meal_tags", [currentSelectedCategory]);
-        }
-        
         query = query.order('created_at', { ascending: false })
           .range(pageParam * PAGE_SIZE, (pageParam + 1) * PAGE_SIZE - 1);
 
@@ -142,13 +132,30 @@ const MealList = () => {
     }
   );
 
+  const allFetchedMeals = useMemo(() => mealsData?.pages.flatMap(page => page) || [], [mealsData]);
+
+  const filteredMeals = useMemo(() => { 
+    let mealsToFilter = allFetchedMeals;
+
+    if (selectedCategory !== 'all') {
+      mealsToFilter = mealsToFilter.filter(meal => 
+        meal.meal_tags && meal.meal_tags.includes(selectedCategory)
+      );
+    }
+
+    if (debouncedSearchTerm) {
+      mealsToFilter = mealsToFilter.filter(meal =>
+        meal.name.toLowerCase().includes(debouncedSearchTerm)
+      );
+    }
+    return mealsToFilter;
+  }, [allFetchedMeals, debouncedSearchTerm, selectedCategory]);
+
   useEffect(() => { 
     if (isScrollTriggerVisible && hasNextPage && !isFetchingNextPage) {
       fetchNextPage();
     }
   }, [isScrollTriggerVisible, hasNextPage, isFetchingNextPage, fetchNextPage]);
-
-  const meals = useMemo(() => mealsData?.pages.flatMap(page => page) || [], [mealsData]);
 
   const deleteMealMutation = useMutation({
     mutationFn: async (mealId: string) => {
@@ -165,7 +172,7 @@ const MealList = () => {
     },
     onSuccess: () => {
       showSuccess("Meal deleted successfully!");
-      queryClient.invalidateQueries({ queryKey: ["mealsInfinite", userId, debouncedSearchTerm, selectedCategory] }); 
+      queryClient.invalidateQueries({ queryKey: ["mealsInfinite", userId] }); 
       queryClient.invalidateQueries({ queryKey: ["mealPlans"] });
       queryClient.invalidateQueries({ queryKey: ["groceryListSource"] });
       queryClient.invalidateQueries({ queryKey: ["todaysGroceryListSource"] });
@@ -194,13 +201,11 @@ const MealList = () => {
     }
   };
 
-  const uniqueCategories = useMemo(() => {
-    if (!meals) return [];
-    const allTags = meals.flatMap(meal => meal.meal_tags || []).filter(Boolean) as string[];
+  const uniqueCategories = useMemo(() => { 
+    if (!allFetchedMeals) return [];
+    const allTags = allFetchedMeals.flatMap(meal => meal.meal_tags || []).filter(Boolean) as string[];
     return Array.from(new Set(allTags)).sort();
-  }, [meals]);
-
-  const filteredMeals = meals; 
+  }, [allFetchedMeals]);
 
   const formatIngredientsDisplay = (ingredientsString: string | null | undefined): string => {
     if (!ingredientsString) return 'No ingredients listed.';
@@ -223,9 +228,9 @@ const MealList = () => {
     }
   };
   
-  const overallIsLoading = isLoadingUserProfile || (isLoadingMealsData && !mealsData?.pages.length); 
+  const overallIsLoading = isLoadingUserProfile || (isLoadingMealsData && !allFetchedMeals.length); 
 
-  if (overallIsLoading && !meals.length) { 
+  if (overallIsLoading && !allFetchedMeals.length && !debouncedSearchTerm && selectedCategory === 'all') { 
     return (
       <Card className="hover:shadow-lg transition-shadow duration-200">
         <CardHeader><CardTitle>My Meals</CardTitle></CardHeader>
@@ -300,16 +305,20 @@ const MealList = () => {
             </div>
           </div>
 
-          {!isLoadingMealsData && !isFetchingNextPage && !overallIsLoading && (
+          {/* Client-side "No Results" Logic */}
+          {/* Show only if not initial loading and not fetching more */}
+          {!isLoadingMealsData && !isFetchingNextPage && ( 
             <>
-              {meals.length === 0 && (debouncedSearchTerm || selectedCategory !== 'all') && (
+              {/* Case 1: Filters are active, but client-side filtering results in no meals */}
+              {allFetchedMeals.length > 0 && filteredMeals.length === 0 && (debouncedSearchTerm || selectedCategory !== 'all') && (
                 <div className="text-center py-6 text-muted-foreground">
                   <Search className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500 mb-3" />
                   <p className="text-lg">No meals match your current filters.</p>
-                  <p className="text-sm">Try a different search term or category.</p>
+                  <p className="text-sm">Try a different search term or category, or clear filters.</p>
                 </div>
               )}
-              {meals.length === 0 && !debouncedSearchTerm && selectedCategory === 'all' && (
+              {/* Case 2: No meals fetched from server at all, and no filters active */}
+              {allFetchedMeals.length === 0 && !debouncedSearchTerm && selectedCategory === 'all' && !overallIsLoading && (
                 <div className="text-center py-6 text-muted-foreground">
                   <ChefHat className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500 mb-4" />
                   <p className="text-lg font-semibold mb-1">No Meals Yet!</p>
@@ -319,7 +328,7 @@ const MealList = () => {
             </>
           )}
 
-          {filteredMeals && filteredMeals.length > 0 && (
+          {filteredMeals && filteredMeals.length > 0 && ( 
             <div className={cn(
               layoutView === 'list' ? 'space-y-3' : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'
             )}>
