@@ -196,14 +196,15 @@ const MealList = () => {
     queryKey: ['mealCategories', userId],
     queryFn: async () => {
         if (!userId) return [];
-        console.log("[MealList] Fetching unique categories for user:", userId); 
+        console.log("[MealList] CATEGORIES: Fetching for user:", userId); 
         const { data, error } = await supabase.rpc('get_unique_meal_tags', { p_user_id: userId });
         if (error) {
-            console.error("[MealList] Error fetching unique categories via RPC:", error); 
+            console.error("[MealList] CATEGORIES: Error fetching via RPC:", error); 
             return []; 
         }
-        console.log("[MealList] Received unique categories from RPC:", data); 
-        return data || []; 
+        // IMPORTANT: Log the raw data received from RPC
+        console.log("[MealList] CATEGORIES: Received from RPC:", JSON.stringify(data)); 
+        return data || []; // Ensure it returns an array even if RPC returns null
     },
     enabled: !!userId,
   });
@@ -211,7 +212,7 @@ const MealList = () => {
 
   useEffect(() => { 
     if (categoriesError) {
-      console.error("[MealList] categoriesError state updated:", categoriesError);
+      console.error("[MealList] CATEGORIES: Query error state updated:", categoriesError);
       showError("Could not load meal categories.");
     }
   }, [categoriesError]);
@@ -240,7 +241,23 @@ const MealList = () => {
     }
   };
 
-  if (isLoading && (!mealsData?.pages || mealsData.pages.length === 0)) { 
+  // Log current loading states before rendering decisions
+  console.log(
+    "[MealList] LOADING STATE CHECK:",
+    { 
+      status, // 'pending', 'success', 'error'
+      isLoading, // from useInfiniteQuery, should be true only if status is 'pending' and no data
+      isFetching, // true if any fetch is ongoing
+      isFetchingNextPage,
+      mealsDataPagesLength: mealsData?.pages?.length,
+      allMealsLength: allMeals.length 
+    }
+  );
+
+  // Condition for the main full-page skeleton loader:
+  // Show if the query status is 'pending' (initial load) AND there are truly no meals (not even stale ones).
+  if (status === 'pending' && allMeals.length === 0) { 
+    console.log("[MealList] RENDERING: Full Skeleton Loader");
     return (
       <Card className="hover:shadow-lg transition-shadow duration-200">
         <CardHeader><CardTitle>My Meals</CardTitle></CardHeader>
@@ -261,8 +278,9 @@ const MealList = () => {
     );
   }
 
-  if (status === 'error' && mealsError && !allMeals.length) { 
-    console.error("Error fetching meals:", mealsError);
+  // Full page error if loading failed and there's no stale data to show
+  if (status === 'error' && mealsError && allMeals.length === 0) { 
+    console.log("[MealList] RENDERING: Full Error Message");
     return (
       <Card className="hover:shadow-lg transition-shadow duration-200">
         <CardHeader><CardTitle>My Meals</CardTitle></CardHeader>
@@ -271,7 +289,12 @@ const MealList = () => {
     );
   }
   
-  const showHeaderSpinner = isFetching && !isLoading && !isFetchingNextPage;
+  // Spinner in header for subsequent fetches (e.g., filter changes) when stale data might be visible
+  // Show if: fetching, not initial load (status is not 'pending' or allMeals exist), not fetching next page
+  const showHeaderSpinner = isFetching && !isFetchingNextPage && (status !== 'pending' || allMeals.length > 0);
+  if (showHeaderSpinner) {
+    console.log("[MealList] RENDERING: Header Spinner");
+  }
 
   return (
     <>
@@ -343,7 +366,7 @@ const MealList = () => {
             </div>
           </div>
 
-          {status !== 'pending' && !isLoading && allMeals.length === 0 && !isFetching && ( 
+          {status !== 'pending' && allMeals.length === 0 && !isFetching && (
             <div className="text-center py-6 text-muted-foreground">
               <ChefHat className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500 mb-4" />
               <p className="text-lg font-semibold mb-1">
@@ -480,7 +503,7 @@ const MealList = () => {
               })}
             </div>
           )}
-
+          
           <div ref={loadMoreRef} className="h-10 flex justify-center items-center">
             {isFetchingNextPage && <Loader2 className="h-6 w-6 animate-spin text-primary" />}
             {!hasNextPage && allMeals.length > 0 && status !== 'pending' && !isFetching && ( 
