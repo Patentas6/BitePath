@@ -20,7 +20,7 @@ const mealSchema = z.object({
   mealName: z.string().min(1, "Meal name is required"),
   ingredients: z.string().min(1, "Ingredients are required"),
   instructions: z.string().min(1, "Instructions are required"),
-  servings: z.string().min(1, "Number of servings is required"), 
+  servings: z.string({ required_error: "Number of servings is required." }).min(1, "Number of servings is required"), 
   mealTags: z.string().optional(),
   estimatedCalories: z.string().optional(),
 });
@@ -122,7 +122,7 @@ const AddMealPage: React.FC = () => {
               <Controller
                 name="servings"
                 control={control}
-                defaultValue="2" // Ensure a default value is set for the controller
+                defaultValue="2" 
                 render={({ field }) => (
                   <Select onValueChange={field.onChange} value={field.value}>
                     <SelectTrigger id="servings">
@@ -135,6 +135,7 @@ const AddMealPage: React.FC = () => {
                       <SelectItem value="4">4 Servings</SelectItem>
                       <SelectItem value="5">5 Servings</SelectItem>
                       <SelectItem value="6">6 Servings</SelectItem>
+                      {/* Add more items if needed */}
                     </SelectContent>
                   </Select>
                 )}
