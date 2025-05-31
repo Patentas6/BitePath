@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React,  useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { useNavigate } from 'react-router-dom'; // Changed from next/navigation
+import { supabase } from '@/integrations/supabase/client'; // Ensure this path is correct
+import { useNavigate } from 'react-router-dom';
 import { Loader2, Wand2, PlusCircle } from 'lucide-react';
 import { generateMealWithAI } from '@/lib/ai';
 import { useSession } from '@/integrations/supabase/SessionContext';
@@ -21,14 +21,14 @@ const ManageMealEntryPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
   const { toast } = useToast();
-  const navigate = useNavigate(); // Changed from useRouter
+  const navigate = useNavigate();
   const { session } = useSession();
   const user = session?.user;
 
   useEffect(() => {
-    if (!user && !session) { // Check if session is also null to avoid redirect during initial load
-      // Only navigate if the session has been checked and there's no user
-    } else if (!user && session !== undefined) {
+    if (!user && !session) { 
+      // Session still loading or not available
+    } else if (!user && session !== undefined) { // Session loaded, but no user
       navigate('/login');
     }
   }, [user, session, navigate]);
@@ -56,7 +56,7 @@ const ManageMealEntryPage = () => {
       if (error) throw error;
 
       toast({ title: "Success!", description: "Meal added manually." });
-      navigate('/my-meals'); // Changed from router.push
+      navigate('/my-meals');
     } catch (error: any) {
       console.error("Error adding meal manually:", error);
       toast({ title: "Error adding meal", description: error.message, variant: "destructive" });
