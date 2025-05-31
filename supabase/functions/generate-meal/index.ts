@@ -137,8 +137,32 @@ serve(async (req) => {
     const accessToken = await getAccessToken(serviceAccountJsonString);
     console.log("Successfully obtained access token.");
 
-    const { prompt, preferences } = await req.json();
+    let prompt, preferences;
+    try {
+      console.log("Attempting to parse request body as JSON...");
+      const requestData = await req.json();
+      prompt = requestData.prompt;
+      preferences = requestData.preferences;
+      console.log("Successfully parsed request body. Prompt:", prompt, "Preferences:", preferences);
+    } catch (jsonError) {
+      console.error("Failed to parse request body as JSON:", jsonError.message, jsonError.stack);
+      // Log the raw body text if possible, for debugging
+      try {
+        // req.text() can only be called once, so if req.json() failed, this might also fail or return empty
+        // This is a best-effort attempt to log the body
+        const rawBody = await req.text(); // This line might be problematic if body already read or not text
+        console.error("Raw request body (attempted):", rawBody);
+      } catch (textError) {
+        console.error("Could not get raw text of request body:", textError.message);
+      }
+      return new Response(JSON.stringify({ error: "Invalid request body: Not valid JSON.", details: jsonError.message }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (!prompt) {
+      console.log("Prompt is missing from request body after parsing.");
       return new Response(JSON.stringify({ error: "Missing 'prompt' in request body" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -146,10 +170,10 @@ serve(async (req) => {
     }
     
     const fullPrompt = `Generate a meal recipe based on the following: ${prompt}. Preferences: ${preferences || 'No specific preferences.'}`;
+    console.log("Constructed full prompt:", fullPrompt);
 
-    // --- Using the specified model ID ---
     const modelId = "gemini-2.5-flash-preview-05-20"; 
-    const region = "us-central1"; // As noted in comments above
+    const region = "us-central1";
     const apiUrl = `https://${region}-aiplatform.googleapis.com/v1/projects/${googleProjectId}/locations/${region}/publishers/google/models/${modelId}:generateContent`;
 
     console.log(`Sending request to Vertex AI: ${apiUrl}`);
@@ -163,11 +187,6 @@ serve(async (req) => {
         contents: [{
           parts: [{ text: fullPrompt }],
         }],
-        // generation_config: { // You can uncomment and adjust these if needed
-        //   "maxOutputTokens": 8192, // Max for gemini-1.5-flash is 8192, check for 2.5
-        //   "temperature": 1.0,    // Default is 1.0 for flash models
-        //   "topP": 0.95,          // Default is 0.95 for flash models
-        // }
       }),
     });
 
