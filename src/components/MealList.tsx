@@ -202,8 +202,8 @@ const MealList = () => {
             console.error("[MealList] Error fetching unique categories via RPC:", error); 
             return []; 
         }
-        console.log("[MealList] Received unique categories:", data); 
-        return data || [];
+        console.log("[MealList] Received unique categories from RPC:", data); 
+        return data || []; 
     },
     enabled: !!userId,
   });
@@ -240,7 +240,7 @@ const MealList = () => {
     }
   };
 
-  if (isLoading && !allMeals.length) { 
+  if (isLoading && (!mealsData?.pages || mealsData.pages.length === 0)) { 
     return (
       <Card className="hover:shadow-lg transition-shadow duration-200">
         <CardHeader><CardTitle>My Meals</CardTitle></CardHeader>
@@ -314,7 +314,7 @@ const MealList = () => {
                     {uniqueCategories.map(category => (
                       <SelectItem key={category} value={category}>{category}</SelectItem>
                     ))}
-                    {!uniqueCategories.length && ( 
+                    {!isLoadingCategories && uniqueCategories.length === 0 && ( 
                       <SelectItem value="no_cats" disabled>No categories found</SelectItem>
                     )}
                   </>
