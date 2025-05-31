@@ -35,14 +35,7 @@ interface Meal extends MealForEditing {
   servings?: string | null;
 }
 
-// interface ParsedIngredient { // Keep if formatIngredientsDisplay is complex, otherwise can be simplified
-//   name: string;
-//   quantity: number | string | null;
-//   unit: string;
-//   description?: string;
-// }
-
-const PAGE_SIZE = 10; // Number of meals to fetch per page
+const PAGE_SIZE = 10; 
 
 const MealList = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -63,7 +56,7 @@ const MealList = () => {
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm);
-    }, 500); // Debounce search term by 500ms
+    }, 500); 
     return () => clearTimeout(handler);
   }, [searchTerm]);
 
@@ -107,7 +100,7 @@ const MealList = () => {
       query = query.ilike('name', `%${debouncedSearchTerm.trim()}%`);
     }
     if (selectedCategory !== 'all') {
-      query = query.cs('meal_tags', `{${selectedCategory}}`); // Assumes meal_tags is array of strings
+      query = query.cs('meal_tags', `{${selectedCategory}}`); 
     }
 
     const { data, error, count } = await query;
@@ -124,7 +117,8 @@ const MealList = () => {
     data: mealsData,
     fetchNextPage,
     hasNextPage,
-    isLoading: isLoadingMeals,
+    isLoading, 
+    isFetching, 
     isFetchingNextPage,
     error: mealsError,
     status,
@@ -133,12 +127,12 @@ const MealList = () => {
     queryFn: fetchMeals,
     getNextPageParam: (lastPage) => lastPage.nextPage,
     enabled: !!userId,
-    initialPageParam: 0, // Ensure initialPageParam is set
+    initialPageParam: 0, 
+    keepPreviousData: true, 
   });
 
   const allMeals = useMemo(() => mealsData?.pages.flatMap(page => page.data) ?? [], [mealsData]);
 
-  // Intersection Observer for infinite scrolling
   useEffect(() => {
     if (observerRef.current) observerRef.current.disconnect();
 
@@ -160,14 +154,12 @@ const MealList = () => {
 
   const deleteMealMutation = useMutation({
     mutationFn: async (mealId: string) => {
-      // User check already in original code, assuming it's fine
-      const { error } = await supabase.from("meals").delete().eq("id", mealId).eq("user_id", userId!); // Added userId check
+      const { error } = await supabase.from("meals").delete().eq("id", mealId).eq("user_id", userId!); 
       if (error) throw error;
     },
     onSuccess: () => {
       showSuccess("Meal deleted successfully!");
       queryClient.invalidateQueries({ queryKey: ["meals", userId, debouncedSearchTerm, selectedCategory] });
-      // Invalidate other relevant queries
       queryClient.invalidateQueries({ queryKey: ["mealPlans"] });
       queryClient.invalidateQueries({ queryKey: ["groceryListSource"] });
       queryClient.invalidateQueries({ queryKey: ["todaysGroceryListSource"] });
@@ -196,8 +188,6 @@ const MealList = () => {
     }
   };
 
-  // Fetch unique categories - this could be a separate query for better UX
-  // For now, deriving from loaded meals. This means it might not show all available tags initially.
   const { data: uniqueCategoriesData } = useQuery<string[]>({
     queryKey: ['mealCategories', userId],
     queryFn: async () => {
@@ -217,13 +207,10 @@ const MealList = () => {
   const formatIngredientsDisplay = (ingredientsString: string | null | undefined): string => {
     if (!ingredientsString) return 'No ingredients listed.';
     try {
-      // Assuming ingredientsString is a JSON array of objects like [{name: "Tomato"}, {name: "Basil"}]
-      // or a simple comma-separated string for fallback.
       let parsedIngredients: { name: string }[];
       if (ingredientsString.startsWith('[')) {
         parsedIngredients = JSON.parse(ingredientsString);
       } else {
-        // Handle simple comma-separated string if not JSON
         parsedIngredients = ingredientsString.split(',').map(name => ({ name: name.trim() }));
       }
       
@@ -236,15 +223,14 @@ const MealList = () => {
       }
       return 'No ingredients listed or format error.';
     } catch (e) {
-      // Fallback for non-JSON or malformed JSON string
       const maxLength = 70;
       return ingredientsString.substring(0, maxLength) + (ingredientsString.length > maxLength ? '...' : '');
     }
   };
 
-  const overallIsLoading = (isLoadingUserProfile && !userProfile) || (isLoadingMeals && !mealsData?.pages.length);
+  const showHeaderSpinner = isFetching && !isLoading && !isFetchingNextPage;
 
-  if (status === 'pending' && !allMeals.length) { // Changed from overallIsLoading
+  if (status === 'pending' && !allMeals.length) { 
     return (
       <Card className="hover:shadow-lg transition-shadow duration-200">
         <CardHeader><CardTitle>My Meals</CardTitle></CardHeader>
@@ -279,7 +265,12 @@ const MealList = () => {
     <>
       <Card className="hover:shadow-lg transition-shadow duration-200">
         <CardHeader>
-          <CardTitle>My Meals</CardTitle>
+          <div className="flex items-center justify-between"> 
+            <CardTitle>My Meals</CardTitle>
+            {showHeaderSpinner && ( 
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            )}
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-col sm:flex-row gap-4 items-center">
@@ -291,9 +282,14 @@ const MealList = () => {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 w-full"
+                disabled={isFetching && !isFetchingNextPage} 
               />
             </div>
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+            <Select 
+              value={selectedCategory} 
+              onValueChange={setSelectedCategory}
+              disabled={isFetching && !isFetchingNextPage} 
+            >
               <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue placeholder="Filter by category" />
               </SelectTrigger>
@@ -470,7 +466,6 @@ const MealList = () => {
               <p className="text-sm text-muted-foreground">No more meals to load.</p>
             )}
           </div>
-
         </CardContent>
       </Card>
 
