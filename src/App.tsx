@@ -20,6 +20,7 @@ import GroceryListPage from "./pages/GroceryListPage";
 import PlanningPage from "./pages/PlanningPage";
 import DiscoverMealsPage from "./pages/DiscoverMealsPage"; 
 import MealDetailPage from "./pages/MealDetailPage";
+import RootHandler from "./components/RootHandler";
 
 const queryClient = new QueryClient();
 
@@ -39,72 +40,16 @@ const App = () => {
             <>
               <BetaDisclaimerBanner />
               <Routes>
-                <Route path="/" element={<Index />} />
+                <Route path="/" element={<RootHandler />} />
                 <Route path="/auth" element={<Auth />} />
-                <Route
-                  path="/dashboard"
-                  element={
-                    <ProtectedRoute>
-                      <Dashboard />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/profile"
-                  element={
-                    <ProtectedRoute>
-                      <ProfilePage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/meals"
-                  element={
-                    <ProtectedRoute>
-                      <MealsPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/meal/:mealId" 
-                  element={
-                    <ProtectedRoute>
-                      <MealDetailPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/manage-meal-entry" 
-                  element={
-                    <ProtectedRoute>
-                      <ManageMealEntryPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/grocery-list" 
-                  element={
-                    <ProtectedRoute>
-                      <GroceryListPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/planning"
-                  element={
-                    <ProtectedRoute>
-                      <PlanningPage />
-                    </ProtectedRoute>
-                  }
-                />
-                 <Route
-                  path="/discover-meals"
-                  element={
-                    <ProtectedRoute>
-                      <DiscoverMealsPage />
-                    </ProtectedRoute>
-                  }
-                />
+                <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+                <Route path="/meals" element={<ProtectedRoute><MealsPage /></ProtectedRoute>} />
+                <Route path="/meal/:mealId" element={<ProtectedRoute><MealDetailPage /></ProtectedRoute>} />
+                <Route path="/manage-meal-entry" element={<ProtectedRoute><ManageMealEntryPage /></ProtectedRoute>} />
+                <Route path="/grocery-list" element={<ProtectedRoute><GroceryListPage /></ProtectedRoute>} />
+                <Route path="/planning" element={<ProtectedRoute><PlanningPage /></ProtectedRoute>} />
+                <Route path="/discover-meals" element={<ProtectedRoute><DiscoverMealsPage /></ProtectedRoute>} />
                 <Route path="/feedback" element={<FeedbackPage />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
