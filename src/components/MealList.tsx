@@ -332,17 +332,17 @@ const MealList = () => {
                           variant="outline" 
                           onClick={(e) => { e.stopPropagation(); handleEditClick(meal); }} 
                           aria-label="Edit meal"
-                          className="h-10 w-10 sm:h-12 sm:w-12 md:h-14 md:w-14 p-0" 
+                          className="h-7 w-7 sm:h-8 sm:w-8 md:h-10 md:w-10 p-0" 
                         >
-                          <Edit3 className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7" /> 
+                          <Edit3 className="h-4 w-4 sm:h-4 sm:w-4 md:h-5 md:w-5" /> 
                         </Button>
                         <Button 
                           variant="destructive" 
                           onClick={(e) => { e.stopPropagation(); handleDeleteClick(meal); }} 
                           aria-label="Delete meal"
-                          className="h-10 w-10 sm:h-12 sm:w-12 md:h-14 md:w-14 p-0" 
+                          className="h-7 w-7 sm:h-8 sm:w-8 md:h-10 md:w-10 p-0" 
                         >
-                          <Trash2 className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7" /> 
+                          <Trash2 className="h-4 w-4 sm:h-4 sm:w-4 md:h-5 md:w-5" /> 
                         </Button>
                       </div>
                     </div>
@@ -371,21 +371,19 @@ const MealList = () => {
                     <div className="flex sm:hidden space-x-2 mt-3 pt-3 border-t">
                       <Button 
                         variant="outline" 
-                        size="icon"
+                        className="flex-1 h-7 p-0 flex items-center justify-center"
                         onClick={(e) => { e.stopPropagation(); handleEditClick(meal); }} 
                         aria-label="Edit meal"
-                        className="flex-1 h-10"
                       >
-                        <Edit3 className="h-5 w-5" />
+                        <Edit3 className="h-4 w-4" /> 
                       </Button>
                       <Button 
                         variant="destructive" 
-                        size="icon"
+                        className="flex-1 h-7 p-0 flex items-center justify-center"
                         onClick={(e) => { e.stopPropagation(); handleDeleteClick(meal); }} 
                         aria-label="Delete meal"
-                        className="flex-1 h-10"
                       >
-                        <Trash2 className="h-5 w-5" />
+                        <Trash2 className="h-4 w-4" /> 
                       </Button>
                     </div>
                   </div>

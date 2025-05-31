@@ -4,8 +4,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { showSuccess, showError } from "@/utils/toast";
+import { showSuccess, showError, showLoading, dismissToast } from "@/utils/toast";
 import { MEAL_TAG_OPTIONS, MealTag } from "@/lib/constants";
+import { IMAGE_GENERATION_LIMIT_PER_MONTH } from "@/lib/constants";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -27,11 +28,13 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { PlusCircle, Trash2, Zap, Users } from "lucide-react"; 
+import { PlusCircle, Trash2, Zap, Users, Brain, Info, Link2, XCircle } from "lucide-react"; 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { UNITS } from "./MealForm"; 
+import { LazyLoadImage } from 'react-lazy-load-image-component'; 
+import 'react-lazy-load-image-component/src/effects/blur.css'; 
 
 const ingredientSchema = z.object({
   name: z.string().min(1, { message: "Ingredient name is required." }),
@@ -63,6 +66,7 @@ const mealFormSchema = z.object({
   meal_tags: z.array(z.string()).optional(),
   estimated_calories: z.string().optional(), 
   servings: z.string().optional(), 
+  image_url: z.string().optional(), 
 });
 
 type MealFormValues = z.infer<typeof mealFormSchema>;
@@ -85,9 +89,16 @@ interface EditMealDialogProps {
   meal: MealForEditing | null;
 }
 
+interface GenerationStatusInfo {
+  generationsUsedThisMonth: number;
+  limitReached: boolean;
+  isAdmin: boolean;
+}
+
 const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, meal }) => {
   const queryClient = useQueryClient();
   const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
+  const [showImageUrlInput, setShowImageUrlInput] = useState(false); 
 
   const form = useForm<MealFormValues>({
     resolver: zodResolver(mealFormSchema),
@@ -98,6 +109,7 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
       meal_tags: [],
       estimated_calories: "", 
       servings: "", 
+      image_url: "", 
     },
   });
 
@@ -105,6 +117,27 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
     control: form.control,
     name: "ingredients",
   });
+
+  const { data: userProfile, isLoading: isLoadingUserProfile } = useQuery({
+    queryKey: ['userProfileForEditMealImageGeneration', meal?.user_id],
+    queryFn: async () => {
+      if (!meal?.user_id) return null;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('image_generation_count, last_image_generation_reset, is_admin')
+        .eq('id', meal.user_id)
+        .single();
+      if (error && error.code !== 'PGRST116') { 
+        console.error("Error fetching profile for image generation limits:", error);
+        showError("Could not load your image generation allowance.");
+        return null;
+      }
+      return data;
+    },
+    enabled: !!meal && open, 
+  });
+
+  const generationStatus = useState<GenerationStatusInfo | null>(null);
 
   useEffect(() => {
     if (meal && open) {
@@ -132,7 +165,9 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
         meal_tags: meal.meal_tags || [],
         estimated_calories: meal.estimated_calories || "", 
         servings: meal.servings || "", 
+        image_url: meal.image_url || "", 
       });
+      setShowImageUrlInput(false); 
     } else if (!open) {
       form.reset({
         name: "",
@@ -141,7 +176,9 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
         meal_tags: [],
         estimated_calories: "", 
         servings: "", 
+        image_url: "", 
       });
+      setShowImageUrlInput(false); 
     }
   }, [meal, open, form]);
 
@@ -172,6 +209,7 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
           meal_tags: values.meal_tags,
           estimated_calories: values.estimated_calories, 
           servings: values.servings, 
+          image_url: values.image_url, 
         })
         .eq("id", meal.id)
         .eq("user_id", user.id)
@@ -194,9 +232,84 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
     },
   });
 
+  const generateImageMutation = useMutation({
+    mutationFn: async (mealData: Pick<MealFormValues, 'name' | 'ingredients'>) => {
+      if (!mealData.name) {
+        showError("Please ensure the meal has a name before generating an image.");
+        return null;
+      }
+      if (userProfile && !userProfile.is_admin && userProfile.image_generation_count >= IMAGE_GENERATION_LIMIT_PER_MONTH) {
+        showError(`You have reached your monthly image generation limit of ${IMAGE_GENERATION_LIMIT_PER_MONTH}.`);
+        return null;
+      }
+
+      const loadingToastId = showLoading("Generating image...");
+      try {
+        const payload = {
+          name: mealData.name,
+          ingredients: mealData.ingredients?.map(ing => ({ 
+            name: ing.name,
+            quantity: ing.quantity,
+            unit: ing.unit,
+            description: ing.description,
+          })) || [],
+        };
+
+        const { data, error: functionError } = await supabase.functions.invoke('generate-meal', {
+          body: { mealData: payload }, 
+        });
+
+        dismissToast(loadingToastId);
+        if (functionError) throw functionError;
+        if (data?.error) throw new Error(data.error); 
+
+        if (!data?.image_url) {
+          throw new Error("Image URL not found in function response.");
+        }
+        return data as { image_url?: string };
+
+      } catch (error: any) {
+        dismissToast(loadingToastId);
+        console.error('Error generating image:', error);
+        showError(`Failed to generate image: ${error.message || 'Please try again.'}`);
+        throw error; 
+      }
+    },
+    onSuccess: (data) => {
+      if (data?.image_url) {
+        form.setValue('image_url', data.image_url);
+        setShowImageUrlInput(false); 
+        showSuccess("Image generated successfully!");
+        queryClient.invalidateQueries({ queryKey: ['userProfileForEditMealImageGeneration', meal?.user_id] });
+      } else if (data !== null) { 
+        showError("Image generation succeeded but no image URL was returned.");
+      }
+    },
+    onError: (error) => {
+      console.error("Final error in generateImageMutation:", error);
+    }
+  });
+
   const onSubmit = (values: MealFormValues) => {
     editMealMutation.mutate(values);
   };
+
+  const handleGenerateImageClick = async () => {
+    const mealName = form.getValues('name');
+    const mealIngredients = form.getValues('ingredients');
+    if (!mealName) {
+      showError("Please enter a meal name before generating an image.");
+      return;
+    }
+    generateImageMutation.mutate({ name: mealName, ingredients: mealIngredients });
+  };
+
+  const handleClearImage = () => {
+    form.setValue('image_url', '');
+    setShowImageUrlInput(false); 
+  };
+
+  const currentImageUrl = form.watch('image_url'); 
 
   if (!meal) return null;
 
@@ -223,6 +336,93 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
                     />
                   </div>
                 )}
+              <FormField
+                control={form.control}
+                name="image_url"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Meal Image (Optional)</FormLabel>
+                    <FormControl>
+                      <div className="space-y-3">
+                        {currentImageUrl ? (
+                          <div className="relative w-full h-40 flex items-center justify-center overflow-hidden rounded-md bg-muted cursor-pointer"
+                               onClick={() => setViewingImageUrl(currentImageUrl)}>
+                            <LazyLoadImage
+                              alt={`Image of ${form.getValues('name') || 'meal'}`}
+                              src={currentImageUrl}
+                              effect="blur"
+                              wrapperClassName="h-full w-full"
+                              className="h-full w-full object-contain"
+                              placeholderSrc="/placeholder-image.png" 
+                              onError={(e: any) => (e.currentTarget.style.display = 'none')}
+                            />
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="absolute top-1 right-1 h-7 w-7 p-0 text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20"
+                                onClick={(e) => { e.stopPropagation(); handleClearImage(); }}
+                                aria-label="Clear image"
+                              >
+                                <XCircle className="h-4 w-4" />
+                              </Button>
+                          </div>
+                        ) : (
+                          <>
+                            <Button
+                              type="button"
+                              onClick={handleGenerateImageClick}
+                              disabled={
+                                !form.watch('name') ||
+                                generateImageMutation.isPending ||
+                                isLoadingUserProfile ||
+                                (userProfile && !userProfile.is_admin && userProfile.image_generation_count >= IMAGE_GENERATION_LIMIT_PER_MONTH)
+                              }
+                              className="w-full"
+                            >
+                              <Brain className="mr-2 h-4 w-4" /> Generate Image with AI
+                            </Button>
+                            {(isLoadingUserProfile || userProfile) && (
+                              <div className="text-xs text-muted-foreground text-center">
+                                <Info size={14} className="inline mr-1 flex-shrink-0" />
+                                {isLoadingUserProfile && "Loading AI generation limit..."}
+                                {!isLoadingUserProfile && userProfile && (
+                                  userProfile.is_admin
+                                    ? "Admin: Limits bypassed for AI generation."
+                                    : `AI Generations Used: ${userProfile.image_generation_count}/${IMAGE_GENERATION_LIMIT_PER_MONTH}.`
+                                )}
+                              </div>
+                            )}
+                            <div className="text-center">
+                              <Button
+                                type="button"
+                                variant="link"
+                                className="text-sm p-0 h-auto"
+                                onClick={() => setShowImageUrlInput(!showImageUrlInput)}
+                                disabled={generateImageMutation.isPending}
+                              >
+                                <Link2 className="mr-1 h-3 w-3" />
+                                {showImageUrlInput ? 'Hide URL input' : 'Or, use your own image URL'}
+                              </Button>
+                            </div>
+                            {showImageUrlInput && (
+                              <Input
+                                placeholder="Paste image URL"
+                                {...field}
+                                value={field.value || ''} 
+                                onChange={(e) => field.onChange(e.target.value)}
+                                disabled={generateImageMutation.isPending}
+                              />
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <FormField
                 control={form.control}
                 name="name"
@@ -430,11 +630,11 @@ const EditMealDialog: React.FC<EditMealDialogProps> = ({ open, onOpenChange, mea
                 )}
               />
               <DialogFooter className="mt-6 pt-4 border-t">
-                <Button variant="outline" onClick={() => onOpenChange(false)} disabled={editMealMutation.isPending}>
+                <Button variant="outline" onClick={() => onOpenChange(false)} disabled={editMealMutation.isPending || generateImageMutation.isPending}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={editMealMutation.isPending}>
-                  {editMealMutation.isPending ? "Saving..." : "Save Changes"}
+                <Button type="submit" disabled={editMealMutation.isPending || generateImageMutation.isPending}>
+                  {editMealMutation.isPending ? "Saving..." : (generateImageMutation.isPending ? "Generating..." : "Save Changes")}
                 </Button>
               </DialogFooter>
             </form>
