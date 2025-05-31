@@ -263,15 +263,12 @@ serve(async (req) => {
           ],
           "instructions": "Detailed cooking instructions (string, newline separated steps).",
           "meal_tags": ["Tag1 (string)", "Tag2 (string)"],
-          "servings": "Estimated number of servings this recipe makes (string, e.g., '4' or '2-3 servings'). THIS FIELD IS MANDATORY."`;
-
-        if (userTracksCalories) {
-            prompt += `,\n          "estimated_calories": "Estimated total calories for the ENTIRE recipe (all servings) (string, e.g., '2200 kcal' or '500-600 kcal total'). THIS FIELD IS MANDATORY if calorie tracking is enabled for the user."`;
+          "servings": "Estimated number of servings this recipe makes (string, e.g., '4' or '2-3 servings'). THIS FIELD IS MANDATORY.",
+          "estimated_calories": "Estimated total calories for the ENTIRE recipe (all servings) (string, e.g., '2200 kcal' or '500-600 kcal total'). THIS FIELD IS MANDATORY."
         }
-        prompt += `\n        }
         IMPORTANT:
         - The "servings" field MUST contain the number of servings (e.g., "4", "2 servings").
-        - If calorie tracking is enabled for the user (indicated in the prompt), the "estimated_calories" field MUST contain the total calorie count for the entire recipe (e.g., "2000 kcal total", "550 kcal"). Do NOT put per-serving calories here.
+        - The "estimated_calories" field MUST contain the total calorie count for the entire recipe (e.g., "2000 kcal total", "550 kcal"). Do NOT put per-serving calories here.
         - Do NOT embed serving information within the "estimated_calories" string. Keep them separate. For example, "estimated_calories": "2000 kcal", "servings": "4". NOT "estimated_calories": "500 kcal per serving (serves 4)".
         - For ingredients like salt, pepper, or others specified 'to taste':
             - Set the \`quantity\` field to \`null\`.
@@ -299,7 +296,7 @@ Ensure the output is a *complete new recipe* in the specified JSON format, incor
 The meal should still generally be a ${mealType || 'general'} type.`;
             if (kinds && kinds.length > 0) prompt += ` It should still generally fit these kinds: ${kinds.join(', ')}.`;
             if (styles && styles.length > 0) prompt += ` The style should still generally be: ${styles.join(', ')}.`;
-            prompt += `\nCRITICAL INSTRUCTION FOR SCALING SERVINGS: If the refinement request involves changing the number of servings (e.g., from '2 servings' to '4 servings', or vice-versa), you MUST adjust ALL ingredient quantities. Calculate the scaling factor (new servings / old servings). For EACH ingredient, multiply its original quantity by this scaling factor. For example, if changing from 2 to 4 servings, the factor is 2, so all quantities double. If changing from 4 to 2 servings, the factor is 0.5, so all quantities halve. This scaling MUST be applied consistently to every ingredient. Do not selectively scale or invert the scaling for any ingredients. Update the 'servings' field to the new number of servings. If calorie tracking is enabled, also update the 'estimated_calories' field by multiplying the original total calories by the same scaling factor.`;
+            prompt += `\nCRITICAL INSTRUCTION FOR SCALING SERVINGS: If the refinement request involves changing the number of servings (e.g., from '2 servings' to '4 servings', or vice-versa), you MUST adjust ALL ingredient quantities. Calculate the scaling factor (new servings / old servings). For EACH ingredient, multiply its original quantity by this scaling factor. For example, if changing from 2 to 4 servings, the factor is 2, so all quantities double. If changing from 4 to 2 servings, the factor is 0.5, so all quantities halve. This scaling MUST be applied consistently to every ingredient. Do not selectively scale or invert the scaling for any ingredients. Update the 'servings' field to the new number of servings. Also update the 'estimated_calories' field by multiplying the original total calories by the same scaling factor.`;
         } else {
             prompt += `\nThe meal should be a ${mealType || 'general'} type.`;
             if (kinds && kinds.length > 0) prompt += ` It should fit these kinds: ${kinds.join(', ')}.`;
@@ -310,11 +307,7 @@ The meal should still generally be a ${mealType || 'general'} type.`;
         if (preferences && !existingRecipeText) {
              prompt += ` Also consider these specific request preferences: ${preferences}.`;
         }
-        if (userTracksCalories) {
-            prompt += `\nUser has calorie tracking enabled. Ensure "estimated_calories" (total for recipe) and "servings" are provided.`;
-        } else {
-            prompt += `\nUser does NOT have calorie tracking enabled. You can omit "estimated_calories", but "servings" is still required.`;
-        }
+        prompt += `\nEnsure "estimated_calories" (total for recipe) and "servings" are always provided.`;
         prompt += `\nEnsure the response is ONLY the JSON object, nothing else. Do not wrap it in markdown backticks.`;
 
         const geminiPayload = {
@@ -353,12 +346,12 @@ The meal should still generally be a ${mealType || 'general'} type.`;
         }
         try {
             generatedMealData = JSON.parse(generatedContentString);
-            if (!generatedMealData || !generatedMealData.name || !Array.isArray(generatedMealData.ingredients) || !generatedMealData.instructions || generatedMealData.servings === undefined) {
-                console.error("Invalid recipe format from Gemini (missing servings or other core fields):", generatedMealData);
-                throw new Error("Invalid recipe format from AI. Check Gemini output structure (especially 'servings').");
+            if (!generatedMealData || !generatedMealData.name || !Array.isArray(generatedMealData.ingredients) || !generatedMealData.instructions || generatedMealData.servings === undefined || generatedMealData.estimated_calories === undefined) {
+                console.error("Invalid recipe format from Gemini (missing servings, estimated_calories or other core fields):", generatedMealData);
+                throw new Error("Invalid recipe format from AI. Check Gemini output structure (especially 'servings' and 'estimated_calories').");
             }
-            if (userTracksCalories && generatedMealData.estimated_calories === undefined) {
-                console.warn("User tracks calories, but AI did not return 'estimated_calories'.");
+            if (generatedMealData.estimated_calories === undefined) {
+                console.warn("AI did not return 'estimated_calories' even though it was requested as mandatory.");
             }
         } catch (parseError) {
             console.error("Failed to parse Gemini JSON response:", parseError, "Raw content from Gemini:", generatedContentString);
