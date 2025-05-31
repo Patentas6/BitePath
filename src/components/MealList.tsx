@@ -1,15 +1,14 @@
 import { useState, useMemo, useEffect } from "react"; 
-import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { showError, showSuccess } from "@/utils/toast";
 import { useNavigate } from "react-router-dom";
-import { useInView } from 'react-intersection-observer';
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Trash2, Edit3, Search, ChefHat, List, Grid3X3, Zap, Users, Loader2 } from "lucide-react"; 
+import { Trash2, Edit3, Search, ChefHat, List, Grid3X3, Zap, Users } from "lucide-react"; 
 import EditMealDialog, { MealForEditing } from "./EditMealDialog";
 import {
   AlertDialog,
@@ -43,11 +42,8 @@ interface ParsedIngredient {
   description?: string;
 }
 
-const PAGE_SIZE = 10;
-
 const MealList = () => {
-  const [searchInput, setSearchInput] = useState("");
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | 'all'>('all'); 
   const [layoutView, setLayoutView] = useState<'list' | 'grid'>('list'); 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -59,10 +55,6 @@ const MealList = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const { ref: scrollTriggerRef, inView: isScrollTriggerVisible } = useInView({ 
-    threshold: 0.2, 
-  });
-
   useEffect(() => {
     const fetchUser = async () => {
       const { data } = await supabase.auth.getUser();
@@ -70,16 +62,6 @@ const MealList = () => {
     };
     fetchUser();
   }, []);
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearchTerm(searchInput.toLowerCase()); 
-    }, 300); 
-
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [searchInput]);
 
   const { data: userProfile, isLoading: isLoadingUserProfile } = useQuery<{ track_calories: boolean } | null>({
     queryKey: ['userProfileForMealListDisplay', userId],
@@ -99,67 +81,28 @@ const MealList = () => {
     enabled: !!userId,
   });
 
-  const {
-    data: mealsData, 
-    fetchNextPage,
-    hasNextPage,
-    isLoading: isLoadingMealsData, 
-    isFetchingNextPage, 
-    error,
-  } = useInfiniteQuery<Meal[], Error, Meal[], Meal[], { userId: string | null }>(
-    {
-      queryKey: ["mealsInfinite", userId], 
-      queryFn: async ({ pageParam = 0, queryKey: [, currentUserId] }) => { 
-        if (!currentUserId) return [];
-        let query = supabase
-          .from("meals")
-          .select("id, name, ingredients, instructions, user_id, meal_tags, image_url, estimated_calories, servings")
-          .eq("user_id", currentUserId); 
 
-        query = query.order('created_at', { ascending: false })
-          .range(pageParam * PAGE_SIZE, (pageParam + 1) * PAGE_SIZE - 1);
+  const { data: meals, isLoading: isLoadingMealsData, error } = useQuery<Meal[]>({
+    queryKey: ["meals", userId], 
+    queryFn: async () => {
+      if (!userId) return []; 
+      const { data: { user } } = await supabase.auth.getUser(); 
+      if (!user) throw new Error("User not logged in.");
+      const { data, error } = await supabase
+        .from("meals")
+        .select("id, name, ingredients, instructions, user_id, meal_tags, image_url, estimated_calories, servings") 
+        .eq("user_id", user.id)
+        .order('created_at', { ascending: false });
 
-        const { data, error: fetchError } = await query;
-
-        if (fetchError) throw fetchError;
-        return data || [];
-      },
-      getNextPageParam: (lastPage, allPages) => {
-        return lastPage.length === PAGE_SIZE ? allPages.length : undefined;
-      },
-      enabled: !!userId, 
-      initialPageParam: 0, 
-    }
-  );
-
-  const allFetchedMeals = useMemo(() => mealsData?.pages.flatMap(page => page) || [], [mealsData]);
-
-  const filteredMeals = useMemo(() => { 
-    let mealsToFilter = allFetchedMeals;
-
-    if (selectedCategory !== 'all') {
-      mealsToFilter = mealsToFilter.filter(meal => 
-        meal.meal_tags && meal.meal_tags.includes(selectedCategory)
-      );
-    }
-
-    if (debouncedSearchTerm) {
-      mealsToFilter = mealsToFilter.filter(meal =>
-        meal.name.toLowerCase().includes(debouncedSearchTerm)
-      );
-    }
-    return mealsToFilter;
-  }, [allFetchedMeals, debouncedSearchTerm, selectedCategory]);
-
-  useEffect(() => { 
-    if (isScrollTriggerVisible && hasNextPage && !isFetchingNextPage) {
-      fetchNextPage();
-    }
-  }, [isScrollTriggerVisible, hasNextPage, isFetchingNextPage, fetchNextPage]);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!userId, 
+  });
 
   const deleteMealMutation = useMutation({
     mutationFn: async (mealId: string) => {
-      const { data: { user } } = await supabase.auth.getUser(); 
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not logged in.");
 
       const { error } = await supabase
@@ -172,7 +115,7 @@ const MealList = () => {
     },
     onSuccess: () => {
       showSuccess("Meal deleted successfully!");
-      queryClient.invalidateQueries({ queryKey: ["mealsInfinite", userId] }); 
+      queryClient.invalidateQueries({ queryKey: ["meals", userId] });
       queryClient.invalidateQueries({ queryKey: ["mealPlans"] });
       queryClient.invalidateQueries({ queryKey: ["groceryListSource"] });
       queryClient.invalidateQueries({ queryKey: ["todaysGroceryListSource"] });
@@ -201,11 +144,20 @@ const MealList = () => {
     }
   };
 
-  const uniqueCategories = useMemo(() => { 
-    if (!allFetchedMeals) return [];
-    const allTags = allFetchedMeals.flatMap(meal => meal.meal_tags || []).filter(Boolean) as string[];
+  const uniqueCategories = useMemo(() => {
+    if (!meals) return [];
+    const allTags = meals.flatMap(meal => meal.meal_tags || []).filter(Boolean) as string[];
     return Array.from(new Set(allTags)).sort();
-  }, [allFetchedMeals]);
+  }, [meals]);
+
+  const filteredMeals = useMemo(() => {
+    if (!meals) return [];
+    return meals.filter(meal => {
+      const nameMatch = meal.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const categoryMatch = selectedCategory === 'all' || (meal.meal_tags && meal.meal_tags.includes(selectedCategory));
+      return nameMatch && categoryMatch;
+    });
+  }, [meals, searchTerm, selectedCategory]);
 
   const formatIngredientsDisplay = (ingredientsString: string | null | undefined): string => {
     if (!ingredientsString) return 'No ingredients listed.';
@@ -228,9 +180,9 @@ const MealList = () => {
     }
   };
   
-  const overallIsLoading = isLoadingUserProfile || (isLoadingMealsData && !allFetchedMeals.length); 
+  const overallIsLoading = isLoadingUserProfile || isLoadingMealsData;
 
-  if (overallIsLoading && !allFetchedMeals.length && !debouncedSearchTerm && selectedCategory === 'all') { 
+  if (overallIsLoading && !meals) { 
     return (
       <Card className="hover:shadow-lg transition-shadow duration-200">
         <CardHeader><CardTitle>My Meals</CardTitle></CardHeader>
@@ -267,12 +219,12 @@ const MealList = () => {
               <Input
                 type="text"
                 placeholder="Search my meals..."
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 w-full"
               />
             </div>
-            <Select value={selectedCategory} onValueChange={(value) => setSelectedCategory(value)}>
+            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
               <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue placeholder="Filter by category" />
               </SelectTrigger>
@@ -305,30 +257,23 @@ const MealList = () => {
             </div>
           </div>
 
-          {/* Client-side "No Results" Logic */}
-          {/* Show only if not initial loading and not fetching more */}
-          {!isLoadingMealsData && !isFetchingNextPage && ( 
-            <>
-              {/* Case 1: Filters are active, but client-side filtering results in no meals */}
-              {allFetchedMeals.length > 0 && filteredMeals.length === 0 && (debouncedSearchTerm || selectedCategory !== 'all') && (
-                <div className="text-center py-6 text-muted-foreground">
-                  <Search className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500 mb-3" />
-                  <p className="text-lg">No meals match your current filters.</p>
-                  <p className="text-sm">Try a different search term or category, or clear filters.</p>
-                </div>
-              )}
-              {/* Case 2: No meals fetched from server at all, and no filters active */}
-              {allFetchedMeals.length === 0 && !debouncedSearchTerm && selectedCategory === 'all' && !overallIsLoading && (
-                <div className="text-center py-6 text-muted-foreground">
-                  <ChefHat className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500 mb-4" />
-                  <p className="text-lg font-semibold mb-1">No Meals Yet!</p>
-                  <p className="text-sm">Looks like your recipe book is empty. <br/>Add a meal or discover new ones!</p>
-                </div>
-              )}
-            </>
+          {meals && meals.length === 0 && !overallIsLoading && (
+            <div className="text-center py-6 text-muted-foreground">
+              <ChefHat className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500 mb-4" />
+              <p className="text-lg font-semibold mb-1">No Meals Yet!</p>
+              <p className="text-sm">Looks like your recipe book is empty. <br/>Add a meal using the "Add Meal" button above or discover new ones!</p>
+            </div>
           )}
 
-          {filteredMeals && filteredMeals.length > 0 && ( 
+          {meals && meals.length > 0 && filteredMeals.length === 0 && !overallIsLoading && (
+            <div className="text-center py-6 text-muted-foreground">
+              <Search className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500 mb-3" />
+              <p className="text-lg">No meals match your current filters.</p>
+              <p className="text-sm">Try a different search term or category.</p>
+            </div>
+          )}
+
+          {filteredMeals && filteredMeals.length > 0 && (
             <div className={cn(
               layoutView === 'list' ? 'space-y-3' : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'
             )}>
@@ -387,17 +332,17 @@ const MealList = () => {
                           variant="outline" 
                           onClick={(e) => { e.stopPropagation(); handleEditClick(meal); }} 
                           aria-label="Edit meal"
-                          className="h-9 w-9 sm:h-11 sm:w-11 p-0" 
+                          className="h-10 w-10 sm:h-12 sm:w-12 md:h-14 md:w-14 p-0" 
                         >
-                          <Edit3 className="h-5 w-5 sm:h-6 sm:w-6" /> 
+                          <Edit3 className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7" /> 
                         </Button>
                         <Button 
                           variant="destructive" 
                           onClick={(e) => { e.stopPropagation(); handleDeleteClick(meal); }} 
                           aria-label="Delete meal"
-                          className="h-9 w-9 sm:h-11 sm:w-11 p-0" 
+                          className="h-10 w-10 sm:h-12 sm:w-12 md:h-14 md:w-14 p-0" 
                         >
-                          <Trash2 className="h-5 w-5 sm:h-6 sm:w-6" /> 
+                          <Trash2 className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7" /> 
                         </Button>
                       </div>
                     </div>
@@ -426,19 +371,21 @@ const MealList = () => {
                     <div className="flex sm:hidden space-x-2 mt-3 pt-3 border-t">
                       <Button 
                         variant="outline" 
-                        className="flex-1 h-9 p-0 flex items-center justify-center"
+                        size="icon"
                         onClick={(e) => { e.stopPropagation(); handleEditClick(meal); }} 
                         aria-label="Edit meal"
+                        className="flex-1 h-10"
                       >
-                        <Edit3 className="h-5 w-5" /> 
+                        <Edit3 className="h-5 w-5" />
                       </Button>
                       <Button 
                         variant="destructive" 
-                        className="flex-1 h-9 p-0 flex items-center justify-center"
+                        size="icon"
                         onClick={(e) => { e.stopPropagation(); handleDeleteClick(meal); }} 
                         aria-label="Delete meal"
+                        className="flex-1 h-10"
                       >
-                        <Trash2 className="h-5 w-5" /> 
+                        <Trash2 className="h-5 w-5" />
                       </Button>
                     </div>
                   </div>
@@ -446,14 +393,6 @@ const MealList = () => {
               })}
             </div>
           )}
-          
-          {isFetchingNextPage && (
-            <div className="flex justify-center items-center py-4 text-muted-foreground"> 
-              <Loader2 className="h-5 w-5 animate-spin mr-2" />
-              <span>Loading more meals...</span>
-            </div>
-          )}
-          <div ref={scrollTriggerRef} style={{ height: '1px' }} /> 
         </CardContent>
       </Card>
 

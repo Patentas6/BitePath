@@ -1,36 +1,36 @@
-export const IMAGE_GENERATION_LIMIT_PER_MONTH = 10;
-export const RECIPE_GENERATION_LIMIT_PER_MONTH = 5;
-
-export const UNITS = [
-  'g', 'kg', 'mg', 
-  'oz', 'lb', 
-  'ml', 'cl', 'l', 
-  'tsp', 'tbsp', 
-  'cup', 'pint', 'quart', 'gallon',
-  'pcs', 'slices', 'cloves', 
-  'pinch', 'dash', 'handful',
-  'can', 'bottle', 'package',
-  'cm', 'inch',
-] as const;
-
-export type Unit = typeof UNITS[number];
-
 export const MEAL_TAG_OPTIONS = [
-  "Breakfast", "Lunch", "Dinner", "Snack",
-  "Vegetarian", "Vegan", "Gluten-Free", "Dairy-Free",
-  "Quick & Easy", "Healthy", "Comfort Food", "High Protein",
-  "Low Carb", "Dessert", "Appetizer", "Side Dish",
-  "Soup", "Salad", "Main Course", "Beverage",
-  "Italian", "Mexican", "Asian", "Indian", "American"
-] as const;
-
-export type MealTagOption = typeof MEAL_TAG_OPTIONS[number];
-
-export const PLANNING_MEAL_TYPES = [
   "Breakfast",
   "Lunch",
   "Dinner",
-  "Snack"
+  "Snack",
+  "High Protein",
+  "Vegan",
+  "Vegetarian",
+  "Gluten-Free",
+  "Low Carb",
+  "Kid-Friendly",
+  "Spicy",
+  "Quick & Easy",
+  "Comfort Food",
+  "Healthy",
+  "Soup",
+  "Salad",
+  "Dessert",
+  "Appetizer",
+  "Side Dish",
+  "One-Pot",
+  "Slow Cooker",
+  "Instant Pot",
+  "Grilling",
+  "Baking",
 ] as const;
 
+export type MealTag = typeof MEAL_TAG_OPTIONS[number];
+
+// Define a subset of tags typically used for planning slots
+export const PLANNING_MEAL_TYPES = ["Breakfast", "Brunch Snack", "Lunch", "Afternoon Snack", "Dinner"] as const; // Removed the last 'Snack'
 export type PlanningMealType = typeof PLANNING_MEAL_TYPES[number];
+
+export const IMAGE_GENERATION_LIMIT_PER_MONTH = 30;
+export const RECIPE_GENERATION_LIMIT_PER_PERIOD = 100;
+export const RECIPE_GENERATION_PERIOD_DAYS = 15;

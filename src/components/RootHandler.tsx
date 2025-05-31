@@ -14,23 +14,11 @@ const RootHandler = () => {
   const [isAppEnvironment, setIsAppEnvironment] = useState(false);
 
   useEffect(() => {
+    const pwa = window.matchMedia('(display-mode: standalone)').matches;
     const native = Capacitor.isNativePlatform();
-    const displayModeStandalone = window.matchMedia('(display-mode: standalone)').matches;
-    const navigatorStandalone = (window.navigator as any).standalone === true; 
-    
-    let isPWA = displayModeStandalone;
-    if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream) { 
-        isPWA = navigatorStandalone || displayModeStandalone; 
-        isPWA = navigatorStandalone; 
-        if (!isPWA && !native) { 
-            isPWA = displayModeStandalone;
-        }
-    }
-
-    setIsAppEnvironment(native || isPWA); 
+    setIsAppEnvironment(pwa || native);
     setEnvironmentChecked(true);
-    console.log(`Environment Check: Native=${native}, PWA=${isPWA}, displayModeStandalone=${displayModeStandalone}, navigatorStandalone=${navigatorStandalone}, IsAppEnv=${native || isPWA}`);
-    console.log(`User Agent: ${navigator.userAgent}`);
+    console.log(`Environment Check: PWA=${pwa}, Native=${native}, IsAppEnv=${pwa || native}`);
   }, []);
 
   useEffect(() => {
@@ -95,7 +83,7 @@ const RootHandler = () => {
     );
   }
 
-  console.log('Rendering: Index page (Browser) or waiting for redirect (App)');
+  console.log('Rendering: Index page (Browser)');
   return <Index />;
 };
 

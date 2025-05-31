@@ -1,242 +1,604 @@
-"use client";
+import { useForm, useFieldArray } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/lib/supabase";
+import { showSuccess, showError, showLoading, dismissToast } from "@/utils/toast";
+import { MEAL_TAG_OPTIONS, IMAGE_GENERATION_LIMIT_PER_MONTH } from "@/lib/constants";
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { useForm, useFieldArray, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  FormDescription,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PlusCircle, Trash2, Brain, XCircle, Info, Link2, Zap, Users } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-import IngredientInput from './IngredientInput';
-import TagInput from './TagInput'; 
-import { Loader2, Info } from 'lucide-react';
-import { UNITS, Unit, MEAL_TAG_OPTIONS, MealTagOption } from '@/lib/constants'; // CRITICAL: Import from constants
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { useState, useEffect } from "react";
+import { LazyLoadImage } from 'react-lazy-load-image-component';
+import 'react-lazy-load-image-component/src/effects/blur.css';
 
-const MAX_INGREDIENTS = 20;
-const MAX_TAGS = 10;
+export const UNITS = ['piece', 'g', 'kg', 'ml', 'l', 'tsp', 'tbsp', 'cup', 'oz', 'lb', 'pinch', 'dash', 'clove', 'can', 'bottle', 'package', 'slice', 'item', 'sprig', 'head', 'bunch'] as const;
 
 const ingredientSchema = z.object({
-  name: z.string().min(1, 'Ingredient name is required').max(100, 'Ingredient name too long'),
-  quantity: z.string().min(1, 'Quantity is required').max(20, 'Quantity too long'),
-  unit: z.enum(UNITS, { errorMap: () => ({ message: "Please select a valid unit." }) })
+  name: z.string().min(1, { message: "Ingredient name is required." }),
+  quantity: z.string()
+    .transform((val) => val.trim() === "" ? undefined : parseFloat(val))
+    .refine((val) => val === undefined || (typeof val === 'number' && !isNaN(val) && val >= 0), {
+      message: "Quantity must be a non-negative number if provided.",
+    })
+    .optional(),
+  unit: z.string().optional().transform(val => val === "" ? undefined : val),
+  description: z.string().optional(),
+}).refine(data => {
+  const hasQuantity = data.quantity !== undefined;
+  const hasUnit = data.unit !== undefined && data.unit.trim() !== "";
+  const isToTasteDesc = data.description?.trim().toLowerCase() === 'to taste';
+
+  if (isToTasteDesc) {
+    return !hasQuantity && !hasUnit;
+  }
+  if (hasQuantity && !hasUnit) return false;
+  return true;
+}, {
+  message: "If quantity is specified, unit is required. For 'to taste', leave quantity & unit empty and write 'to taste' in description.",
+  path: ["unit"],
 });
+
+export type MealFormValues = z.infer<typeof mealFormSchema>;
 
 const mealFormSchema = z.object({
-  name: z.string().min(1, 'Meal name is required').max(150, 'Meal name too long'),
-  ingredients: z.array(ingredientSchema).min(1, 'At least one ingredient is required').max(MAX_INGREDIENTS, `Maximum ${MAX_INGREDIENTS} ingredients`),
-  instructions: z.string().min(1, 'Instructions are required').max(5000, 'Instructions too long'),
-  meal_tags: z.array(z.string()).max(MAX_TAGS, `Maximum ${MAX_TAGS} tags`),
-  image_url: z.string().url('Must be a valid URL').optional().or(z.literal('')),
-  servings: z.string().optional(),
+  name: z.string().min(1, { message: "Meal name is required." }),
+  ingredients: z.array(ingredientSchema).optional(),
+  instructions: z.string().optional(),
+  meal_tags: z.array(z.string()).optional(),
+  image_url: z.string().optional(),
   estimated_calories: z.string().optional(),
+  servings: z.string().optional(),
 });
 
-export type MealFormData = z.infer<typeof mealFormSchema>;
-
-interface MealFormProps {
-  onSubmit: (data: MealFormData, currentImageUrl?: string) => Promise<void>;
-  initialData?: Partial<MealFormData & { id?: string; image_url?: string | null }>;
-  isLoading: boolean;
-  userId: string; 
+export interface GenerationStatusInfo {
+  generationsUsedThisMonth: number;
+  limitReached: boolean;
+  isAdmin: boolean;
 }
 
-const MealForm: React.FC<MealFormProps> = ({ onSubmit, initialData, isLoading, userId }) => {
-  const [showImageUrlInput, setShowImageUrlInput] = useState(!!initialData?.image_url);
-  const [currentImageUrl, setCurrentImageUrl] = useState(initialData?.image_url || undefined);
+interface MealFormProps {
+  generationStatus?: GenerationStatusInfo;
+  isLoadingProfile?: boolean;
+  showCaloriesField?: boolean;
+  initialData?: MealFormValues | null;
+  onInitialDataProcessed?: () => void;
+  onSaveSuccess?: (savedMeal: {id: string, name: string}) => void;
+}
 
-  const { control, handleSubmit, reset, watch, formState: { errors } } = useForm<MealFormData>({
+const MealForm: React.FC<MealFormProps> = ({
+  generationStatus,
+  isLoadingProfile,
+  showCaloriesField,
+  initialData,
+  onInitialDataProcessed,
+  onSaveSuccess,
+ }) => {
+  const queryClient = useQueryClient();
+  const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
+  const [showImageUrlInput, setShowImageUrlInput] = useState(false);
+
+  const form = useForm<MealFormValues>({
     resolver: zodResolver(mealFormSchema),
     defaultValues: {
-      name: initialData?.name || '',
-      ingredients: initialData?.ingredients || [{ name: '', quantity: '', unit: UNITS[0] }],
-      instructions: initialData?.instructions || '',
-      meal_tags: initialData?.meal_tags || [],
-      image_url: initialData?.image_url || '',
-      servings: initialData?.servings || '',
-      estimated_calories: initialData?.estimated_calories || '',
+      name: "",
+      ingredients: [],
+      instructions: "",
+      meal_tags: [],
+      image_url: "",
+      estimated_calories: "",
+      servings: "",
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
-    control,
+  const { fields, append, remove, replace } = useFieldArray({
+    control: form.control,
     name: "ingredients",
   });
 
   useEffect(() => {
     if (initialData) {
-      const resetData = {
-        name: initialData.name || '',
-        ingredients: initialData.ingredients?.length ? initialData.ingredients.map(ing => ({...ing, unit: ing.unit || UNITS[0]})) : [{ name: '', quantity: '', unit: UNITS[0] }],
-        instructions: initialData.instructions || '',
-        meal_tags: initialData.meal_tags || [],
-        image_url: initialData.image_url || '',
-        servings: initialData.servings || '',
-        estimated_calories: initialData.estimated_calories || '',
-      };
-      reset(resetData);
-      setShowImageUrlInput(!!initialData.image_url);
-      setCurrentImageUrl(initialData.image_url || undefined);
-    }
-  }, [initialData, reset]);
+      form.reset(initialData);
+      replace(initialData.ingredients || []);
 
-  const handleFormSubmit = async (data: MealFormData) => {
-    console.log("Form data submitted:", data);
-    await onSubmit(data, currentImageUrl);
-  };
-
-  const watchedImageUrl = watch('image_url');
-  useEffect(() => {
-    setCurrentImageUrl(watchedImageUrl);
-  }, [watchedImageUrl]);
-
-  const handleAddIngredient = () => {
-    if (fields.length < MAX_INGREDIENTS) {
-      append({ name: '', quantity: '', unit: UNITS[0] });
+      if (initialData.image_url) {
+        setShowImageUrlInput(false);
+      }
+      if (onInitialDataProcessed) {
+        onInitialDataProcessed();
+      }
     } else {
-      toast.error(`You can add a maximum of ${MAX_INGREDIENTS} ingredients.`);
+      form.reset({
+        name: "",
+        ingredients: [{ name: "", quantity: "", unit: "", description: "" }],
+        instructions: "",
+        meal_tags: [],
+        image_url: "",
+        estimated_calories: "",
+        servings: "",
+      });
+      replace([{ name: "", quantity: "", unit: "", description: "" }]);
+      setShowImageUrlInput(false);
     }
+  }, [initialData, form, onInitialDataProcessed, replace]);
+
+  const addMealMutation = useMutation({
+    mutationFn: async (values: MealFormValues) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error("User not logged in.");
+      }
+
+      const ingredientsToSave = values.ingredients?.map(ing => ({
+        name: ing.name,
+        quantity: ing.quantity !== undefined ? ing.quantity : null,
+        unit: (ing.quantity !== undefined && ing.unit) ? ing.unit : null, 
+        description: ing.description,
+      })).filter(ing => ing.name.trim() !== "");
+
+      const ingredientsJSON = ingredientsToSave && ingredientsToSave.length > 0 ? JSON.stringify(ingredientsToSave) : null;
+
+      const { data, error } = await supabase
+        .from("meals")
+        .insert([
+          {
+            user_id: user.id,
+            name: values.name,
+            ingredients: ingredientsJSON,
+            instructions: values.instructions,
+            meal_tags: values.meal_tags,
+            image_url: values.image_url,
+            estimated_calories: showCaloriesField ? values.estimated_calories : null,
+            servings: values.servings,
+          },
+        ])
+        .select();
+
+      if (error) {
+        throw error;
+      }
+      return { data, values };
+    },
+    onSuccess: ({ data, values }) => {
+      showSuccess("Meal added successfully!");
+      const savedMealEntry = data?.[0];
+      if (savedMealEntry && onSaveSuccess) {
+        onSaveSuccess({ id: savedMealEntry.id, name: values.name });
+      } else if (onSaveSuccess) {
+        onSaveSuccess({ id: 'unknown', name: values.name });
+      }
+
+      form.reset({
+        name: "",
+        ingredients: [{ name: "", quantity: "", unit: "", description: "" }],
+        instructions: "",
+        meal_tags: [],
+        image_url: "",
+        estimated_calories: "",
+        servings: "",
+      });
+      replace([{ name: "", quantity: "", unit: "", description: "" }]);
+      setShowImageUrlInput(false);
+      queryClient.invalidateQueries({ queryKey: ["meals"] });
+      queryClient.invalidateQueries({ queryKey: ['userProfileForAddMealLimits'] });
+      queryClient.invalidateQueries({ queryKey: ['userProfileForGenerationLimits'] });
+    },
+    onError: (error) => {
+      console.error("Error adding meal:", error);
+      showError(`Failed to add meal: ${error.message}`);
+    },
+  });
+
+  const generateImageMutation = useMutation({
+    mutationFn: async (mealData: MealFormValues) => {
+      if (!mealData.name) {
+        showError("Please enter a meal name before generating an image.");
+        return null;
+      }
+      if (generationStatus && !generationStatus.isAdmin && generationStatus.limitReached) {
+        showError(`You have reached your monthly image generation limit of ${IMAGE_GENERATION_LIMIT_PER_MONTH}.`);
+        return null;
+      }
+
+      const loadingToastId = showLoading("Generating image...");
+      try {
+        const { data, error } = await supabase.functions.invoke('generate-meal', {
+          body: { mealData: mealData },
+        });
+        dismissToast(loadingToastId);
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+        return data as { image_url?: string };
+      } catch (error: any) {
+        dismissToast(loadingToastId);
+        console.error('Error generating image:', error);
+        showError(`Failed to generate image: ${error.message || 'Please try again.'}`);
+        throw error;
+      }
+    },
+    onSuccess: (data) => {
+      if (data?.image_url) {
+        form.setValue('image_url', data.image_url);
+        setShowImageUrlInput(false);
+        showSuccess("Image generated!");
+        queryClient.invalidateQueries({ queryKey: ['userProfileForAddMealLimits'] });
+        queryClient.invalidateQueries({ queryKey: ['userProfileForGenerationLimits'] });
+      } else {
+        showError("Image generation succeeded but no image URL was returned.");
+      }
+    },
+  });
+
+  const onSubmit = (values: MealFormValues) => {
+    addMealMutation.mutate(values);
   };
-  
-  const handleRemoveIngredient = (index: number) => {
-    if (fields.length > 1) {
-      remove(index);
-    } else {
-      toast.error("At least one ingredient is required.");
+
+  const handleGenerateImageClick = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      showError("You must be logged in to generate images.");
+      return;
     }
+    if (!form.watch('name')) {
+      showError("Please enter a meal name before generating an image.");
+      return;
+    }
+    const currentMealData = form.getValues();
+    generateImageMutation.mutate(currentMealData);
   };
+
+  const handleClearImage = () => {
+    form.setValue('image_url', '');
+    setShowImageUrlInput(false);
+  };
+
+  const currentImageUrl = form.watch('image_url');
 
   return (
-    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6 p-4 sm:p-6 bg-white shadow-md rounded-lg">
-      <div>
-        <label htmlFor="name" className="block text-sm font-medium text-gray-700">Meal Name</label>
-        <Controller
-          name="name"
-          control={control}
-          render={({ field }) => <Input id="name" {...field} placeholder="e.g., Spaghetti Bolognese" className="mt-1" />}
-        />
-        {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
-      </div>
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle>Add New Meal</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Meal Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., Spaghetti Bolognese" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-      <div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">Ingredients</h3>
-        {fields.map((item, index) => (
-          <IngredientInput
-            key={item.id}
-            index={index}
-            ingredient={item as any} // Cast to any to match IngredientInputProps, RHF provides 'id'
-            onChange={(idx, fieldName, value) => {
-              const currentIngredients = watch('ingredients');
-              const updatedIngredients = [...currentIngredients];
-              updatedIngredients[idx] = { ...updatedIngredients[idx], [fieldName]: value };
-              control.setValue(`ingredients`, updatedIngredients, { shouldValidate: true });
-            }}
-            onRemove={handleRemoveIngredient}
-          />
-        ))}
-        {errors.ingredients && !errors.ingredients.root && errors.ingredients.length === 0 && (
-            <p className="text-red-500 text-xs mt-1">{errors.ingredients.message}</p>
-        )}
-        {errors.ingredients?.root && <p className="text-red-500 text-xs mt-1">{errors.ingredients.root.message}</p>}
-         {Array.isArray(errors.ingredients) && errors.ingredients.map((err, index) => (
-          <div key={index}>
-            {err?.name && <p className="text-red-500 text-xs mt-1">Ingredient {index + 1}: {err.name.message}</p>}
-            {err?.quantity && <p className="text-red-500 text-xs mt-1">Ingredient {index + 1}: {err.quantity.message}</p>}
-            {err?.unit && <p className="text-red-500 text-xs mt-1">Ingredient {index + 1}: {err.unit.message}</p>}
-          </div>
-        ))}
-        <Button type="button" variant="outline" onClick={handleAddIngredient} className="mt-2">
-          Add Ingredient
-        </Button>
-      </div>
+              <FormField
+                control={form.control}
+                name="meal_tags"
+                render={() => (
+                  <FormItem>
+                    <div className="mb-4">
+                      <FormLabel className="text-base">Meal Tags</FormLabel>
+                      <FormDescription>
+                        Select tags that apply to this meal. These help you filter and find meals easier.
+                      </FormDescription>
+                    </div>
+                    <div className="flex flex-wrap gap-4">
+                      {MEAL_TAG_OPTIONS.map((tag) => (
+                        <FormField
+                          key={tag}
+                          control={form.control}
+                          name="meal_tags"
+                          render={({ field }) => {
+                            return (
+                              <FormItem
+                                key={tag}
+                                className="flex flex-row items-start space-x-3 space-y-0"
+                              >
+                                <FormControl>
+                                  <Checkbox
+                                    checked={field.value?.includes(tag)}
+                                    onCheckedChange={(checked) => {
+                                      return checked
+                                        ? field.onChange([...(field.value || []), tag])
+                                        : field.onChange(
+                                            (field.value || []).filter(
+                                              (value) => value !== tag
+                                            )
+                                          )
+                                    }}
+                                  />
+                                </FormControl>
+                                <FormLabel className="font-normal">
+                                  {tag}
+                                </FormLabel>
+                              </FormItem>
+                            );
+                          }}
+                        />
+                      ))}
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-      <div>
-        <label htmlFor="instructions" className="block text-sm font-medium text-gray-700">Instructions</label>
-        <Controller
-          name="instructions"
-          control={control}
-          render={({ field }) => <Textarea id="instructions" {...field} placeholder="e.g., 1. Cook pasta. 2. Prepare sauce..." rows={6} className="mt-1" />}
-        />
-        {errors.instructions && <p className="text-red-500 text-xs mt-1">{errors.instructions.message}</p>}
-      </div>
-      
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Meal Tags (Optional)</label>
-        <Controller
-            name="meal_tags"
-            control={control}
-            render={({ field }) => (
-                <TagInput
-                    tags={field.value as MealTagOption[]}
-                    setTags={(newTags) => field.onChange(newTags)}
-                    availableTags={MEAL_TAG_OPTIONS as ReadonlyArray<string>} // Cast for TagInput
-                    maxTags={MAX_TAGS}
-                    placeholder="Add tags like 'Vegan', 'Quick Meal'..."
-                />
-            )}
-        />
-        {errors.meal_tags && <p className="text-red-500 text-xs mt-1">{errors.meal_tags.message}</p>}
-      </div>
+              <div>
+                <FormLabel>Ingredients</FormLabel>
+                <div className="space-y-4 mt-2">
+                  {fields.map((field, index) => (
+                    <Card key={field.id} className="p-3 bg-muted">
+                      <div className="grid grid-cols-1 md:grid-cols-10 gap-2 items-end">
+                        <FormField
+                          control={form.control}
+                          name={`ingredients.${index}.name`}
+                          render={({ field: itemField }) => (
+                            <FormItem className="md:col-span-3">
+                              <FormLabel className="text-xs">Name</FormLabel>
+                              <FormControl>
+                                <Input placeholder="e.g., Tomato" {...itemField} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`ingredients.${index}.quantity`}
+                          render={({ field: itemField }) => (
+                            <FormItem className="md:col-span-1">
+                              <FormLabel className="text-xs">Qty (Optional)</FormLabel>
+                              <FormControl>
+                                <Input type="text" placeholder="e.g., 2" {...itemField} value={itemField.value ?? ""} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`ingredients.${index}.unit`}
+                          render={({ field: itemField }) => (
+                            <FormItem className="md:col-span-2">
+                              <FormLabel className="text-xs">Unit (Optional)</FormLabel>
+                              <Select onValueChange={itemField.onChange} value={itemField.value || undefined} >
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select unit" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {UNITS.map(unit => <SelectItem key={unit} value={unit}>{unit}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`ingredients.${index}.description`}
+                          render={({ field: itemField }) => (
+                            <FormItem className="md:col-span-3">
+                              <FormLabel className="text-xs">Desc. (e.g., to taste)</FormLabel>
+                              <FormControl>
+                                <Input placeholder="e.g., minced, to taste" {...itemField} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => remove(index)}
+                          className="md:col-span-1"
+                          aria-label="Remove ingredient"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </Card>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => append({ name: "", quantity: "", unit: "", description: "" })}
+                  className="mt-2"
+                >
+                  <PlusCircle className="mr-2 h-4 w-4" /> Add Ingredient
+                </Button>
+              </div>
+            </div>
 
-      <div>
-        <label htmlFor="servings" className="block text-sm font-medium text-gray-700">Servings (Optional)</label>
-        <Controller
-          name="servings"
-          control={control}
-          render={({ field }) => <Input id="servings" {...field} placeholder="e.g., 4" className="mt-1" />}
-        />
-        {errors.servings && <p className="text-red-500 text-xs mt-1">{errors.servings.message}</p>}
-      </div>
-
-      <div>
-        <label htmlFor="estimated_calories" className="block text-sm font-medium text-gray-700">Estimated Calories (Optional)</label>
-        <Controller
-          name="estimated_calories"
-          control={control}
-          render={({ field }) => <Input id="estimated_calories" {...field} placeholder="e.g., 500 kcal" className="mt-1" />}
-        />
-        {errors.estimated_calories && <p className="text-red-500 text-xs mt-1">{errors.estimated_calories.message}</p>}
-      </div>
-
-      <div>
-        {showImageUrlInput ? (
-          <>
-            <label htmlFor="image_url" className="block text-sm font-medium text-gray-700">Image URL (Optional)</label>
-            <Controller
-              name="image_url"
-              control={control}
-              render={({ field }) => <Input id="image_url" {...field} placeholder="https://example.com/image.jpg" className="mt-1" />}
+            <FormField
+              control={form.control}
+              name="instructions"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Instructions</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="Cooking steps..." {...field} rows={5} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-            {errors.image_url && <p className="text-red-500 text-xs mt-1">{errors.image_url.message}</p>}
-            <Button type="button" variant="ghost" size="sm" onClick={() => { control.setValue('image_url', ''); setShowImageUrlInput(false); }} className="mt-1 text-xs text-blue-600 hover:text-blue-800">
-              Remove Image URL
-            </Button>
-          </>
-        ) : (
-          <Button type="button" variant="outline" onClick={() => setShowImageUrlInput(true)} className="mt-2">
-            Add Image URL (Optional)
-          </Button>
-        )}
-      </div>
-      
-      {initialData?.id && (
-        <Alert variant="default" className="mt-4">
-          <Info className="h-4 w-4" />
-          <AlertTitle>Note</AlertTitle>
-          <AlertDescription>
-            You are editing an existing meal. Submitting will update the current meal details.
-          </AlertDescription>
-        </Alert>
-      )}
 
-      <Button type="submit" disabled={isLoading} className="w-full sm:w-auto">
-        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-        {initialData?.id ? 'Update Meal' : 'Add Meal'}
-      </Button>
-    </form>
+            <FormField
+              control={form.control}
+              name="servings"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center">
+                    <Users className="mr-2 h-4 w-4 text-primary" />
+                    Number of Servings (Optional)
+                  </FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., 4 or 2-3" {...field} />
+                  </FormControl>
+                  <FormDescription>
+                    How many people does this meal typically serve? (e.g., "4", "2-3 servings")
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {showCaloriesField && (
+              <FormField
+                control={form.control}
+                name="estimated_calories"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center">
+                      <Zap className="mr-2 h-4 w-4 text-primary" />
+                      Total Estimated Calories (Optional)
+                    </FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., 2200 or 2000-2400 kcal" {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      Enter the total estimated calorie count for the entire recipe (all servings). The app will display per-serving calories if servings are also provided.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
+            <FormField
+              control={form.control}
+              name="image_url"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Meal Image (Optional)</FormLabel>
+                  <FormControl>
+                    <div className="space-y-3">
+                      {currentImageUrl ? (
+                        <div className="relative w-full h-40 flex items-center justify-center overflow-hidden rounded-md bg-muted cursor-pointer"
+                             onClick={() => setViewingImageUrl(currentImageUrl)}>
+                          <LazyLoadImage
+                            alt="Meal preview"
+                            src={currentImageUrl}
+                            effect="blur"
+                            wrapperClassName="h-full w-full"
+                            className="h-full w-full object-contain"
+                            placeholderSrc="/placeholder-image.png"
+                            onError={(e: any) => (e.currentTarget.style.display = 'none')}
+                          />
+                           <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="absolute top-1 right-1 h-7 w-7 p-0 text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20"
+                              onClick={(e) => { e.stopPropagation(); handleClearImage(); }}
+                              aria-label="Clear image"
+                            >
+                              <XCircle className="h-4 w-4" />
+                            </Button>
+                        </div>
+                      ) : (
+                        <>
+                          <Button
+                            type="button"
+                            onClick={handleGenerateImageClick}
+                            disabled={
+                              !form.watch('name') ||
+                              generateImageMutation.isPending ||
+                              isLoadingProfile ||
+                              (generationStatus && !generationStatus.isAdmin && generationStatus.limitReached)
+                            }
+                            className="w-full"
+                          >
+                            <Brain className="mr-2 h-4 w-4" /> Generate Image with AI
+                          </Button>
+                          <div className="text-xs text-muted-foreground text-center">
+                            <Info size={14} className="inline mr-1 flex-shrink-0" />
+                            {generationStatus && !isLoadingProfile && (
+                              generationStatus.isAdmin
+                                ? "Admin: Limits bypassed for AI generation."
+                                : `AI Generations Used: ${generationStatus.generationsUsedThisMonth}/${IMAGE_GENERATION_LIMIT_PER_MONTH}.`
+                            )}
+                            {isLoadingProfile && "Loading AI generation limit..."}
+                          </div>
+
+                          <div className="text-center">
+                            <Button
+                              type="button"
+                              variant="link"
+                              className="text-sm p-0 h-auto"
+                              onClick={() => setShowImageUrlInput(!showImageUrlInput)}
+                              disabled={generateImageMutation.isPending} 
+                            >
+                              <Link2 className="mr-1 h-3 w-3" />
+                              {showImageUrlInput ? 'Hide URL input' : 'Or, use your own image URL'}
+                            </Button>
+                          </div>
+
+                          {showImageUrlInput && (
+                            <Input
+                              placeholder="Paste image URL"
+                              {...field}
+                              value={field.value || ''}
+                              disabled={generateImageMutation.isPending} 
+                            />
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <Button type="submit" disabled={addMealMutation.isPending || generateImageMutation.isPending} className="w-full">
+              {addMealMutation.isPending ? "Adding..." : "Add Meal"}
+            </Button>
+          </form>
+        </Form>
+        </CardContent>
+      </Card>
+
+      <Dialog open={!!viewingImageUrl} onOpenChange={(open) => !open && setViewingImageUrl(null)}>
+        <DialogContent
+          className="max-w-screen-md w-[90vw] h-[90vh] p-0 flex items-center justify-center bg-transparent border-none"
+          onClick={() => setViewingImageUrl(null)}
+        >
+          {viewingImageUrl && (
+            <img
+              src={viewingImageUrl}
+              alt="Enlarged meal image"
+              className="max-w-full max-h-full object-contain"
+              onClick={(e) => e.stopPropagation()}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 
