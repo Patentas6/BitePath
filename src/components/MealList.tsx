@@ -188,21 +188,33 @@ const MealList = () => {
     }
   };
 
-  const { data: uniqueCategoriesData } = useQuery<string[]>({
+  const { 
+    data: uniqueCategoriesData, 
+    isLoading: isLoadingCategories, 
+    error: categoriesError 
+  } = useQuery<string[]>({
     queryKey: ['mealCategories', userId],
     queryFn: async () => {
         if (!userId) return [];
+        console.log("[MealList] Fetching unique categories for user:", userId); 
         const { data, error } = await supabase.rpc('get_unique_meal_tags', { p_user_id: userId });
         if (error) {
-            console.error("Error fetching unique categories:", error);
-            return [];
+            console.error("[MealList] Error fetching unique categories via RPC:", error); 
+            return []; 
         }
+        console.log("[MealList] Received unique categories:", data); 
         return data || [];
     },
     enabled: !!userId,
   });
   const uniqueCategories = useMemo(() => uniqueCategoriesData || [], [uniqueCategoriesData]);
 
+  useEffect(() => { 
+    if (categoriesError) {
+      console.error("[MealList] categoriesError state updated:", categoriesError);
+      showError("Could not load meal categories.");
+    }
+  }, [categoriesError]);
 
   const formatIngredientsDisplay = (ingredientsString: string | null | undefined): string => {
     if (!ingredientsString) return 'No ingredients listed.';
@@ -228,9 +240,7 @@ const MealList = () => {
     }
   };
 
-  const showHeaderSpinner = isFetching && !isLoading && !isFetchingNextPage;
-
-  if (status === 'pending' && !allMeals.length) { 
+  if (isLoading && !allMeals.length) { 
     return (
       <Card className="hover:shadow-lg transition-shadow duration-200">
         <CardHeader><CardTitle>My Meals</CardTitle></CardHeader>
@@ -251,7 +261,7 @@ const MealList = () => {
     );
   }
 
-  if (status === 'error' && mealsError) {
+  if (status === 'error' && mealsError && !allMeals.length) { 
     console.error("Error fetching meals:", mealsError);
     return (
       <Card className="hover:shadow-lg transition-shadow duration-200">
@@ -260,14 +270,16 @@ const MealList = () => {
       </Card>
     );
   }
+  
+  const showHeaderSpinner = isFetching && !isLoading && !isFetchingNextPage;
 
   return (
     <>
       <Card className="hover:shadow-lg transition-shadow duration-200">
         <CardHeader>
-          <div className="flex items-center justify-between"> 
+          <div className="flex items-center justify-between">
             <CardTitle>My Meals</CardTitle>
-            {showHeaderSpinner && ( 
+            {showHeaderSpinner && (
               <Loader2 className="h-5 w-5 animate-spin text-primary" />
             )}
           </div>
@@ -285,19 +297,28 @@ const MealList = () => {
                 disabled={isFetching && !isFetchingNextPage} 
               />
             </div>
-            <Select 
-              value={selectedCategory} 
+            <Select
+              value={selectedCategory}
               onValueChange={setSelectedCategory}
-              disabled={isFetching && !isFetchingNextPage} 
+              disabled={(isFetching && !isFetchingNextPage) || isLoadingCategories} 
             >
               <SelectTrigger className="w-full sm:w-[180px]">
-                <SelectValue placeholder="Filter by category" />
+                <SelectValue placeholder={isLoadingCategories ? "Loading cats..." : "Filter by category"} /> 
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                {uniqueCategories.map(category => (
-                  <SelectItem key={category} value={category}>{category}</SelectItem>
-                ))}
+                {isLoadingCategories ? (
+                  <SelectItem value="loading_cats" disabled>Loading categories...</SelectItem>
+                ) : (
+                  <>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {uniqueCategories.map(category => (
+                      <SelectItem key={category} value={category}>{category}</SelectItem>
+                    ))}
+                    {!uniqueCategories.length && ( 
+                      <SelectItem value="no_cats" disabled>No categories found</SelectItem>
+                    )}
+                  </>
+                )}
               </SelectContent>
             </Select>
             <div className="flex space-x-2 w-full sm:w-auto justify-center sm:justify-start">
@@ -322,7 +343,7 @@ const MealList = () => {
             </div>
           </div>
 
-          {status !== 'pending' && allMeals.length === 0 && (
+          {status !== 'pending' && !isLoading && allMeals.length === 0 && !isFetching && ( 
             <div className="text-center py-6 text-muted-foreground">
               <ChefHat className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500 mb-4" />
               <p className="text-lg font-semibold mb-1">
@@ -462,7 +483,7 @@ const MealList = () => {
 
           <div ref={loadMoreRef} className="h-10 flex justify-center items-center">
             {isFetchingNextPage && <Loader2 className="h-6 w-6 animate-spin text-primary" />}
-            {!hasNextPage && allMeals.length > 0 && status !== 'pending' && (
+            {!hasNextPage && allMeals.length > 0 && status !== 'pending' && !isFetching && ( 
               <p className="text-sm text-muted-foreground">No more meals to load.</p>
             )}
           </div>
