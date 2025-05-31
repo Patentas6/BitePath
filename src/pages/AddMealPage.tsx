@@ -15,11 +15,12 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Label } from '@/components/ui/label';
 
+// Updated Zod schema: servings is a required string (from Select)
 const mealSchema = z.object({
   mealName: z.string().min(1, "Meal name is required"),
   ingredients: z.string().min(1, "Ingredients are required"),
   instructions: z.string().min(1, "Instructions are required"),
-  servings: z.string().min(1, "Number of servings is required"), // Will be a string from Select
+  servings: z.string().min(1, "Number of servings is required"), 
   mealTags: z.string().optional(),
   estimatedCalories: z.string().optional(),
 });
@@ -38,7 +39,7 @@ const AddMealPage: React.FC = () => {
       mealName: '',
       ingredients: '',
       instructions: '',
-      servings: '2', // Default to 2 servings
+      servings: '2', // Default to "2" servings
       mealTags: '',
       estimatedCalories: '',
     },
@@ -70,10 +71,10 @@ const AddMealPage: React.FC = () => {
         name: data.mealName,
         ingredients: data.ingredients,
         instructions: data.instructions,
-        servings: data.servings, // This is now from the Select component
+        servings: data.servings, // Value comes directly from the Select component
         meal_tags: data.mealTags?.split(',').map(tag => tag.trim()).filter(tag => tag) || [],
         estimated_calories: data.estimatedCalories,
-        image_url: null, // Explicitly set image_url to null as we removed the input
+        image_url: null, // Image URL is no longer collected from this form
       };
 
       console.log("Saving manual meal:", mealToInsert);
@@ -101,7 +102,7 @@ const AddMealPage: React.FC = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center"><PlusCircle className="mr-2 h-6 w-6 text-primary" /> Add New Meal Manually</CardTitle>
-          <CardDescription>Enter the details of your meal below.</CardDescription>
+          <CardDescription>Enter the details of your meal below. Number of servings is required.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -115,13 +116,15 @@ const AddMealPage: React.FC = () => {
               {errors.mealName && <p className="text-sm text-red-500 mt-1">{errors.mealName.message}</p>}
             </div>
 
+            {/* Servings input is now a Select component */}
             <div>
               <Label htmlFor="servings">Number of Servings</Label>
               <Controller
                 name="servings"
                 control={control}
+                defaultValue="2" // Ensure a default value is set for the controller
                 render={({ field }) => (
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <SelectTrigger id="servings">
                       <SelectValue placeholder="Select number of servings" />
                     </SelectTrigger>
@@ -178,7 +181,7 @@ const AddMealPage: React.FC = () => {
               />
             </div>
 
-            {/* Image URL input has been removed */}
+            {/* The input field for Image URL has been completely removed from this form. */}
 
             <Button type="submit" disabled={isSaving} className="w-full">
               {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
