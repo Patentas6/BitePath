@@ -1,3 +1,21 @@
+// --- IMPORTANT CONFIGURATION NOTES ---
+//
+// Google Cloud Project ID:
+//   Extracted from the `project_id` field within the `VERTEX_SERVICE_ACCOUNT_KEY_JSON` environment variable.
+//
+// Authentication:
+//   Uses OAuth 2.0 with a JWT bearer token. The `getAccessToken` function in this file handles:
+//   1. Parsing the `VERTEX_SERVICE_ACCOUNT_KEY_JSON` environment variable.
+//   2. Creating a signed JWT using the service account's private key and client email.
+//   3. Exchanging this JWT for an access token from Google's token URI (`https://oauth2.googleapis.com/token`).
+//   This access token is then used in the 'Authorization: Bearer <token>' header for Vertex AI API calls.
+//
+// Vertex AI Model:
+//   Model ID: gemini-2.5-flash-preview-05-20
+//   Region: us-central1 (Ensure this matches your Vertex AI setup)
+//
+// --- END CONFIGURATION NOTES ---
+
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { create, getNumericDate } from "https://deno.land/x/djwt@v2.4/mod.ts";
 import { format as formatDate } from "https://deno.land/std@0.224.0/datetime/mod.ts";
@@ -8,14 +26,12 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-// Re-using the robust getAccessToken function you provided
 async function getAccessToken(serviceAccountJsonString: string): Promise<string> {
   const getAccessTokenStartTime = Date.now();
   try {
     const sa = JSON.parse(serviceAccountJsonString);
     const privateKeyPem = sa.private_key;
     const clientEmail = sa.client_email;
-    // const projectId = sa.project_id; // Project ID is in the SA, used implicitly by Google's token URI
 
     if (!privateKeyPem || !clientEmail) {
       console.error("Missing required fields (private_key, client_email) in service account JSON.");
@@ -24,22 +40,21 @@ async function getAccessToken(serviceAccountJsonString: string): Promise<string>
 
     const tokenUri = sa.token_uri || "https://oauth2.googleapis.com/token";
     const audience = tokenUri;
-    const now = getNumericDate(0); // current time
-    const expires = getNumericDate(3600); // 1 hour from now
+    const now = getNumericDate(0); 
+    const expires = getNumericDate(3600); 
 
     const payload = {
       iss: clientEmail,
-      scope: "https://www.googleapis.com/auth/cloud-platform", // Broad scope, ensure it's appropriate
+      scope: "https://www.googleapis.com/auth/cloud-platform",
       aud: audience,
       iat: now,
       exp: expires,
     };
 
-    // Prepare the private key for import
     const cleanedPrivateKeyPem = privateKeyPem
       .replace('-----BEGIN PRIVATE KEY-----', '')
       .replace('-----END PRIVATE KEY-----', '')
-      .replace(/\s+/g, ''); // Remove all whitespace and newlines
+      .replace(/\s+/g, ''); 
     
     const binaryDer = Uint8Array.from(atob(cleanedPrivateKeyPem), (c) => c.charCodeAt(0));
 
@@ -49,7 +64,7 @@ async function getAccessToken(serviceAccountJsonString: string): Promise<string>
             "pkcs8",
             binaryDer,
             { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-            false, // not extractable
+            false, 
             ["sign"]
         );
     } catch (importError) {
@@ -58,7 +73,6 @@ async function getAccessToken(serviceAccountJsonString: string): Promise<string>
         throw new Error(`Failed to import private key for JWT signing: ${importError.message}`);
     }
     
-
     const jwt = await create(
       { alg: "RS256", typ: "JWT" },
       payload,
@@ -86,7 +100,6 @@ async function getAccessToken(serviceAccountJsonString: string): Promise<string>
 
   } catch (error) {
     console.error(`[${formatDate(new Date(), "yyyy-MM-dd HH:mm:ss")}] Error in getAccessToken. Duration: ${Date.now() - getAccessTokenStartTime}ms`, error.message, error.stack);
-    // Do not re-throw generic "Authentication failed" if it's already a specific error
     throw error instanceof Error ? error : new Error(`Authentication failed: ${error.message}`);
   }
 }
@@ -134,10 +147,9 @@ serve(async (req) => {
     
     const fullPrompt = `Generate a meal recipe based on the following: ${prompt}. Preferences: ${preferences || 'No specific preferences.'}`;
 
-    // Ensure you have the correct region and model ID for your Vertex AI setup
-    // Example: gemini-1.5-flash-001 or gemini-1.0-pro
-    const modelId = "gemini-1.5-flash-001"; 
-    const region = "us-central1"; // Replace with your Vertex AI region
+    // --- Using the specified model ID ---
+    const modelId = "gemini-2.5-flash-preview-05-20"; 
+    const region = "us-central1"; // As noted in comments above
     const apiUrl = `https://${region}-aiplatform.googleapis.com/v1/projects/${googleProjectId}/locations/${region}/publishers/google/models/${modelId}:generateContent`;
 
     console.log(`Sending request to Vertex AI: ${apiUrl}`);
@@ -151,11 +163,10 @@ serve(async (req) => {
         contents: [{
           parts: [{ text: fullPrompt }],
         }],
-        // Add generationConfig if needed, e.g.,
-        // generation_config: {
-        //   "maxOutputTokens": 2048,
-        //   "temperature": 0.7,
-        //   "topP": 1,
+        // generation_config: { // You can uncomment and adjust these if needed
+        //   "maxOutputTokens": 8192, // Max for gemini-1.5-flash is 8192, check for 2.5
+        //   "temperature": 1.0,    // Default is 1.0 for flash models
+        //   "topP": 0.95,          // Default is 0.95 for flash models
         // }
       }),
     });
