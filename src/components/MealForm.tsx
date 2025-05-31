@@ -63,7 +63,9 @@ const mealFormSchema = z.object({
   meal_tags: z.array(z.string()).optional(),
   image_url: z.string().optional(),
   estimated_calories: z.string().optional(),
-  servings: z.string().optional(),
+  servings: z.string()
+    .min(1, { message: "Number of servings is required." })
+    .regex(/^[1-9]\d*$/, { message: "Servings must be a positive whole number." }),
 });
 
 export interface GenerationStatusInfo {
@@ -91,7 +93,6 @@ const MealForm: React.FC<MealFormProps> = ({
  }) => {
   const queryClient = useQueryClient();
   const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
-  // Removed showImageUrlInput state
 
   const form = useForm<MealFormValues>({
     resolver: zodResolver(mealFormSchema),
@@ -102,7 +103,7 @@ const MealForm: React.FC<MealFormProps> = ({
       meal_tags: [],
       image_url: "",
       estimated_calories: "",
-      servings: "",
+      servings: "", // Keep as empty string for initial state, validation will handle it
     },
   });
 
@@ -115,7 +116,6 @@ const MealForm: React.FC<MealFormProps> = ({
     if (initialData) {
       form.reset(initialData);
       replace(initialData.ingredients || []);
-      // No need to manage showImageUrlInput based on initialData.image_url anymore
       if (onInitialDataProcessed) {
         onInitialDataProcessed();
       }
@@ -160,7 +160,7 @@ const MealForm: React.FC<MealFormProps> = ({
             meal_tags: values.meal_tags,
             image_url: values.image_url,
             estimated_calories: showCaloriesField ? values.estimated_calories : null,
-            servings: values.servings,
+            servings: values.servings, // Will be a string like "4"
           },
         ])
         .select();
@@ -447,13 +447,26 @@ const MealForm: React.FC<MealFormProps> = ({
                 <FormItem>
                   <FormLabel className="flex items-center">
                     <Users className="mr-2 h-4 w-4 text-primary" />
-                    Number of Servings (Optional)
+                    Number of Servings
                   </FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., 4 or 2-3" {...field} />
+                    <Input
+                      type="number"
+                      placeholder="e.g., 4"
+                      {...field}
+                      min="1"
+                      step="1"
+                      onChange={e => {
+                        const value = e.target.value;
+                        // Allow empty string for clearing, or positive integers
+                        if (value === "" || /^[1-9]\d*$/.test(value)) {
+                           field.onChange(value);
+                        }
+                      }}
+                    />
                   </FormControl>
                   <FormDescription>
-                    How many people does this meal typically serve? (e.g., "4", "2-3 servings")
+                    Enter the whole number of people this meal typically serves (e.g., "4"). This field is required.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -537,7 +550,6 @@ const MealForm: React.FC<MealFormProps> = ({
                             )}
                             {isLoadingProfile && "Loading AI generation limit..."}
                           </div>
-                          {/* Removed the "Or, use your own image URL" button and Input field */}
                         </>
                       )}
                     </div>
