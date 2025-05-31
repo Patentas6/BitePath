@@ -65,7 +65,10 @@ const mealFormSchema = z.object({
   estimated_calories: z.string().optional(),
   servings: z.string()
     .min(1, { message: "Number of servings is required." })
-    .regex(/^[1-9]\d*$/, { message: "Servings must be a positive whole number." }),
+    .refine(val => {
+        const num = parseInt(val, 10);
+        return !isNaN(num) && num >= 1 && num <= 12;
+    }, { message: "Please select a valid number of servings (1-12)." }),
 });
 
 export interface GenerationStatusInfo {
@@ -103,7 +106,7 @@ const MealForm: React.FC<MealFormProps> = ({
       meal_tags: [],
       image_url: "",
       estimated_calories: "",
-      servings: "", // Keep as empty string for initial state, validation will handle it
+      servings: "", 
     },
   });
 
@@ -160,7 +163,7 @@ const MealForm: React.FC<MealFormProps> = ({
             meal_tags: values.meal_tags,
             image_url: values.image_url,
             estimated_calories: showCaloriesField ? values.estimated_calories : null,
-            servings: values.servings, // Will be a string like "4"
+            servings: values.servings,
           },
         ])
         .select();
@@ -261,6 +264,7 @@ const MealForm: React.FC<MealFormProps> = ({
   };
 
   const currentImageUrl = form.watch('image_url');
+  const servingOptions = Array.from({ length: 12 }, (_, i) => (i + 1).toString());
 
   return (
     <>
@@ -449,24 +453,22 @@ const MealForm: React.FC<MealFormProps> = ({
                     <Users className="mr-2 h-4 w-4 text-primary" />
                     Number of Servings
                   </FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      placeholder="e.g., 4"
-                      {...field}
-                      min="1"
-                      step="1"
-                      onChange={e => {
-                        const value = e.target.value;
-                        // Allow empty string for clearing, or positive integers
-                        if (value === "" || /^[1-9]\d*$/.test(value)) {
-                           field.onChange(value);
-                        }
-                      }}
-                    />
-                  </FormControl>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select number of servings" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {servingOptions.map(option => (
+                        <SelectItem key={option} value={option}>
+                          {option}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormDescription>
-                    Enter the whole number of people this meal typically serves (e.g., "4"). This field is required.
+                    Select how many people this meal typically serves. This field is required.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
