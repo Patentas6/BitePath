@@ -27,6 +27,7 @@ const generationPreferencesSchema = z.object({
 
 type GenerationPreferencesFormData = z.infer<typeof generationPreferencesSchema>;
 
+// Servings will be set programmatically from AI or default, but still part of the data structure
 const mealSchema = z.object({
   mealName: z.string().min(1, "Meal name is required"),
   ingredients: z.string().min(1, "Ingredients are required"),
@@ -64,8 +65,8 @@ const GenerateMealPage: React.FC = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const MAX_IMAGE_GENERATIONS = 5; // Example limit
-  const MAX_RECIPE_GENERATIONS = 10; // Example limit
+  const MAX_IMAGE_GENERATIONS = 5; 
+  const MAX_RECIPE_GENERATIONS = 10;
 
   useEffect(() => {
     const fetchUserAndProfile = async () => {
@@ -90,7 +91,6 @@ const GenerateMealPage: React.FC = () => {
           let currentImageCount = profile.image_generation_count || 0;
           if (profile.last_image_generation_reset !== today) {
             currentImageCount = 0;
-            // Optionally update the reset date and count in DB here or upon next generation
           }
           setImageGenerationCount(currentImageCount);
           setCanGenerateImage(profile.is_admin || currentImageCount < MAX_IMAGE_GENERATIONS);
@@ -102,7 +102,7 @@ const GenerateMealPage: React.FC = () => {
           setRecipeGenerationCount(currentRecipeCount);
           setCanGenerateRecipe(profile.is_admin || currentRecipeCount < MAX_RECIPE_GENERATIONS);
         } else {
-          setCanGenerateImage(true); // Default for new users or if profile not found
+          setCanGenerateImage(true); 
           setCanGenerateRecipe(true);
         }
 
@@ -125,14 +125,14 @@ const GenerateMealPage: React.FC = () => {
     },
   });
 
-  const { control: mealFormControl, handleSubmit: handleSaveSubmit, setValue, formState: { errors: mealErrors } } = useForm<MealFormData>({
+  const { control: mealFormControl, handleSubmit: handleSaveSubmit, setValue, getValues, formState: { errors: mealErrors } } = useForm<MealFormData>({
     resolver: zodResolver(mealSchema),
     defaultValues: {
       mealName: '',
       ingredients: '',
       instructions: '',
       mealTags: '',
-      servings: '2', // Default to 2 servings
+      servings: '2', // Default, will be overwritten by AI if available
     },
   });
 
@@ -159,9 +159,6 @@ const GenerateMealPage: React.FC = () => {
             description: `You have reached your daily limit of ${MAX_IMAGE_GENERATIONS} image generations. You can still generate the recipe without an image.`,
             variant: "destructive",
         });
-        // Optionally, allow recipe generation without image
-        // data.generateImage = false; 
-        // Or return if image is mandatory for this flow
         return; 
     }
 
@@ -176,7 +173,7 @@ const GenerateMealPage: React.FC = () => {
       data.ingredientsToExclude && `Exclude these ingredients: ${data.ingredientsToExclude}.`,
       data.targetCalories && `Aim for around ${data.targetCalories} calories per serving.`,
       data.specificRequests && `Specific requests: ${data.specificRequests}.`,
-      "Provide the response as a JSON object with the following keys: mealName (string), ingredients (string, newline separated), instructions (string, newline separated), estimatedCalories (string, e.g., 'Approx. X kcal per serving'), tags (array of strings).",
+      "Provide the response as a JSON object with the following keys: mealName (string), ingredients (string, newline separated), instructions (string, newline separated), estimatedCalories (string, e.g., 'Approx. X kcal per serving'), servings (string, e.g., '2' or '4 servings'), tags (array of strings). Ensure 'servings' is a string representing the number of servings the recipe makes.",
       "For ingredients, list each ingredient on a new line. For instructions, list each step on a new line, numbered.",
     ].filter(Boolean).join(' ');
     
@@ -196,22 +193,31 @@ const GenerateMealPage: React.FC = () => {
       console.log("Raw recipe data from function:", recipeData);
 
       if (recipeData && recipeData.mealName) {
+        // Parse servings from AI response. AI might return "X servings" or just "X".
+        let servingsValue = '2'; // Default
+        if (recipeData.servings) {
+            const parsedServings = String(recipeData.servings).match(/\d+/); // Extract numbers
+            if (parsedServings && parsedServings[0]) {
+                servingsValue = parsedServings[0];
+            }
+        }
+
         setValue('mealName', recipeData.mealName);
         setValue('ingredients', recipeData.ingredients);
         setValue('instructions', recipeData.instructions);
         setValue('mealTags', recipeData.tags ? recipeData.tags.join(', ') : '');
-        setValue('servings', recipeData.servings || '2'); // Use AI suggested servings or default to 2
+        setValue('servings', servingsValue); // Set the parsed or default servings value for the form
 
-        setGeneratedRecipe({
+        setGeneratedRecipe({ // Also update the state used for display
             ...recipeData,
-            servings: recipeData.servings || '2' // Ensure servings is part of the state
+            servings: servingsValue 
         });
+
         if (recipeData.imageUrl) {
           setRecipeImageUrl(recipeData.imageUrl);
         }
         toast({ title: "Recipe Generated!", description: "Review and save your new meal." });
         
-        // Update recipe generation count
         const newRecipeCount = recipeGenerationCount + 1;
         setRecipeGenerationCount(newRecipeCount);
         const { error: updateRecipeCountError } = await supabase
@@ -220,7 +226,6 @@ const GenerateMealPage: React.FC = () => {
           .eq('id', userId);
         if (updateRecipeCountError) console.error("Error updating recipe generation count:", updateRecipeCountError);
         setCanGenerateRecipe(newRecipeCount < MAX_RECIPE_GENERATIONS);
-
 
         if (data.generateImage && recipeData.imageUrl) {
             const newImageCount = imageGenerationCount + 1;
@@ -232,8 +237,6 @@ const GenerateMealPage: React.FC = () => {
             if (updateImageCountError) console.error("Error updating image generation count:", updateImageCountError);
             setCanGenerateImage(newImageCount < MAX_IMAGE_GENERATIONS);
         }
-
-
       } else {
         throw new Error("Invalid recipe format received from AI.");
       }
@@ -256,6 +259,7 @@ const GenerateMealPage: React.FC = () => {
     }
     setIsSaving(true);
     try {
+      // 'data.servings' will now come from the form state, which was populated by AI's response (or default)
       const mealToInsert = {
         user_id: userId,
         name: data.mealName,
@@ -264,7 +268,7 @@ const GenerateMealPage: React.FC = () => {
         meal_tags: data.mealTags?.split(',').map(tag => tag.trim()).filter(tag => tag) || [],
         image_url: recipeImageUrl,
         estimated_calories: generatedRecipe.estimatedCalories,
-        servings: data.servings, // Save the servings
+        servings: data.servings, 
       };
 
       console.log("Saving meal:", mealToInsert);
@@ -293,7 +297,6 @@ const GenerateMealPage: React.FC = () => {
             body: { userId: userId }
         });
         toast({ title: "Success", description: "Your generation quotas have been reset." });
-        // Re-fetch profile to update UI
         const { data: profile } = await supabase.from('profiles').select('image_generation_count, recipe_generation_count, is_admin').eq('id', userId).single();
         if (profile) {
             setImageGenerationCount(profile.image_generation_count || 0);
@@ -307,7 +310,6 @@ const GenerateMealPage: React.FC = () => {
         toast({ title: "Error", description: error.message || "Failed to reset quotas.", variant: "destructive" });
     }
   };
-
 
   return (
     <div className="container mx-auto p-4 max-w-3xl">
@@ -414,7 +416,6 @@ const GenerateMealPage: React.FC = () => {
                 </p>
             )}
 
-
             <Button type="submit" disabled={isLoading || !canGenerateRecipe || (generateImagePref && !canGenerateImage) } className="w-full">
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ChefHat className="mr-2 h-4 w-4" />}
               Generate Recipe
@@ -459,15 +460,7 @@ const GenerateMealPage: React.FC = () => {
                 {mealErrors.mealName && <p className="text-sm text-red-500 mt-1">{mealErrors.mealName.message}</p>}
               </div>
 
-              <div>
-                <Label htmlFor="servings">Number of Servings</Label>
-                <Controller
-                  name="servings"
-                  control={mealFormControl}
-                  render={({ field }) => <Input id="servings" type="number" min="1" {...field} />}
-                />
-                {mealErrors.servings && <p className="text-sm text-red-500 mt-1">{mealErrors.servings.message}</p>}
-              </div>
+              {/* Servings input field removed from here */}
 
               <div>
                 <Label htmlFor="ingredients">Ingredients</Label>
@@ -498,8 +491,10 @@ const GenerateMealPage: React.FC = () => {
               {generatedRecipe.estimatedCalories && (
                 <p className="text-sm text-muted-foreground">Estimated Calories: {generatedRecipe.estimatedCalories}</p>
               )}
-               <p className="text-sm text-muted-foreground">Base Servings for this recipe: {watchGenerationPrefs('servings') || generatedRecipe.servings || 'Not set'}</p>
-
+              {/* Display the AI-provided servings (or default) */}
+              <p className="text-sm text-muted-foreground">
+                Base Servings for this recipe: {getValues('servings') || 'Not set by AI (defaulting)'}
+              </p>
 
               <Button type="submit" disabled={isSaving} className="w-full">
                 {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
