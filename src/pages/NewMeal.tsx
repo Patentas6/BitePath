@@ -42,7 +42,7 @@ const NewMealPage: React.FC = () => {
   const [mealName, setMealName] = useState('');
   const [ingredients, setIngredients] = useState('');
   const [instructions, setInstructions] = useState('');
-  const [imageUrl, setImageUrl] = useState('');
+  const [imageUrl, setImageUrl] = useState(''); // Still needed for AI and template, but not for manual input field
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [mealTags, setMealTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState('');
@@ -319,7 +319,7 @@ const NewMealPage: React.FC = () => {
   }, [activeTab, searchTerm, toast]);
 
   const handleImageUpload = async (file: File) => {
-    if (!userId) return;
+    if (!userId) return null; // Added null return for consistency
     setIsLoading(true);
     const fileExt = file.name.split('.').pop();
     const fileName = `${userId}-${Date.now()}.${fileExt}`;
@@ -387,7 +387,7 @@ const NewMealPage: React.FC = () => {
       description: `Are you sure you want to add "${mealName}" to your meals?`,
       onConfirm: async () => {
         setIsLoading(true);
-        let finalImageUrl = imageUrl;
+        let finalImageUrl = imageUrl; // Use state imageUrl for AI/template
 
         if (activeTab === 'manual' && imageFile) {
           const uploadedUrl = await handleImageUpload(imageFile);
@@ -400,6 +400,9 @@ const NewMealPage: React.FC = () => {
           }
         } else if (activeTab === 'ai' && generatedImageUrl) {
           finalImageUrl = generatedImageUrl;
+        } else if (activeTab === 'template' && selectedTemplate) {
+            // If it's a template, imageUrl state already holds the template's image_url or customized one
+            // No specific action needed here for finalImageUrl assignment if it's already set from template selection/edit
         }
 
 
@@ -408,7 +411,7 @@ const NewMealPage: React.FC = () => {
           name: mealName,
           ingredients,
           instructions,
-          image_url: finalImageUrl,
+          image_url: finalImageUrl, // This will be empty string if no image from manual upload, AI, or template
           meal_tags: mealTags,
           servings: servings || null, // Save servings
         });
@@ -433,10 +436,9 @@ const NewMealPage: React.FC = () => {
     setMealName(template.name);
     setIngredients(template.ingredients);
     setInstructions(template.instructions);
-    setImageUrl(template.image_url || '');
+    setImageUrl(template.image_url || ''); // Set imageUrl state from template
     setMealTags(template.meal_tags || []);
-    // Optionally, switch to manual tab to allow editing, or keep in template tab
-    // setActiveTab('manual'); 
+    setServings(''); // Reset servings when loading a template
     toast({ title: 'Template Loaded', description: `Loaded ${template.name}. You can now customize and save it.`});
   };
   
@@ -581,17 +583,14 @@ const NewMealPage: React.FC = () => {
             <TabsContent value="manual">
               <form onSubmit={handleSubmit} className="space-y-6">
                 {commonFields}
-                <div className="space-y-2">
-                  <Label htmlFor="imageUrl">Image URL (Optional)</Label>
-                  <Input id="imageUrl" value={imageUrl} onChange={(e) => { setImageUrl(e.target.value); setImageFile(null); }} placeholder="https://example.com/image.jpg" />
-                </div>
+                {/* Removed the Image URL input field here */}
                 <div className="space-y-2">
                   <Label htmlFor="imageFile">Upload Image (Optional)</Label>
                   <div className="flex items-center gap-2">
                     <Input id="imageFile" type="file" accept="image/*" onChange={(e) => {
                       if (e.target.files?.[0]) {
                         setImageFile(e.target.files[0]);
-                        setImageUrl(''); // Clear URL if file is selected
+                        setImageUrl(''); // Clear URL state if file is selected for manual upload
                       } else {
                         setImageFile(null);
                       }
@@ -599,7 +598,7 @@ const NewMealPage: React.FC = () => {
                     {imageFile && (
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <Button type="button" variant="ghost" size="icon" onClick={() => setImageFile(null)}>
+                          <Button type="button" variant="ghost" size="icon" onClick={() => {setImageFile(null); /* setImageUrl(''); // Also clear if needed */ }}>
                             <XCircle className="h-5 w-5 text-destructive" />
                           </Button>
                         </TooltipTrigger>
