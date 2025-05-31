@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Trash2 } from 'lucide-react';
-import { UNITS, Unit } from '@/lib/constants'; // CRITICAL: Import from constants
+// CRITICAL: Ensure this import is exactly as follows, pointing to the constants file.
+import { UNITS, Unit } from '@/lib/constants'; 
 
 interface IngredientInputProps {
   index: number;
