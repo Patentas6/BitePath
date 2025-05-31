@@ -1,256 +1,186 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-// Updated Google Auth import URL
-import { GoogleAuth } from 'https://deno.land/x/google_auth@v0.6.0/mod.ts'; 
-import { HarmBlockThreshold, HarmCategory } from "https://esm.sh/@google/generative-ai@0.15.0";
+import { create, getNumericDate } from "https://deno.land/x/djwt@v2.4/mod.ts";
+import { format as formatDate } from "https://deno.land/std@0.224.0/datetime/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-const GOOGLE_PROJECT_ID = "bitepath"; 
-const VERTEX_AI_REGION = "us-central1"; 
+// Re-using the robust getAccessToken function you provided
+async function getAccessToken(serviceAccountJsonString: string): Promise<string> {
+  const getAccessTokenStartTime = Date.now();
+  try {
+    const sa = JSON.parse(serviceAccountJsonString);
+    const privateKeyPem = sa.private_key;
+    const clientEmail = sa.client_email;
+    // const projectId = sa.project_id; // Project ID is in the SA, used implicitly by Google's token URI
 
-// Helper function to parse servings string
-function parseServings(servingsText?: string): string {
-  if (!servingsText || typeof servingsText !== 'string') {
-    return "2"; // Default if no text or invalid type
-  }
-
-  const rangeMatch = servingsText.match(/(\d+)\s*[-to]+\s*(\d+)/);
-  if (rangeMatch && rangeMatch[1]) {
-    return parseInt(rangeMatch[1], 10).toString(); 
-  }
-
-  const singleMatch = servingsText.match(/(\d+)/);
-  if (singleMatch && singleMatch[1]) {
-    return parseInt(singleMatch[1], 10).toString();
-  }
-
-  return "2"; 
-}
-
-// Helper function to parse quantity string to number
-function parseQuantity(quantityStr?: string | number): number | null {
-  if (quantityStr === null || quantityStr === undefined || typeof quantityStr === 'number') {
-    return typeof quantityStr === 'number' && !isNaN(quantityStr) ? quantityStr : null;
-  }
-  if (typeof quantityStr !== 'string' || quantityStr.trim() === "" || quantityStr.toLowerCase() === "to taste") {
-    return null;
-  }
-
-  if (quantityStr.includes('/')) {
-    const parts = quantityStr.split('/');
-    if (parts.length === 2) {
-      const num = parseFloat(parts[0]);
-      const den = parseFloat(parts[1]);
-      if (!isNaN(num) && !isNaN(den) && den !== 0) {
-        return num / den;
-      }
+    if (!privateKeyPem || !clientEmail) {
+      console.error("Missing required fields (private_key, client_email) in service account JSON.");
+      throw new Error("Invalid service account key format.");
     }
+
+    const tokenUri = sa.token_uri || "https://oauth2.googleapis.com/token";
+    const audience = tokenUri;
+    const now = getNumericDate(0); // current time
+    const expires = getNumericDate(3600); // 1 hour from now
+
+    const payload = {
+      iss: clientEmail,
+      scope: "https://www.googleapis.com/auth/cloud-platform", // Broad scope, ensure it's appropriate
+      aud: audience,
+      iat: now,
+      exp: expires,
+    };
+
+    // Prepare the private key for import
+    const cleanedPrivateKeyPem = privateKeyPem
+      .replace('-----BEGIN PRIVATE KEY-----', '')
+      .replace('-----END PRIVATE KEY-----', '')
+      .replace(/\s+/g, ''); // Remove all whitespace and newlines
+    
+    const binaryDer = Uint8Array.from(atob(cleanedPrivateKeyPem), (c) => c.charCodeAt(0));
+
+    let cryptoKey;
+    try {
+        cryptoKey = await crypto.subtle.importKey(
+            "pkcs8",
+            binaryDer,
+            { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+            false, // not extractable
+            ["sign"]
+        );
+    } catch (importError) {
+        console.error("Failed to import private key:", importError.message, importError.stack);
+        console.error("Cleaned Private Key (first 64 chars):", cleanedPrivateKeyPem.substring(0,64));
+        throw new Error(`Failed to import private key for JWT signing: ${importError.message}`);
+    }
+    
+
+    const jwt = await create(
+      { alg: "RS256", typ: "JWT" },
+      payload,
+      cryptoKey
+    );
+
+    const response = await fetch(tokenUri, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+        assertion: jwt,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      console.error(`Token exchange error: ${response.status} ${response.statusText}`, errorBody);
+      throw new Error(`Failed to obtain access token: ${response.statusText}. Body: ${errorBody}`);
+    }
+
+    const data = await response.json();
+    console.log(`[${formatDate(new Date(), "yyyy-MM-dd HH:mm:ss")}] getAccessToken completed. Duration: ${Date.now() - getAccessTokenStartTime}ms`);
+    return data.access_token;
+
+  } catch (error) {
+    console.error(`[${formatDate(new Date(), "yyyy-MM-dd HH:mm:ss")}] Error in getAccessToken. Duration: ${Date.now() - getAccessTokenStartTime}ms`, error.message, error.stack);
+    // Do not re-throw generic "Authentication failed" if it's already a specific error
+    throw error instanceof Error ? error : new Error(`Authentication failed: ${error.message}`);
   }
-  
-  const num = parseFloat(quantityStr);
-  return isNaN(num) ? null : num;
 }
 
-interface Ingredient {
-  name: string;
-  quantity: number | null;
-  unit: string | null;
-  description?: string | null;
-}
+serve(async (req) => {
+  const functionStartTime = Date.now();
+  console.log(`[${formatDate(new Date(), "yyyy-MM-dd HH:mm:ss")}] generate-meal function invoked. Method: ${req.method}`);
 
-interface MealData {
-  name?: string;
-  ingredients?: Array<{ name?: string; quantity?: string | number; unit?: string; description?: string }>;
-  instructions?: string;
-  meal_tags?: string[];
-  ai_preferences?: string; 
-}
-
-serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
+    console.log("Handling OPTIONS request.");
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!, 
-      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
-    );
-
-    const { data: { user } } = await supabaseClient.auth.getUser();
-    if (!user) {
-      return new Response(JSON.stringify({ error: "User not authenticated." }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const { data: profile, error: profileError } = await supabaseClient
-      .from('profiles')
-      .select('image_generation_count, last_image_generation_reset, is_admin, ai_preferences, preferred_unit_system')
-      .eq('id', user.id)
-      .single();
-
-    if (profileError) {
-      console.error("Error fetching profile:", profileError);
-      return new Response(JSON.stringify({ error: "Failed to fetch user profile." }), {
+    const serviceAccountJsonString = Deno.env.get("VERTEX_SERVICE_ACCOUNT_KEY_JSON");
+    if (!serviceAccountJsonString) {
+      console.error("VERTEX_SERVICE_ACCOUNT_KEY_JSON environment variable not set.");
+      return new Response(JSON.stringify({ error: "Server configuration error: Missing credentials." }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
     
-    const IMAGE_GENERATION_LIMIT_PER_MONTH = 10; 
-    let currentCount = profile.image_generation_count || 0;
-    const lastReset = profile.last_image_generation_reset ? new Date(profile.last_image_generation_reset) : new Date(0);
-    const now = new Date();
+    const serviceAccount = JSON.parse(serviceAccountJsonString);
+    const googleProjectId = serviceAccount.project_id;
+    if (!googleProjectId) {
+        console.error("Project ID not found in service account JSON.");
+        return new Response(JSON.stringify({ error: "Server configuration error: Missing project ID in credentials." }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+    }
 
-    if (now.getFullYear() > lastReset.getFullYear() || now.getMonth() > lastReset.getMonth()) {
-      currentCount = 0;
-       supabaseClient.from('profiles').update({ 
-          image_generation_count: 0,
-          last_image_generation_reset: now.toISOString().split('T')[0] 
-       }).eq('id', user.id).then();
+    console.log("Attempting to get access token...");
+    const accessToken = await getAccessToken(serviceAccountJsonString);
+    console.log("Successfully obtained access token.");
+
+    const { prompt, preferences } = await req.json();
+    if (!prompt) {
+      return new Response(JSON.stringify({ error: "Missing 'prompt' in request body" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
     
-    if (!profile.is_admin && currentCount >= IMAGE_GENERATION_LIMIT_PER_MONTH) {
-      return new Response(JSON.stringify({ error: `Monthly image generation limit of ${IMAGE_GENERATION_LIMIT_PER_MONTH} reached.` }), {
-        status: 429,
+    const fullPrompt = `Generate a meal recipe based on the following: ${prompt}. Preferences: ${preferences || 'No specific preferences.'}`;
+
+    // Ensure you have the correct region and model ID for your Vertex AI setup
+    // Example: gemini-1.5-flash-001 or gemini-1.0-pro
+    const modelId = "gemini-1.5-flash-001"; 
+    const region = "us-central1"; // Replace with your Vertex AI region
+    const apiUrl = `https://${region}-aiplatform.googleapis.com/v1/projects/${googleProjectId}/locations/${region}/publishers/google/models/${modelId}:generateContent`;
+
+    console.log(`Sending request to Vertex AI: ${apiUrl}`);
+    const aiResponse = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{ text: fullPrompt }],
+        }],
+        // Add generationConfig if needed, e.g.,
+        // generation_config: {
+        //   "maxOutputTokens": 2048,
+        //   "temperature": 0.7,
+        //   "topP": 1,
+        // }
+      }),
+    });
+
+    if (!aiResponse.ok) {
+      const errorBody = await aiResponse.text();
+      console.error(`Vertex AI API error: ${aiResponse.status} ${aiResponse.statusText}`, errorBody);
+      return new Response(JSON.stringify({ error: `AI service error: ${aiResponse.statusText}`, details: errorBody }), {
+        status: aiResponse.status,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const { mealData } = (await req.json()) as { mealData: MealData };
-    const mealName = mealData.name || "a delicious meal";
-    const userAIPrefs = profile.ai_preferences || mealData.ai_preferences || "No specific dietary preferences.";
-    const unitSystem = profile.preferred_unit_system || "imperial";
+    const aiData = await aiResponse.json();
+    console.log("Successfully received response from Vertex AI.");
+    console.log(`[${formatDate(new Date(), "yyyy-MM-dd HH:mm:ss")}] generate-meal completed. Duration: ${Date.now() - functionStartTime}ms`);
 
-    const ingredientsHint = mealData.ingredients && mealData.ingredients.length > 0 
-      ? `Consider these existing ingredients if relevant: ${mealData.ingredients.map(i => `${i.quantity || ''} ${i.unit || ''} ${i.name}`).join(', ')}.`
-      : "";
-    const tagsHint = mealData.meal_tags && mealData.meal_tags.length > 0
-      ? `Consider these tags: ${mealData.meal_tags.join(', ')}.`
-      : "";
-
-    const prompt = `
-      You are a creative chef and recipe generator.
-      User's AI Preferences: ${userAIPrefs}
-      Preferred Unit System for ingredients: ${unitSystem}
-
-      Generate a recipe for a meal based on the name: "${mealName}".
-      ${ingredientsHint}
-      ${tagsHint}
-
-      Provide the following details in a JSON format:
-      1.  "mealName": A catchy and descriptive name for the meal.
-      2.  "ingredients": An array of objects, where each object has "name" (string), "quantity" (number, e.g., 0.5, 1, 2.5), and "unit" (string, e.g., "cup", "g", "tsp"). If quantity is not applicable (e.g., "to taste"), set quantity to null and unit to null, you can add a "description" field like "to taste".
-      3.  "instructions": Step-by-step cooking instructions as a single string with newlines.
-      4.  "servings": The number of people this meal serves. THIS MUST BE A SINGLE WHOLE NUMBER (e.g., "4"). If you think it serves a range like 2-3 people, USE THE LOWER NUMBER (e.g., "2"). If unsure, default to "2".
-      5.  "meal_tags": An array of relevant tags (e.g., "vegetarian", "quick", "dinner").
-      6.  "imagePrompt": A short, vivid description of the finished meal, suitable for an image generation model (e.g., "A vibrant bowl of spaghetti bolognese, topped with fresh basil and parmesan cheese, close-up shot").
-
-      Example for an ingredient: { "name": "All-purpose Flour", "quantity": 1.5, "unit": "cups" }
-      Example for "to taste": { "name": "Salt", "quantity": null, "unit": null, "description": "to taste" }
-      Example for servings: "servings": "4"
-
-      Output ONLY the JSON object. Do not include any other text before or after the JSON.
-    `;
-
-    const auth = new GoogleAuth();
-    const token = await auth.getAccessToken('https://www.googleapis.com/auth/cloud-platform');
-    
-    const geminiResponse = await fetch(
-      `https://${VERTEX_AI_REGION}-aiplatform.googleapis.com/v1/projects/${GOOGLE_PROJECT_ID}/locations/${VERTEX_AI_REGION}/publishers/google/models/gemini-1.5-flash-001:generateContent`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.7,
-            topK: 30,
-            topP: 0.9,
-            maxOutputTokens: 2048,
-          },
-           safetySettings: [
-            { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-            { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-            { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-            { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-          ],
-        }),
-      }
-    );
-
-    if (!geminiResponse.ok) {
-      const errorBody = await geminiResponse.text();
-      console.error("Gemini API error:", errorBody);
-      throw new Error(`Gemini API request failed: ${geminiResponse.status} ${errorBody}`);
-    }
-
-    const geminiResult = await geminiResponse.json();
-    
-    let recipeJsonText = geminiResult.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!recipeJsonText) {
-        console.error("No text found in Gemini response:", JSON.stringify(geminiResult, null, 2));
-        throw new Error("Failed to get recipe details from AI: No text in response.");
-    }
-    
-    recipeJsonText = recipeJsonText.replace(/^```json\s*|```\s*$/g, '').trim();
-
-    let parsedRecipe;
-    try {
-      parsedRecipe = JSON.parse(recipeJsonText);
-    } catch (e) {
-      console.error("Failed to parse JSON from AI response:", e);
-      console.error("Problematic AI response text:", recipeJsonText);
-      throw new Error("Failed to parse recipe details from AI. The AI response was not valid JSON.");
-    }
-
-    const finalServings = parseServings(parsedRecipe.servings);
-    const finalIngredients: Ingredient[] = (parsedRecipe.ingredients || []).map((ing: any) => ({
-      name: ing.name || "Unknown Ingredient",
-      quantity: parseQuantity(ing.quantity),
-      unit: ing.unit || null,
-      description: ing.description || null,
-    }));
-
-    let imageUrl = mealData.name ? `https://source.unsplash.com/500x300/?${encodeURIComponent(parsedRecipe.imagePrompt || mealData.name)}` : "/placeholder-image.png";
-    if (parsedRecipe.imagePrompt) {
-        imageUrl = `https://source.unsplash.com/500x300/?${encodeURIComponent(parsedRecipe.imagePrompt)}`;
-    }
-
-    if (!profile.is_admin) {
-      await supabaseClient
-        .from('profiles')
-        .update({ image_generation_count: currentCount + 1 })
-        .eq('id', user.id);
-    }
-
-    const responsePayload = {
-      name: parsedRecipe.mealName || mealData.name,
-      ingredients: finalIngredients,
-      instructions: parsedRecipe.instructions || "",
-      servings: finalServings,
-      meal_tags: parsedRecipe.meal_tags || [],
-      image_url: imageUrl,
-    };
-
-    return new Response(JSON.stringify(responsePayload), {
+    return new Response(JSON.stringify(aiData), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 200,
     });
 
   } catch (error) {
-    console.error("Error in generate-meal function:", error);
-    return new Response(JSON.stringify({ error: error.message || "An unexpected error occurred." }), {
+    console.error(`[${formatDate(new Date(), "yyyy-MM-dd HH:mm:ss")}] Critical error in generate-meal function. Duration: ${Date.now() - functionStartTime}ms`, error.message, error.stack);
+    return new Response(JSON.stringify({ error: "Internal server error.", details: error.message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
