@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Trash2, Edit3, Search, ChefHat, List, Grid3X3, Zap, Users } from "lucide-react"; 
+import { Trash2, Edit3, Search, ChefHat, List, Grid3X3, Zap, Users, Loader2 } from "lucide-react"; 
 import EditMealDialog, { MealForEditing } from "./EditMealDialog";
 import {
   AlertDialog,
@@ -46,7 +46,8 @@ interface ParsedIngredient {
 const PAGE_SIZE = 10;
 
 const MealList = () => {
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | 'all'>('all'); 
   const [layoutView, setLayoutView] = useState<'list' | 'grid'>('list'); 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -69,6 +70,16 @@ const MealList = () => {
     };
     fetchUser();
   }, []);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchTerm(searchInput);
+    }, 500); 
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [searchInput]);
 
   const { data: userProfile, isLoading: isLoadingUserProfile } = useQuery<{ track_calories: boolean } | null>({
     queryKey: ['userProfileForMealListDisplay', userId],
@@ -97,7 +108,7 @@ const MealList = () => {
     error,
   } = useInfiniteQuery<Meal[], Error, Meal[], Meal[], { userId: string | null; searchTerm: string; selectedCategory: string }>(
     {
-      queryKey: ["mealsInfinite", userId, searchTerm, selectedCategory], 
+      queryKey: ["mealsInfinite", userId, debouncedSearchTerm, selectedCategory], 
       queryFn: async ({ pageParam = 0, queryKey: [, , currentSearchTerm, currentSelectedCategory] }) => { 
         if (!userId) return [];
         const { data: { user } } = await supabase.auth.getUser();
@@ -154,7 +165,7 @@ const MealList = () => {
     },
     onSuccess: () => {
       showSuccess("Meal deleted successfully!");
-      queryClient.invalidateQueries({ queryKey: ["mealsInfinite", userId, searchTerm, selectedCategory] }); 
+      queryClient.invalidateQueries({ queryKey: ["mealsInfinite", userId, debouncedSearchTerm, selectedCategory] }); 
       queryClient.invalidateQueries({ queryKey: ["mealPlans"] });
       queryClient.invalidateQueries({ queryKey: ["groceryListSource"] });
       queryClient.invalidateQueries({ queryKey: ["todaysGroceryListSource"] });
@@ -251,8 +262,8 @@ const MealList = () => {
               <Input
                 type="text"
                 placeholder="Search my meals..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
                 className="pl-10 w-full"
               />
             </div>
@@ -425,9 +436,10 @@ const MealList = () => {
             </div>
           )}
           
-          {isFetchingNextPage && ( 
-            <div className="flex justify-center items-center py-4">
-              <Skeleton className="h-8 w-32" /> 
+          {isFetchingNextPage && (
+            <div className="flex justify-center items-center py-4 text-muted-foreground"> 
+              <Loader2 className="h-5 w-5 animate-spin mr-2" />
+              <span>Loading more meals...</span>
             </div>
           )}
           <div ref={scrollTriggerRef} style={{ height: '1px' }} /> 
