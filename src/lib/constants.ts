@@ -1,5 +1,5 @@
-export const IMAGE_GENERATION_LIMIT_PER_MONTH = 10; // Example value, adjust if needed
-export const RECIPE_GENERATION_LIMIT_PER_MONTH = 5;  // Example value, adjust if needed
+export const IMAGE_GENERATION_LIMIT_PER_MONTH = 10;
+export const RECIPE_GENERATION_LIMIT_PER_MONTH = 5;
 
 export const UNITS = [
   'g', 'kg', 'mg', 
@@ -11,10 +11,17 @@ export const UNITS = [
   'pinch', 'dash', 'handful',
   'can', 'bottle', 'package',
   'cm', 'inch',
-  // Add any other units you commonly use
 ] as const;
 
-// You can also define a type for these units if needed elsewhere
 export type Unit = typeof UNITS[number];
 
-// Add any other constants your application might need here
+export const MEAL_TAG_OPTIONS = [
+  "Breakfast", "Lunch", "Dinner", "Snack",
+  "Vegetarian", "Vegan", "Gluten-Free", "Dairy-Free",
+  "Quick & Easy", "Healthy", "Comfort Food", "High Protein",
+  "Low Carb", "Dessert", "Appetizer", "Side Dish",
+  "Soup", "Salad", "Main Course", "Beverage",
+  "Italian", "Mexican", "Asian", "Indian", "American"
+] as const;
+
+export type MealTagOption = typeof MEAL_TAG_OPTIONS[number];
