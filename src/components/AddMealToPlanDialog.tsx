@@ -56,10 +56,10 @@ interface AddMealToPlanDialogProps {
   planDate: Date | null;
   userId: string | null;
   initialMealType?: PlanningMealType | string | null;
-  preSelectedMealId?: string; // New prop
-  preSelectedMealName?: string; // New prop
-  originalMealServings?: string | null | undefined; // New prop
-  onSaveSuccessCallback?: () => void; // New prop
+  preSelectedMealId?: string; 
+  preSelectedMealName?: string; 
+  originalMealServings?: string | null | undefined; 
+  onSaveSuccessCallback?: () => void; 
 }
 
 const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
@@ -94,7 +94,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
       if (error) throw error;
       return data || [];
     },
-    enabled: !!userId && open && !preSelectedMealId, // Only fetch if not pre-selected
+    enabled: !!userId && open && !preSelectedMealId, 
   });
 
   const { data: mealsImageData, isLoading: isLoadingImageData, error: imageDataError } = useQuery<MealImageData[]>({
@@ -114,7 +114,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
   useEffect(() => {
     if (open) {
       setSearchTerm("");
-      setSelectedMealId(preSelectedMealId); // Set from prop if available
+      setSelectedMealId(preSelectedMealId); 
       
       const typeForSavingDatabase = PLANNING_MEAL_TYPES.find(t => t === initialMealType);
       setSelectedMealTypeForSaving(typeForSavingDatabase);
@@ -139,7 +139,6 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
         }
         setSelectedTags(tagsToPreselect);
       } else {
-        // If pre-selected, no need to set tags for filtering
         setSelectedTags([]);
       }
 
@@ -150,8 +149,6 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
 
   useEffect(() => {
     if (preSelectedMealId) {
-      // If a meal is pre-selected, we don't need to populate `processedMeals` from full fetch
-      // The name is passed via `preSelectedMealName`
       setProcessedMeals([]);
       return;
     }
@@ -175,7 +172,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
   }, [mealsTextData, mealsImageData, preSelectedMealId]);
 
   const filteredMeals = useMemo(() => {
-    if (preSelectedMealId || !processedMeals) return []; // No filtering if pre-selected
+    if (preSelectedMealId || !processedMeals) return []; 
     let tempFilteredMeals = processedMeals;
 
     if (searchTerm) {
@@ -230,7 +227,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
       queryClient.invalidateQueries({ queryKey: ["groceryListSource"] });
       queryClient.invalidateQueries({ queryKey: ["todaysGroceryListSource"] });
       onOpenChange(false);
-      onSaveSuccessCallback?.(); // Call the callback if provided
+      onSaveSuccessCallback?.(); 
     },
     onError: (error) => {
       console.error("Error updating meal plan:", error);
@@ -275,6 +272,12 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
   const currentSelectedMealName = preSelectedMealId 
     ? preSelectedMealName 
     : processedMeals?.find((meal) => meal.id === selectedMealId)?.name;
+
+  const servingsPlaceholder = `Original: ${
+    preSelectedMealId 
+      ? (originalMealServings || 'N/A') 
+      : (processedMeals?.find(m => m.id === selectedMealId)?.servings || 'N/A')
+  }`;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -397,7 +400,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
                   const val = e.target.value;
                   setDesiredServings(val === '' ? undefined : parseInt(val, 10));
                 }}
-                placeholder={`Original: ${originalMealServings || (processedMeals?.find(m => m.id === selectedMealId)?.servings) || 'N/A'}`}
+                placeholder={servingsPlaceholder}
                 className="w-full"
               />
               {(originalMealServings || processedMeals?.find(m => m.id === selectedMealId)?.servings) && (
