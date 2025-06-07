@@ -147,7 +147,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
     } else {
       setProcessedMeals([]); 
     }
-  }, [mealsTextData, mealsImageData, isLoadingImageData]);
+  }, [mealsTextData, mealsImageData]); // Removed isLoadingImageData from dependency array here as it's covered by mealsImageData
 
   const filteredMeals = useMemo(() => {
     if (!processedMeals) return [];
@@ -386,8 +386,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
             type="submit" 
             onClick={handleSave} 
             disabled={
-              isLoadingTextData || 
-              (mealsTextData && mealsTextData.length > 0 && isLoadingImageData && !processedMeals.find(m => m.id === selectedMealId)?.image_url) || 
+              isLoadingTextData || // Wait for essential text data
               addMealToPlanMutation.isPending || 
               !selectedMealId || 
               !selectedMealTypeForSaving ||
