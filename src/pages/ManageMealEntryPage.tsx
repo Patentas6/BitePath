@@ -197,7 +197,7 @@ const ManageMealEntryPage = () => {
     setNewlySavedMealInfo({
       id: savedMeal.id,
       name: savedMeal.name,
-      servings: savedMeal.servings || "Not specified", // Ensure it's a string
+      servings: savedMeal.servings,
     });
     setShowPostSavePlanner(true);
   };
