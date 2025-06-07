@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import ManualAddItemForm from "./ManualAddItemForm";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { parseFirstNumber } from "@/utils/mealUtils";
+import { useIsMobile } from "@/hooks/use-mobile"; // Added import
 
 const SHARED_LOCAL_STORAGE_KEY = 'bitepath-struckSharedGroceryItems';
 const MANUAL_ITEMS_LOCAL_STORAGE_KEY = 'bitepath-manualGroceryItems';
@@ -89,6 +90,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
   const [selectedDays, setSelectedDays] = useState<string>('7');
   const [isManualAddDialogOpen, setIsManualAddDialogOpen] = useState(false);
   const [groceryViewMode, setGroceryViewMode] = useState<'byMeal' | 'byCategory'>('byMeal');
+  const isMobile = useIsMobile(); // Initialize useIsMobile hook
 
   const [manualItems, setManualItems] = useState<ManualGroceryItem[]>(() => {
     const saved = localStorage.getItem(MANUAL_ITEMS_LOCAL_STORAGE_KEY);
