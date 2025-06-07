@@ -12,7 +12,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import AddMealToPlanDialog from "./AddMealToPlanDialog"; 
-import { calculateCaloriesPerServing } from '@/utils/mealUtils'; 
+import { calculateCaloriesPerServing, parseFirstNumber } from '@/utils/mealUtils'; 
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,6 +25,7 @@ interface MealPlan {
   meal_id: string;
   plan_date: string;
   meal_type?: string | null; 
+  desired_servings?: number | null; // Added desired_servings
   meals: {
     id: string; 
     name: string;
@@ -49,6 +50,7 @@ const exampleMealsData = [
     id: 'ex-bf', 
     meal_id: 'example-breakfast-id', 
     meal_type: 'Breakfast', 
+    desired_servings: 1,
     meals: { 
       id: 'example-breakfast-id',
       name: 'Example: Yogurt & Granola', 
@@ -61,6 +63,7 @@ const exampleMealsData = [
     id: 'ex-ln', 
     meal_id: 'example-lunch-id', 
     meal_type: 'Lunch', 
+    desired_servings: 1,
     meals: { 
       id: 'example-lunch-id',
       name: 'Example: Salad with Chicken', 
@@ -73,6 +76,7 @@ const exampleMealsData = [
     id: 'ex-dn', 
     meal_id: 'example-dinner-id', 
     meal_type: 'Dinner', 
+    desired_servings: 2,
     meals: { 
       id: 'example-dinner-id',
       name: 'Example: Spaghetti Carbonara', 
@@ -115,7 +119,7 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
       if (!userId) return [];
       const { data, error } = await supabase
         .from("meal_plans")
-        .select("id, meal_id, plan_date, meal_type, meals ( id, name, image_url, estimated_calories, servings )") 
+        .select("id, meal_id, plan_date, meal_type, desired_servings, meals ( id, name, image_url, estimated_calories, servings )") 
         .eq("user_id", userId)
         .eq("plan_date", todayStr);
       if (error) throw error;
@@ -138,11 +142,38 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
 
   const dailyTotalCaloriesPerServing = useMemo(() => {
     if (!userProfile?.track_calories || !sortedMealPlans || sortedMealPlans.length === 0) return null;
+    
     return sortedMealPlans.reduce((total, plan) => {
-      const caloriesPerServing = calculateCaloriesPerServing(plan.meals?.estimated_calories, plan.meals?.servings);
-      return total + (caloriesPerServing || 0);
+      if (!plan.meals) return total;
+
+      const originalTotalCaloriesStr = plan.meals.estimated_calories;
+      const originalServingsStr = plan.meals.servings;
+      const desiredServingsNum = plan.desired_servings;
+
+      let caloriesForThisMeal = 0;
+
+      if (desiredServingsNum && desiredServingsNum > 0) {
+        // Calculate based on desired servings
+        const originalTotalCaloriesNum = parseFirstNumber(originalTotalCaloriesStr);
+        const originalServingsNum = parseFirstNumber(originalServingsStr);
+
+        if (originalTotalCaloriesNum && originalServingsNum && originalServingsNum > 0) {
+          const caloriesPerOriginalServing = originalTotalCaloriesNum / originalServingsNum;
+          caloriesForThisMeal = caloriesPerOriginalServing; // We sum up per-serving calories
+        } else {
+          // Fallback if original scaling info is incomplete, try direct calculation
+          const perServing = calculateCaloriesPerServing(originalTotalCaloriesStr, desiredServingsNum.toString());
+          if (perServing) caloriesForThisMeal = perServing;
+        }
+      } else {
+        // Fallback to original calculation if no desired servings
+        const perServing = calculateCaloriesPerServing(originalTotalCaloriesStr, originalServingsStr);
+        if (perServing) caloriesForThisMeal = perServing;
+      }
+      return total + caloriesForThisMeal;
     }, 0);
   }, [sortedMealPlans, userProfile]);
+
 
   const isLoading = isLoadingMealPlans || isLoadingProfile;
   const showExampleData = !isLoading && !error && sortedMealPlans.length === 0;
@@ -150,10 +181,11 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
   const exampleTotalCalories = useMemo(() => {
     if (!userProfile?.track_calories || !showExampleData) return null;
     return exampleMealsData.reduce((total, plan) => {
-      const caloriesPerServing = calculateCaloriesPerServing(plan.meals?.estimated_calories, plan.meals?.servings);
+      const caloriesPerServing = calculateCaloriesPerServing(plan.meals?.estimated_calories, plan.desired_servings?.toString() || plan.meals?.servings);
       return total + (caloriesPerServing || 0);
     }, 0);
   }, [showExampleData, userProfile]);
+
 
   if (isLoading) return <Card className="hover:shadow-lg transition-shadow duration-200"><CardHeader><CardTitle>Today's Meals</CardTitle></CardHeader><CardContent><Skeleton className="h-32 w-full" /></CardContent></Card>;
   if (error) return <Card className="hover:shadow-lg transition-shadow duration-200"><CardHeader><CardTitle>Today's Meals</CardTitle></CardHeader><CardContent><p className="text-red-500 dark:text-red-400">Error loading today's meals.</p></CardContent></Card>;
@@ -179,7 +211,7 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
             {userProfile?.track_calories && currentTotalCalories !== null && currentTotalCalories > 0 && (
               <div className="text-sm font-semibold text-primary flex items-center">
                 <Zap size={16} className="mr-1.5" />
-                Total Est: {currentTotalCalories} kcal (per serving)
+                Total Est: {Math.round(currentTotalCalories)} kcal (per serving)
               </div>
             )}
           </div>
@@ -199,7 +231,27 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
           ) : (
             <ul className="space-y-3">
               {displayPlans.map(plannedMeal => {
-                const caloriesPerServing = calculateCaloriesPerServing(plannedMeal.meals?.estimated_calories, plannedMeal.meals?.servings);
+                const originalTotalCaloriesStr = plannedMeal.meals?.estimated_calories;
+                const originalServingsStr = plannedMeal.meals?.servings;
+                const desiredServingsNum = plannedMeal.desired_servings;
+                
+                let displayServingsStr = desiredServingsNum ? `${desiredServingsNum} serving${desiredServingsNum !== 1 ? 's' : ''}` : (plannedMeal.meals?.servings || "N/A");
+                
+                let caloriesPerFinalServing: number | null = null;
+                if (userProfile?.track_calories) {
+                  if (desiredServingsNum && desiredServingsNum > 0) {
+                    const originalTotalCaloriesNum = parseFirstNumber(originalTotalCaloriesStr);
+                    const originalServingsNum = parseFirstNumber(originalServingsStr);
+                    if (originalTotalCaloriesNum && originalServingsNum && originalServingsNum > 0) {
+                      caloriesPerFinalServing = Math.round((originalTotalCaloriesNum / originalServingsNum));
+                    } else {
+                       caloriesPerFinalServing = calculateCaloriesPerServing(originalTotalCaloriesStr, desiredServingsNum.toString());
+                    }
+                  } else {
+                    caloriesPerFinalServing = calculateCaloriesPerServing(originalTotalCaloriesStr, originalServingsStr);
+                  }
+                }
+
                 const mealDetailLink = !showExampleData && plannedMeal.meals?.id ? `/meal/${plannedMeal.meals.id}` : '#';
                 
                 const MealContentWrapper = showExampleData ? 'div' : Link;
@@ -252,16 +304,14 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
                        <div className="text-base font-semibold text-foreground mt-1">
                          {plannedMeal.meals?.name || 'Unknown Meal'}
                        </div>
-                       {plannedMeal.meals?.servings && (
-                         <div className="text-xs text-muted-foreground mt-0.5 flex items-center">
-                           <Users size={12} className="mr-1" />
-                           Servings: {plannedMeal.meals.servings}
-                         </div>
-                       )}
-                       {userProfile?.track_calories && caloriesPerServing !== null && (
+                       <div className="text-xs text-muted-foreground mt-0.5 flex items-center">
+                         <Users size={12} className="mr-1" />
+                         Servings: {displayServingsStr}
+                       </div>
+                       {userProfile?.track_calories && caloriesPerFinalServing !== null && (
                          <div className="text-xs text-primary mt-0.5 flex items-center">
                            <Zap size={12} className="mr-1" />
-                           Est. {caloriesPerServing} kcal per serving
+                           Est. {caloriesPerFinalServing} kcal per serving
                          </div>
                        )}
                      </MealContentWrapper>
