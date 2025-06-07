@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import ManualAddItemForm from "./ManualAddItemForm";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { parseFirstNumber } from "@/utils/mealUtils";
 
 const SHARED_LOCAL_STORAGE_KEY = 'bitepath-struckSharedGroceryItems';
 const MANUAL_ITEMS_LOCAL_STORAGE_KEY = 'bitepath-manualGroceryItems';
@@ -21,9 +22,11 @@ interface PlannedMealWithIngredients {
   id: string; 
   plan_date: string;
   meal_type: string | null;
+  desired_servings?: number | null; // Added desired_servings
   meals: {
     name: string;
     ingredients: string | null;
+    servings?: string | null; // Added original servings from meals table
   } | null;
 }
 
@@ -177,7 +180,7 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
       if (!userId) return [];
       const { data, error } = await supabase
         .from("meal_plans")
-        .select("id, plan_date, meal_type, meals ( name, ingredients )")
+        .select("id, plan_date, meal_type, desired_servings, meals ( name, ingredients, servings )") // Added desired_servings and meals.servings
         .eq("user_id", userId)
         .eq("plan_date", todayStr);
       if (error) throw error;
@@ -239,6 +242,18 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
 
       try {
         const parsedIngredients: ParsedIngredientItem[] = JSON.parse(pm.meals.ingredients);
+
+        let scalingFactor = 1;
+        const originalMealServingsStr = pm.meals.servings;
+        const desiredPlanServings = pm.desired_servings;
+
+        if (desiredPlanServings && originalMealServingsStr) {
+          const originalServingsNum = parseFirstNumber(originalMealServingsStr);
+          if (originalServingsNum && originalServingsNum > 0 && desiredPlanServings > 0) {
+            scalingFactor = desiredPlanServings / originalServingsNum;
+          }
+        }
+        
         parsedIngredients.forEach(ing => {
           if (!ing.name) return;
           const isToTaste = ing.description?.trim().toLowerCase() === 'to taste' || !ing.unit || ing.quantity === null || ing.quantity === undefined;
@@ -248,8 +263,9 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
           
           let quantityNum = 0;
           if (!isToTaste) {
-            quantityNum = typeof ing.quantity === 'string' ? parseFloat(ing.quantity) : Number(ing.quantity);
-            if (isNaN(quantityNum) || quantityNum < 0) return;
+            const baseQuantity = typeof ing.quantity === 'string' ? parseFloat(ing.quantity) : Number(ing.quantity);
+            if (isNaN(baseQuantity) || baseQuantity < 0) return;
+            quantityNum = baseQuantity * scalingFactor; // Apply scaling factor
           }
 
           if (mealIngredientMap.has(aggKey)) {

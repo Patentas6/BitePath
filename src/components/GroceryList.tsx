@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils";
 import ManualAddItemForm from "./ManualAddItemForm";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
+import { parseFirstNumber } from "@/utils/mealUtils";
 
 const SHARED_LOCAL_STORAGE_KEY = 'bitepath-struckSharedGroceryItems';
 const MANUAL_ITEMS_LOCAL_STORAGE_KEY = 'bitepath-manualGroceryItems';
@@ -20,9 +21,11 @@ interface PlannedMealWithIngredients {
   id: string; 
   plan_date: string;
   meal_type: string | null;
+  desired_servings?: number | null; // Added desired_servings
   meals: {
     name: string;
     ingredients: string | null;
+    servings?: string | null; // Added original servings from meals table
   } | null;
 }
 
@@ -142,7 +145,7 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
       const endDateStr = format(queryEndDate, 'yyyy-MM-dd');
       const { data, error } = await supabase
         .from("meal_plans")
-        .select("id, plan_date, meal_type, meals ( name, ingredients )")
+        .select("id, plan_date, meal_type, desired_servings, meals ( name, ingredients, servings )") // Added desired_servings and meals.servings
         .eq("user_id", userId)
         .gte("plan_date", startDateStr)
         .lte("plan_date", endDateStr);
@@ -205,6 +208,18 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
 
       try {
         const parsedIngredients: ParsedIngredientItem[] = JSON.parse(pm.meals.ingredients);
+        
+        let scalingFactor = 1;
+        const originalMealServingsStr = pm.meals.servings;
+        const desiredPlanServings = pm.desired_servings;
+
+        if (desiredPlanServings && originalMealServingsStr) {
+          const originalServingsNum = parseFirstNumber(originalMealServingsStr);
+          if (originalServingsNum && originalServingsNum > 0 && desiredPlanServings > 0) {
+            scalingFactor = desiredPlanServings / originalServingsNum;
+          }
+        }
+
         parsedIngredients.forEach(ing => {
           if (!ing.name) return;
 
@@ -215,8 +230,9 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
           
           let quantityNum = 0;
           if (!isToTaste) {
-            quantityNum = typeof ing.quantity === 'string' ? parseFloat(ing.quantity) : Number(ing.quantity);
-            if (isNaN(quantityNum) || quantityNum < 0) return;
+            const baseQuantity = typeof ing.quantity === 'string' ? parseFloat(ing.quantity) : Number(ing.quantity);
+            if (isNaN(baseQuantity) || baseQuantity < 0) return;
+            quantityNum = baseQuantity * scalingFactor; // Apply scaling factor
           }
 
           if (mealIngredientMap.has(aggKey)) {
@@ -472,12 +488,12 @@ const GroceryList: React.FC<GroceryListProps> = ({ userId }) => {
            <div className="flex items-center space-x-2 ml-auto">
               <Button 
                 variant="outline" 
-                size="sm" 
+                size={isMobile ? "icon" : "sm"}
                 onClick={() => setGroceryViewMode(prev => prev === 'byMeal' ? 'byCategory' : 'byMeal')}
                 className="h-8 text-sm"
               >
-                {groceryViewMode === 'byMeal' ? <LayoutGrid className="mr-2 h-4 w-4" /> : <List className="mr-2 h-4 w-4" />}
-                View by {groceryViewMode === 'byMeal' ? 'Category' : 'Meal'}
+                {groceryViewMode === 'byMeal' ? <LayoutGrid className={cn("h-4 w-4", !isMobile && "mr-2")} /> : <List className={cn("h-4 w-4", !isMobile && "mr-2")} />}
+                {!isMobile && `View by ${groceryViewMode === 'byMeal' ? 'Category' : 'Meal'}`}
               </Button>
               <Select value={selectedDays} onValueChange={(value) => { setSelectedDays(value); refetch(); }}>
                  <SelectTrigger className="w-[120px] h-8 text-sm">

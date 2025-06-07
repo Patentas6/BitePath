@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { format } from "date-fns";
 import { showError, showSuccess } from "@/utils/toast";
 import { MEAL_TAG_OPTIONS, MealTag, PLANNING_MEAL_TYPES, PlanningMealType } from "@/lib/constants";
+import { parseFirstNumber } from "@/utils/mealUtils";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +30,7 @@ import {
 } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +38,7 @@ interface MealTextData {
   id: string;
   name: string;
   meal_tags?: string[] | null;
+  servings?: string | null; // Added servings here
 }
 
 interface MealImageData {
@@ -64,21 +67,21 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
 }) => {
   const [selectedMealId, setSelectedMealId] = useState<string | undefined>(undefined);
   const [selectedMealTypeForSaving, setSelectedMealTypeForSaving] = useState<PlanningMealType | undefined>(undefined);
+  const [desiredServings, setDesiredServings] = useState<number | undefined>(undefined);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTags, setSelectedTags] = useState<MealTag[]>([]);
   const [isComboboxOpen, setIsComboboxOpen] = useState(false);
   const [processedMeals, setProcessedMeals] = useState<MealWithImage[]>([]);
   const queryClient = useQueryClient();
 
-  // Phase 1: Fetch text data (should be fast)
   const { data: mealsTextData, isLoading: isLoadingTextData, error: textDataError } = useQuery<MealTextData[]>({
-    queryKey: ["userMealsTextOnly", userId],
+    queryKey: ["userMealsTextOnlyWithServings", userId], // Updated queryKey
     queryFn: async () => {
       if (!userId) throw new Error("User ID is required to fetch meal text data.");
-      console.log("[AddMealToPlanDialog] Fetching text-only meal data...");
+      console.log("[AddMealToPlanDialog] Fetching text-only meal data with servings...");
       const { data, error } = await supabase
         .from("meals")
-        .select("id, name, meal_tags")
+        .select("id, name, meal_tags, servings") // Added servings to select
         .eq("user_id", userId)
         .order("name", { ascending: true });
       if (error) throw error;
@@ -87,30 +90,26 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
     enabled: !!userId && open,
   });
 
-  // Phase 2: Fetch image data (runs in parallel or after text, depending on cache)
   const { data: mealsImageData, isLoading: isLoadingImageData, error: imageDataError } = useQuery<MealImageData[]>({
     queryKey: ["userMealImagesOnly", userId],
     queryFn: async () => {
       if (!userId) throw new Error("User ID is required to fetch meal image data.");
-      console.log("[AddMealToPlanDialog] Fetching image-only meal data...");
       const { data, error } = await supabase
         .from("meals")
         .select("id, image_url")
         .eq("user_id", userId);
-      // No order needed here as we merge by ID
       if (error) throw error;
       return data || [];
     },
-    enabled: !!userId && open && !isLoadingTextData && !!mealsTextData, // Enable only when text data is available
+    enabled: !!userId && open && !isLoadingTextData && !!mealsTextData, 
   });
 
   useEffect(() => {
     if (open) {
-      console.log("--------------------------------------------------");
-      console.log("[AddMealToPlanDialog] Dialog opened or initialMealType changed.");
       setSearchTerm("");
       setSelectedMealId(undefined);
-      setProcessedMeals([]); // Clear processed meals
+      setDesiredServings(undefined);
+      setProcessedMeals([]); 
 
       const typeForSavingDatabase = PLANNING_MEAL_TYPES.find(t => t === initialMealType);
       setSelectedMealTypeForSaving(typeForSavingDatabase);
@@ -125,39 +124,30 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
         }
       }
       setSelectedTags(tagsToPreselect);
-      console.log("[AddMealToPlanDialog] `selectedTags` state set to:", tagsToPreselect);
-      console.log("--------------------------------------------------");
     } else {
       setIsComboboxOpen(false);
     }
   }, [open, initialMealType]);
 
-  // Merge text and image data
   useEffect(() => {
-    console.log("[AddMealToPlanDialog] Merge useEffect triggered. mealsTextData:", mealsTextData, "mealsImageData:", mealsImageData, "isLoadingImageData:", isLoadingImageData);
     if (mealsTextData) {
-      // Always initialize processedMeals with text data first.
-      // This ensures that even if image loading is delayed or fails, text is available.
       let currentProcessedMeals = mealsTextData.map(meal => ({
         ...meal,
-        image_url: undefined, // Start with no image URL
+        image_url: undefined, 
       }));
 
       if (mealsImageData) {
-        // If image data is also available, merge it in.
-        console.log("[AddMealToPlanDialog] Merging with available image data...");
         const imageMap = new Map(mealsImageData.map(img => [img.id, img.image_url]));
         currentProcessedMeals = currentProcessedMeals.map(meal => ({
           ...meal,
-          image_url: imageMap.get(meal.id) || meal.image_url, // Keep existing if new is null/undefined
+          image_url: imageMap.get(meal.id) || meal.image_url, 
         }));
       }
       setProcessedMeals(currentProcessedMeals);
-      console.log("[AddMealToPlanDialog] setProcessedMeals called with:", currentProcessedMeals);
     } else {
-      setProcessedMeals([]); // If no text data, clear processed meals
+      setProcessedMeals([]); 
     }
-  }, [mealsTextData, mealsImageData, isLoadingImageData]); // Dependency array is key
+  }, [mealsTextData, mealsImageData, isLoadingImageData]);
 
   const filteredMeals = useMemo(() => {
     if (!processedMeals) return [];
@@ -184,11 +174,9 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
   };
 
   const addMealToPlanMutation = useMutation({
-    mutationFn: async ({ meal_id, plan_date_str, meal_type_str }: { meal_id: string; plan_date_str: string; meal_type_str: string }) => {
-      // ... (mutation logic remains the same)
+    mutationFn: async ({ meal_id, plan_date_str, meal_type_str, desired_servings }: { meal_id: string; plan_date_str: string; meal_type_str: string; desired_servings: number | undefined }) => {
       if (!userId) throw new Error("User not authenticated.");
       if (!selectedMealTypeForSaving) {
-        console.error("Save attempt with undefined selectedMealTypeForSaving.");
         throw new Error("Meal type for saving is not defined.");
       }
       const { error: deleteError } = await supabase
@@ -199,7 +187,13 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
       
       const { data, error: insertError } = await supabase
         .from("meal_plans")
-        .insert([{ user_id: userId, meal_id: meal_id, plan_date: plan_date_str, meal_type: selectedMealTypeForSaving }]) 
+        .insert([{ 
+          user_id: userId, 
+          meal_id: meal_id, 
+          plan_date: plan_date_str, 
+          meal_type: selectedMealTypeForSaving,
+          desired_servings: desired_servings // Save desired servings
+        }]) 
         .select();
       if (insertError) throw insertError;
       return data;
@@ -223,13 +217,38 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
       showError("Please select a meal. The meal type is determined by the planner slot.");
       return;
     }
+    if (desiredServings !== undefined && (isNaN(desiredServings) || desiredServings <= 0)) {
+      showError("Please enter a valid number for desired servings (must be greater than 0).");
+      return;
+    }
     const plan_date_str = format(planDate, "yyyy-MM-dd");
-    addMealToPlanMutation.mutate({ meal_id: selectedMealId, plan_date_str, meal_type_str: selectedMealTypeForSaving });
+    addMealToPlanMutation.mutate({ 
+      meal_id: selectedMealId, 
+      plan_date_str, 
+      meal_type_str: selectedMealTypeForSaving,
+      desired_servings: desiredServings 
+    });
+  };
+
+  const handleMealSelection = (mealId: string) => {
+    setSelectedMealId(mealId);
+    const meal = processedMeals?.find(m => m.id === mealId);
+    if (meal?.servings) {
+      const originalServings = parseFirstNumber(meal.servings);
+      setDesiredServings(originalServings ?? undefined);
+    } else {
+      setDesiredServings(undefined);
+    }
+    setIsComboboxOpen(false);
+    setSearchTerm("");
   };
 
   if (!planDate) return null;
   const descriptionDisplayMealType = initialMealType || "Meal";
-  const overallLoading = isLoadingTextData;
+  
+  const selectedMealDetails = useMemo(() => {
+    return processedMeals?.find((meal) => meal.id === selectedMealId);
+  }, [selectedMealId, processedMeals]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -264,7 +283,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
                   className="w-full justify-between font-normal"
                 >
                   {selectedMealId
-                    ? processedMeals?.find((meal) => meal.id === selectedMealId)?.name
+                    ? selectedMealDetails?.name
                     : "Select a meal..."}
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
@@ -287,9 +306,6 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
                     ) : !mealsTextData || mealsTextData.length === 0 ? (
                       <CommandEmpty>No meals found. Add some first!</CommandEmpty>
                     ) : 
-                      // At this point, mealsTextData has items.
-                      // Now check filteredMeals which is derived from processedMeals.
-                      // processedMeals should have been populated by the useEffect above.
                       filteredMeals.length === 0 ? (
                       <CommandEmpty>No meals match your search/filters.</CommandEmpty>
                     ) : (
@@ -298,11 +314,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
                           <CommandItem
                             key={meal.id}
                             value={meal.id} 
-                            onSelect={(currentValue) => { 
-                              setSelectedMealId(currentValue === selectedMealId ? undefined : currentValue);
-                              setIsComboboxOpen(false);
-                              setSearchTerm("");
-                            }}
+                            onSelect={() => handleMealSelection(meal.id)}
                             className="cursor-pointer"
                           >
                             <Check className={cn("mr-2 h-4 w-4", selectedMealId === meal.id ? "opacity-100" : "opacity-0")} />
@@ -339,6 +351,32 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
               </PopoverContent>
             </Popover>
           </div>
+
+          {selectedMealId && selectedMealDetails && (
+            <div className="grid grid-cols-1 items-center gap-2">
+              <Label htmlFor="desiredServings" className="text-sm font-medium">
+                Desired Servings for this Plan
+              </Label>
+              <Input
+                id="desiredServings"
+                type="number"
+                min="1"
+                value={desiredServings === undefined ? '' : desiredServings}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setDesiredServings(val === '' ? undefined : parseInt(val, 10));
+                }}
+                placeholder={`Original: ${selectedMealDetails.servings || 'N/A'}`}
+                className="w-full"
+              />
+              {selectedMealDetails.servings && (
+                <p className="text-xs text-muted-foreground">
+                  This meal was originally created for {selectedMealDetails.servings}. 
+                  Adjust if you want a different amount for this specific plan entry.
+                </p>
+              )}
+            </div>
+          )}
         </div>
         <DialogFooter className="mt-auto pt-4 border-t">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={addMealToPlanMutation.isPending}>
@@ -347,7 +385,14 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
           <Button 
             type="submit" 
             onClick={handleSave} 
-            disabled={isLoadingTextData || (mealsTextData && mealsTextData.length > 0 && isLoadingImageData && !processedMeals.find(m => m.id === selectedMealId)?.image_url) || addMealToPlanMutation.isPending || !selectedMealId || !selectedMealTypeForSaving}
+            disabled={
+              isLoadingTextData || 
+              (mealsTextData && mealsTextData.length > 0 && isLoadingImageData && !processedMeals.find(m => m.id === selectedMealId)?.image_url) || 
+              addMealToPlanMutation.isPending || 
+              !selectedMealId || 
+              !selectedMealTypeForSaving ||
+              (desiredServings !== undefined && (isNaN(desiredServings) || desiredServings <= 0))
+            }
           >
             {addMealToPlanMutation.isPending ? "Saving..." : "Save Meal"}
           </Button>
