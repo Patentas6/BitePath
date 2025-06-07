@@ -35,7 +35,10 @@ interface WeeklyPlannerProps {
   userId: string;
   currentWeekStart: Date;
   preSelectedMealId?: string | null; 
-  onMealPreSelectedAndPlanned?: () => void; 
+  preSelectedMealName?: string | null; // New prop
+  preSelectedMealOriginalServings?: string | null | undefined; // New prop
+  onPreselectedMealSlotClick?: (planDate: Date, mealType: PlanningMealType, mealId: string, mealName: string, originalServings: string | null | undefined) => void; // New prop
+  onMealPreSelectedAndPlanned?: () => void; // Kept for now, but its role might change
 }
 
 const MEAL_TYPE_DISPLAY_ORDER: PlanningMealType[] = ["Breakfast", "Brunch Snack", "Lunch", "Afternoon Snack", "Dinner"];
@@ -43,7 +46,10 @@ const MEAL_TYPE_DISPLAY_ORDER: PlanningMealType[] = ["Breakfast", "Brunch Snack"
 const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ 
   userId, 
   currentWeekStart, 
-  preSelectedMealId, 
+  preSelectedMealId,
+  preSelectedMealName,
+  preSelectedMealOriginalServings,
+  onPreselectedMealSlotClick,
   onMealPreSelectedAndPlanned 
 }) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -112,6 +118,8 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({
     },
   });
 
+  // This directAddMealToPlanMutation might become obsolete or only used by AddMealToPlanDialog
+  // For now, keeping it to see how AddMealToPlanDialog is structured.
   const directAddMealToPlanMutation = useMutation({
     mutationFn: async ({ meal_id, plan_date_obj, meal_type_str }: { meal_id: string; plan_date_obj: Date; meal_type_str: string }) => {
       if (!userId) throw new Error("User not authenticated.");
@@ -177,12 +185,8 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({
       return;
     }
 
-    if (preSelectedMealId && mealType) { 
-      directAddMealToPlanMutation.mutate({
-        meal_id: preSelectedMealId,
-        plan_date_obj: day,
-        meal_type_str: mealType,
-      });
+    if (preSelectedMealId && preSelectedMealName && mealType && onPreselectedMealSlotClick) { 
+      onPreselectedMealSlotClick(day, mealType, preSelectedMealId, preSelectedMealName, preSelectedMealOriginalServings);
     } else { 
       setSelectedDateForDialog(day);
       setSelectedMealTypeForDialog(mealType); 
@@ -213,7 +217,6 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({
       let dailySum = 0;
       if (mealsForDay) {
         mealsForDay.forEach(plan => {
-          // Calculate calories per original serving of the meal
           const originalTotalCaloriesStr = plan.meals?.estimated_calories;
           const originalServingsStr = plan.meals?.servings;
           
@@ -396,6 +399,7 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({
           planDate={selectedDateForDialog}
           userId={userId}
           initialMealType={selectedMealTypeForDialog}
+          // No preSelectedMealId here, this is for general planning
         />
       )}
     </>

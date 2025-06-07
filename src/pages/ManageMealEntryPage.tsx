@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { format as formatDateFns, startOfWeek, addDays } from "date-fns";
-import { IMAGE_GENERATION_LIMIT_PER_MONTH, RECIPE_GENERATION_LIMIT_PER_PERIOD, RECIPE_GENERATION_PERIOD_DAYS } from '@/lib/constants';
+import { format as formatDateFns, startOfWeek, addDays, parseISO } from "date-fns";
+import { IMAGE_GENERATION_LIMIT_PER_MONTH, RECIPE_GENERATION_LIMIT_PER_PERIOD, RECIPE_GENERATION_PERIOD_DAYS, PLANNING_MEAL_TYPES, PlanningMealType } from '@/lib/constants';
 import { useIsMobile } from "@/hooks/use-mobile"; 
 import { cn } from "@/lib/utils";
 
@@ -10,6 +10,7 @@ import AppHeader from "@/components/AppHeader";
 import MealForm, { GenerationStatusInfo as MealFormGenerationStatus, MealFormValues } from "@/components/MealForm";
 import GenerateMealFlow, { GeneratedMeal } from "@/components/GenerateMealFlow"; 
 import WeeklyPlanner from "@/components/WeeklyPlanner"; 
+import AddMealToPlanDialog from "@/components/AddMealToPlanDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'; 
 import { Button } from '@/components/ui/button'; 
@@ -38,6 +39,21 @@ export interface CombinedGenerationLimits {
   isLoadingProfile: boolean;
 }
 
+interface NewlySavedMealInfo {
+  id: string;
+  name: string;
+  servings: string | null | undefined;
+}
+
+interface AddToPlanDialogState {
+  open: boolean;
+  planDate: Date | null;
+  initialMealType?: PlanningMealType | string | null;
+  preSelectedMealId?: string;
+  preSelectedMealName?: string;
+  originalMealServings?: string | null;
+}
+
 const ManageMealEntryPage = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'generate' | 'add'>('generate');
@@ -45,8 +61,13 @@ const ManageMealEntryPage = () => {
   const isMobile = useIsMobile();
   
   const [showPostSavePlanner, setShowPostSavePlanner] = useState(false);
-  const [newlySavedMealInfo, setNewlySavedMealInfo] = useState<{id: string, name: string} | null>(null);
+  const [newlySavedMealInfo, setNewlySavedMealInfo] = useState<NewlySavedMealInfo | null>(null);
   const [plannerWeekStart, setPlannerWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
+
+  const [addToPlanDialogState, setAddToPlanDialogState] = useState<AddToPlanDialogState>({
+    open: false,
+    planDate: null,
+  });
 
   const queryClient = useQueryClient();
 
@@ -149,7 +170,6 @@ const ManageMealEntryPage = () => {
   const mealFormInitialData = useMemo((): MealFormValues | null => {
     if (!mealDataForManualForm) return null;
     
-    // Ensure ingredients is always an array, even if empty
     const ingredientsForForm = (mealDataForManualForm.ingredients || []).map(ing => ({
       name: ing.name || "",
       quantity: ing.quantity !== undefined && ing.quantity !== null ? String(ing.quantity) : "",
@@ -159,7 +179,7 @@ const ManageMealEntryPage = () => {
 
     return {
       name: mealDataForManualForm.name || "",
-      ingredients: ingredientsForForm, // This will be [] if source was undefined or []
+      ingredients: ingredientsForForm, 
       instructions: mealDataForManualForm.instructions || "",
       meal_tags: mealDataForManualForm.meal_tags || [],
       image_url: mealDataForManualForm.image_url || "",
@@ -169,14 +189,16 @@ const ManageMealEntryPage = () => {
   }, [mealDataForManualForm]);
 
   const handleMealFormInitialDataProcessed = () => {
-    // This callback could be used to clear mealDataForManualForm if needed,
-    // but the key change on MealForm might make this less critical.
-    // For now, let MealForm handle its own state once initialData is processed.
+    // Callback for MealForm after it processes initialData
   };
   
-  const handleMealSaveSuccess = (savedMeal: {id: string, name: string}) => {
-    setMealDataForManualForm(null); // Clear data used for editing
-    setNewlySavedMealInfo(savedMeal);
+  const handleMealSaveSuccess = (savedMeal: {id: string, name: string, servings?: string | null | undefined}) => {
+    setMealDataForManualForm(null); 
+    setNewlySavedMealInfo({
+      id: savedMeal.id,
+      name: savedMeal.name,
+      servings: savedMeal.servings,
+    });
     setShowPostSavePlanner(true);
   };
 
@@ -190,7 +212,24 @@ const ManageMealEntryPage = () => {
     setPlannerWeekStart(prev => addDays(prev, direction === "next" ? 7 : -7));
   };
 
-  if (showPostSavePlanner && userId) {
+  const handleOpenServingsDialogForNewMeal = (
+    planDate: Date, 
+    mealType: PlanningMealType, 
+    mealId: string, 
+    mealName: string, 
+    originalServings: string | null | undefined
+  ) => {
+    setAddToPlanDialogState({
+      open: true,
+      planDate,
+      initialMealType: mealType,
+      preSelectedMealId: mealId,
+      preSelectedMealName: mealName,
+      originalMealServings: originalServings,
+    });
+  };
+
+  if (showPostSavePlanner && userId && newlySavedMealInfo) {
     return (
       <div className={cn("min-h-screen bg-background text-foreground", isMobile ? "pt-4 pb-20 px-2" : "p-4")}>
         <AppHeader />
@@ -206,10 +245,10 @@ const ManageMealEntryPage = () => {
               <X className="h-5 w-5" />
             </Button>
             <h2 className="text-xl font-semibold text-center mb-2">
-              "{newlySavedMealInfo?.name}" saved!
+              "{newlySavedMealInfo.name}" saved!
             </h2>
             <p className="text-sm text-muted-foreground text-center mb-4">
-              Click a slot below to add it to your plan.
+              Click a slot below to add it to your plan and set servings.
             </p>
             
             <div className="flex justify-between items-center mb-4">
@@ -220,14 +259,30 @@ const ManageMealEntryPage = () => {
             <WeeklyPlanner 
               userId={userId} 
               currentWeekStart={plannerWeekStart} 
-              preSelectedMealId={newlySavedMealInfo?.id || null}
-              onMealPreSelectedAndPlanned={handleClosePostSavePlanner}
+              preSelectedMealId={newlySavedMealInfo.id}
+              preSelectedMealName={newlySavedMealInfo.name}
+              preSelectedMealOriginalServings={newlySavedMealInfo.servings}
+              onPreselectedMealSlotClick={handleOpenServingsDialogForNewMeal}
+              // onMealPreSelectedAndPlanned prop is now handled by AddMealToPlanDialog's onSaveSuccessCallback
             />
             <div className="mt-6 text-center">
-              <Button onClick={handleClosePostSavePlanner}>Done Planning</Button>
+              <Button onClick={handleClosePostSavePlanner}>Done Planning For Now</Button>
             </div>
           </div>
         </div>
+        {addToPlanDialogState.open && userId && (
+          <AddMealToPlanDialog
+            open={addToPlanDialogState.open}
+            onOpenChange={(open) => setAddToPlanDialogState(prev => ({ ...prev, open }))}
+            planDate={addToPlanDialogState.planDate}
+            userId={userId}
+            initialMealType={addToPlanDialogState.initialMealType}
+            preSelectedMealId={addToPlanDialogState.preSelectedMealId}
+            preSelectedMealName={addToPlanDialogState.preSelectedMealName}
+            originalMealServings={addToPlanDialogState.originalMealServings}
+            onSaveSuccessCallback={handleClosePostSavePlanner} // This will close the post-save planner view
+          />
+        )}
       </div>
     );
   }
@@ -251,7 +306,7 @@ const ManageMealEntryPage = () => {
           </TabsList>
           <TabsContent value="add" className="mt-4">
             <MealForm 
-              key={mealDataForManualForm ? 'edit-mode' : 'add-mode'} // Key to force remount
+              key={mealDataForManualForm ? 'edit-mode' : 'add-mode'} 
               generationStatus={combinedGenerationLimits.image} 
               isLoadingProfile={combinedGenerationLimits.isLoadingProfile}
               showCaloriesField={combinedGenerationLimits.showCaloriesField}
@@ -275,6 +330,21 @@ const ManageMealEntryPage = () => {
           </TabsContent>
         </Tabs>
       </div>
+      {/* Render AddMealToPlanDialog for general use if needed, though current flow focuses on post-save */}
+      {/* This instance is primarily for the post-save flow */}
+      {addToPlanDialogState.open && userId && !showPostSavePlanner && (
+          <AddMealToPlanDialog
+            open={addToPlanDialogState.open}
+            onOpenChange={(open) => setAddToPlanDialogState(prev => ({ ...prev, open }))}
+            planDate={addToPlanDialogState.planDate}
+            userId={userId}
+            initialMealType={addToPlanDialogState.initialMealType}
+            preSelectedMealId={addToPlanDialogState.preSelectedMealId}
+            preSelectedMealName={addToPlanDialogState.preSelectedMealName}
+            originalMealServings={addToPlanDialogState.originalMealServings}
+            // No onSaveSuccessCallback here if it's not the post-save flow, or a different one.
+          />
+        )}
     </div>
   );
 };

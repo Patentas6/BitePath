@@ -38,7 +38,7 @@ interface MealTextData {
   id: string;
   name: string;
   meal_tags?: string[] | null;
-  servings?: string | null; // Added servings here
+  servings?: string | null; 
 }
 
 interface MealImageData {
@@ -56,6 +56,10 @@ interface AddMealToPlanDialogProps {
   planDate: Date | null;
   userId: string | null;
   initialMealType?: PlanningMealType | string | null;
+  preSelectedMealId?: string; // New prop
+  preSelectedMealName?: string; // New prop
+  originalMealServings?: string | null | undefined; // New prop
+  onSaveSuccessCallback?: () => void; // New prop
 }
 
 const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
@@ -64,8 +68,12 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
   planDate,
   userId,
   initialMealType,
+  preSelectedMealId,
+  preSelectedMealName,
+  originalMealServings,
+  onSaveSuccessCallback,
 }) => {
-  const [selectedMealId, setSelectedMealId] = useState<string | undefined>(undefined);
+  const [selectedMealId, setSelectedMealId] = useState<string | undefined>(preSelectedMealId);
   const [selectedMealTypeForSaving, setSelectedMealTypeForSaving] = useState<PlanningMealType | undefined>(undefined);
   const [desiredServings, setDesiredServings] = useState<number | undefined>(undefined);
   const [searchTerm, setSearchTerm] = useState("");
@@ -75,19 +83,18 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
   const queryClient = useQueryClient();
 
   const { data: mealsTextData, isLoading: isLoadingTextData, error: textDataError } = useQuery<MealTextData[]>({
-    queryKey: ["userMealsTextOnlyWithServings", userId], // Updated queryKey
+    queryKey: ["userMealsTextOnlyWithServings", userId], 
     queryFn: async () => {
       if (!userId) throw new Error("User ID is required to fetch meal text data.");
-      console.log("[AddMealToPlanDialog] Fetching text-only meal data with servings...");
       const { data, error } = await supabase
         .from("meals")
-        .select("id, name, meal_tags, servings") // Added servings to select
+        .select("id, name, meal_tags, servings") 
         .eq("user_id", userId)
         .order("name", { ascending: true });
       if (error) throw error;
       return data || [];
     },
-    enabled: !!userId && open,
+    enabled: !!userId && open && !preSelectedMealId, // Only fetch if not pre-selected
   });
 
   const { data: mealsImageData, isLoading: isLoadingImageData, error: imageDataError } = useQuery<MealImageData[]>({
@@ -101,35 +108,53 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
       if (error) throw error;
       return data || [];
     },
-    enabled: !!userId && open && !isLoadingTextData && !!mealsTextData, 
+    enabled: !!userId && open && !preSelectedMealId && !isLoadingTextData && !!mealsTextData, 
   });
-
+  
   useEffect(() => {
     if (open) {
       setSearchTerm("");
-      setSelectedMealId(undefined);
-      setDesiredServings(undefined);
-      setProcessedMeals([]); 
-
+      setSelectedMealId(preSelectedMealId); // Set from prop if available
+      
       const typeForSavingDatabase = PLANNING_MEAL_TYPES.find(t => t === initialMealType);
       setSelectedMealTypeForSaving(typeForSavingDatabase);
 
-      let tagsToPreselect: MealTag[] = [];
-      const snackTag = MEAL_TAG_OPTIONS.find(tag => tag === "Snack");
-      if (initialMealType) {
-        if (MEAL_TAG_OPTIONS.includes(initialMealType as MealTag)) {
-          tagsToPreselect = [initialMealType as MealTag];
-        } else if ((initialMealType === "Afternoon Snack" || initialMealType === "Brunch Snack") && snackTag) {
-          tagsToPreselect = [snackTag];
-        }
+      if (preSelectedMealId && originalMealServings) {
+        const originalServingsNum = parseFirstNumber(originalMealServings);
+        setDesiredServings(originalServingsNum ?? undefined);
+      } else {
+        setDesiredServings(undefined);
       }
-      setSelectedTags(tagsToPreselect);
+
+      if (!preSelectedMealId) {
+        setProcessedMeals([]); 
+        let tagsToPreselect: MealTag[] = [];
+        const snackTag = MEAL_TAG_OPTIONS.find(tag => tag === "Snack");
+        if (initialMealType) {
+          if (MEAL_TAG_OPTIONS.includes(initialMealType as MealTag)) {
+            tagsToPreselect = [initialMealType as MealTag];
+          } else if ((initialMealType === "Afternoon Snack" || initialMealType === "Brunch Snack") && snackTag) {
+            tagsToPreselect = [snackTag];
+          }
+        }
+        setSelectedTags(tagsToPreselect);
+      } else {
+        // If pre-selected, no need to set tags for filtering
+        setSelectedTags([]);
+      }
+
     } else {
       setIsComboboxOpen(false);
     }
-  }, [open, initialMealType]);
+  }, [open, initialMealType, preSelectedMealId, originalMealServings]);
 
   useEffect(() => {
+    if (preSelectedMealId) {
+      // If a meal is pre-selected, we don't need to populate `processedMeals` from full fetch
+      // The name is passed via `preSelectedMealName`
+      setProcessedMeals([]);
+      return;
+    }
     if (mealsTextData) {
       let currentProcessedMeals = mealsTextData.map(meal => ({
         ...meal,
@@ -147,10 +172,10 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
     } else {
       setProcessedMeals([]); 
     }
-  }, [mealsTextData, mealsImageData]); // Removed isLoadingImageData from dependency array here as it's covered by mealsImageData
+  }, [mealsTextData, mealsImageData, preSelectedMealId]);
 
   const filteredMeals = useMemo(() => {
-    if (!processedMeals) return [];
+    if (preSelectedMealId || !processedMeals) return []; // No filtering if pre-selected
     let tempFilteredMeals = processedMeals;
 
     if (searchTerm) {
@@ -165,7 +190,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
       );
     }
     return tempFilteredMeals;
-  }, [processedMeals, searchTerm, selectedTags]);
+  }, [processedMeals, searchTerm, selectedTags, preSelectedMealId]);
 
   const toggleTagFilter = (tag: MealTag) => {
     setSelectedTags(prev =>
@@ -174,7 +199,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
   };
 
   const addMealToPlanMutation = useMutation({
-    mutationFn: async ({ meal_id, plan_date_str, meal_type_str, desired_servings }: { meal_id: string; plan_date_str: string; meal_type_str: string; desired_servings: number | undefined }) => {
+    mutationFn: async ({ meal_id, plan_date_str, meal_type_str, desired_servings_val }: { meal_id: string; plan_date_str: string; meal_type_str: string; desired_servings_val: number | undefined }) => {
       if (!userId) throw new Error("User not authenticated.");
       if (!selectedMealTypeForSaving) {
         throw new Error("Meal type for saving is not defined.");
@@ -192,7 +217,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
           meal_id: meal_id, 
           plan_date: plan_date_str, 
           meal_type: selectedMealTypeForSaving,
-          desired_servings: desired_servings // Save desired servings
+          desired_servings: desired_servings_val 
         }]) 
         .select();
       if (insertError) throw insertError;
@@ -205,6 +230,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
       queryClient.invalidateQueries({ queryKey: ["groceryListSource"] });
       queryClient.invalidateQueries({ queryKey: ["todaysGroceryListSource"] });
       onOpenChange(false);
+      onSaveSuccessCallback?.(); // Call the callback if provided
     },
     onError: (error) => {
       console.error("Error updating meal plan:", error);
@@ -226,7 +252,7 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
       meal_id: selectedMealId, 
       plan_date_str, 
       meal_type_str: selectedMealTypeForSaving,
-      desired_servings: desiredServings 
+      desired_servings_val: desiredServings 
     });
   };
 
@@ -234,8 +260,8 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
     setSelectedMealId(mealId);
     const meal = processedMeals?.find(m => m.id === mealId);
     if (meal?.servings) {
-      const originalServings = parseFirstNumber(meal.servings);
-      setDesiredServings(originalServings ?? undefined);
+      const originalServingsNum = parseFirstNumber(meal.servings);
+      setDesiredServings(originalServingsNum ?? undefined);
     } else {
       setDesiredServings(undefined);
     }
@@ -246,113 +272,118 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
   if (!planDate) return null;
   const descriptionDisplayMealType = initialMealType || "Meal";
   
-  const selectedMealDetails = useMemo(() => {
-    return processedMeals?.find((meal) => meal.id === selectedMealId);
-  }, [selectedMealId, processedMeals]);
+  const currentSelectedMealName = preSelectedMealId 
+    ? preSelectedMealName 
+    : processedMeals?.find((meal) => meal.id === selectedMealId)?.name;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md max-h-[85vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>Add / Change Meal</DialogTitle>
+          <DialogTitle>{preSelectedMealId ? `Set Servings for "${preSelectedMealName}"` : "Add / Change Meal"}</DialogTitle>
           <DialogDescription>
             For {descriptionDisplayMealType} on {format(planDate, "EEEE, MMM dd, yyyy")}.
+            {preSelectedMealId && originalMealServings && ` Original servings: ${originalMealServings}.`}
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 py-4 overflow-y-auto flex-grow pr-2">
-          <div>
-            <Label className="text-sm font-medium">Filter by tags:</Label>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {MEAL_TAG_OPTIONS.map(tag => (
-                <Button key={tag} variant={selectedTags.includes(tag) ? "default" : "outline"} size="sm" onClick={() => toggleTagFilter(tag)} className="text-xs px-2 py-1 h-auto">
-                  {tag}
-                </Button>
-              ))}
-            </div>
-          </div>
+          {!preSelectedMealId && (
+            <>
+              <div>
+                <Label className="text-sm font-medium">Filter by tags:</Label>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {MEAL_TAG_OPTIONS.map(tag => (
+                    <Button key={tag} variant={selectedTags.includes(tag) ? "default" : "outline"} size="sm" onClick={() => toggleTagFilter(tag)} className="text-xs px-2 py-1 h-auto">
+                      {tag}
+                    </Button>
+                  ))}
+                </div>
+              </div>
 
-          <div className="grid grid-cols-1 items-center gap-2">
-            <Label className="text-sm font-medium">Select Meal</Label>
-            <Popover open={isComboboxOpen} onOpenChange={setIsComboboxOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={isComboboxOpen}
-                  className="w-full justify-between font-normal"
-                >
-                  {selectedMealId
-                    ? selectedMealDetails?.name
-                    : "Select a meal..."}
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                <Command shouldFilter={false}>
-                  <CommandInput
-                    placeholder="Search meal by name..."
-                    value={searchTerm}
-                    onValueChange={(value) => {
-                      setSearchTerm(value);
-                      if (!isComboboxOpen && value) setIsComboboxOpen(true);
-                    }}
-                  />
-                  <CommandList className="max-h-[200px] sm:max-h-[250px]">
-                    {isLoadingTextData ? (
-                      <div className="p-2 text-sm text-muted-foreground">Loading meals...</div>
-                    ) : textDataError ? (
-                      <div className="p-2 text-sm text-red-500">Error loading meal details.</div>
-                    ) : !mealsTextData || mealsTextData.length === 0 ? (
-                      <CommandEmpty>No meals found. Add some first!</CommandEmpty>
-                    ) : 
-                      filteredMeals.length === 0 ? (
-                      <CommandEmpty>No meals match your search/filters.</CommandEmpty>
-                    ) : (
-                      <CommandGroup>
-                        {filteredMeals.map((meal) => (
-                          <CommandItem
-                            key={meal.id}
-                            value={meal.id} 
-                            onSelect={() => handleMealSelection(meal.id)}
-                            className="cursor-pointer"
-                          >
-                            <Check className={cn("mr-2 h-4 w-4", selectedMealId === meal.id ? "opacity-100" : "opacity-0")} />
-                            <div className="flex items-center space-x-2 overflow-hidden">
-                              {meal.image_url ? (
-                                <img
-                                  src={meal.image_url}
-                                  alt={meal.name}
-                                  className="h-8 w-8 object-cover rounded-sm flex-shrink-0"
-                                  loading="lazy"
-                                />
-                              ) : (
-                                <div className="h-8 w-8 bg-muted rounded-sm flex-shrink-0"></div> 
-                              )}
-                              <div className="flex flex-col overflow-hidden">
-                                <span className="font-medium truncate">{meal.name}</span>
-                                {meal.meal_tags && meal.meal_tags.length > 0 && (
-                                  <div className="flex flex-wrap gap-1 mt-0.5">
-                                    {meal.meal_tags.slice(0,3).map(tag => <Badge key={tag} variant="secondary" className="text-xs px-1 py-0">{tag}</Badge>)}
-                                    {meal.meal_tags.length > 3 && <Badge variant="secondary" className="text-xs px-1 py-0">...</Badge>}
+              <div className="grid grid-cols-1 items-center gap-2">
+                <Label className="text-sm font-medium">Select Meal</Label>
+                <Popover open={isComboboxOpen} onOpenChange={setIsComboboxOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={isComboboxOpen}
+                      className="w-full justify-between font-normal"
+                    >
+                      {selectedMealId
+                        ? currentSelectedMealName
+                        : "Select a meal..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                    <Command shouldFilter={false}>
+                      <CommandInput
+                        placeholder="Search meal by name..."
+                        value={searchTerm}
+                        onValueChange={(value) => {
+                          setSearchTerm(value);
+                          if (!isComboboxOpen && value) setIsComboboxOpen(true);
+                        }}
+                      />
+                      <CommandList className="max-h-[200px] sm:max-h-[250px]">
+                        {isLoadingTextData ? (
+                          <div className="p-2 text-sm text-muted-foreground">Loading meals...</div>
+                        ) : textDataError ? (
+                          <div className="p-2 text-sm text-red-500">Error loading meal details.</div>
+                        ) : !mealsTextData || mealsTextData.length === 0 ? (
+                          <CommandEmpty>No meals found. Add some first!</CommandEmpty>
+                        ) : 
+                          filteredMeals.length === 0 ? (
+                          <CommandEmpty>No meals match your search/filters.</CommandEmpty>
+                        ) : (
+                          <CommandGroup>
+                            {filteredMeals.map((meal) => (
+                              <CommandItem
+                                key={meal.id}
+                                value={meal.id} 
+                                onSelect={() => handleMealSelection(meal.id)}
+                                className="cursor-pointer"
+                              >
+                                <Check className={cn("mr-2 h-4 w-4", selectedMealId === meal.id ? "opacity-100" : "opacity-0")} />
+                                <div className="flex items-center space-x-2 overflow-hidden">
+                                  {meal.image_url ? (
+                                    <img
+                                      src={meal.image_url}
+                                      alt={meal.name}
+                                      className="h-8 w-8 object-cover rounded-sm flex-shrink-0"
+                                      loading="lazy"
+                                    />
+                                  ) : (
+                                    <div className="h-8 w-8 bg-muted rounded-sm flex-shrink-0"></div> 
+                                  )}
+                                  <div className="flex flex-col overflow-hidden">
+                                    <span className="font-medium truncate">{meal.name}</span>
+                                    {meal.meal_tags && meal.meal_tags.length > 0 && (
+                                      <div className="flex flex-wrap gap-1 mt-0.5">
+                                        {meal.meal_tags.slice(0,3).map(tag => <Badge key={tag} variant="secondary" className="text-xs px-1 py-0">{tag}</Badge>)}
+                                        {meal.meal_tags.length > 3 && <Badge variant="secondary" className="text-xs px-1 py-0">...</Badge>}
+                                      </div>
+                                    )}
                                   </div>
-                                )}
-                              </div>
-                            </div>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    )}
-                    {imageDataError && !textDataError && (
-                        <div className="p-1 text-xs text-amber-600 text-center">Could not load all meal images.</div>
-                    )}
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-          </div>
+                                </div>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        )}
+                        {imageDataError && !textDataError && (
+                            <div className="p-1 text-xs text-amber-600 text-center">Could not load all meal images.</div>
+                        )}
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </>
+          )}
 
-          {selectedMealId && selectedMealDetails && (
+          {(selectedMealId || preSelectedMealId) && (
             <div className="grid grid-cols-1 items-center gap-2">
               <Label htmlFor="desiredServings" className="text-sm font-medium">
                 Desired Servings for this Plan
@@ -366,12 +397,12 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
                   const val = e.target.value;
                   setDesiredServings(val === '' ? undefined : parseInt(val, 10));
                 }}
-                placeholder={`Original: ${selectedMealDetails.servings || 'N/A'}`}
+                placeholder={`Original: ${originalMealServings || (processedMeals?.find(m => m.id === selectedMealId)?.servings) || 'N/A'}`}
                 className="w-full"
               />
-              {selectedMealDetails.servings && (
+              {(originalMealServings || processedMeals?.find(m => m.id === selectedMealId)?.servings) && (
                 <p className="text-xs text-muted-foreground">
-                  This meal was originally created for {selectedMealDetails.servings}. 
+                  This meal was originally created for {originalMealServings || processedMeals?.find(m => m.id === selectedMealId)?.servings}. 
                   Adjust if you want a different amount for this specific plan entry.
                 </p>
               )}
@@ -386,14 +417,14 @@ const AddMealToPlanDialog: React.FC<AddMealToPlanDialogProps> = ({
             type="submit" 
             onClick={handleSave} 
             disabled={
-              isLoadingTextData || // Wait for essential text data
+              (isLoadingTextData && !preSelectedMealId) || 
               addMealToPlanMutation.isPending || 
               !selectedMealId || 
               !selectedMealTypeForSaving ||
               (desiredServings !== undefined && (isNaN(desiredServings) || desiredServings <= 0))
             }
           >
-            {addMealToPlanMutation.isPending ? "Saving..." : "Save Meal"}
+            {addMealToPlanMutation.isPending ? "Saving..." : "Save Meal to Plan"}
           </Button>
         </DialogFooter>
       </DialogContent>
