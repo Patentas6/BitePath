@@ -19,6 +19,7 @@ interface MealPlan {
   meal_id: string;
   plan_date: string;
   meal_type?: string;
+  desired_servings?: number | null; 
   meals: {
     name: string;
     estimated_calories?: string | null; 
@@ -81,7 +82,7 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({
       const end = format(addDays(currentWeekStart, 6), 'yyyy-MM-dd');
       const { data, error } = await supabase
         .from("meal_plans")
-        .select("id, meal_id, plan_date, meal_type, meals ( name, estimated_calories, servings )") 
+        .select("id, meal_id, plan_date, meal_type, desired_servings, meals ( name, estimated_calories, servings )") 
         .eq("user_id", userId)
         .gte("plan_date", start)
         .lte("plan_date", end);
@@ -212,12 +213,23 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({
       let dailySum = 0;
       if (mealsForDay) {
         mealsForDay.forEach(plan => {
-          const caloriesPerServing = calculateCaloriesPerServing(plan.meals?.estimated_calories, plan.meals?.servings);
-          dailySum += caloriesPerServing || 0;
+          // Calculate calories per original serving of the meal
+          const originalTotalCaloriesStr = plan.meals?.estimated_calories;
+          const originalServingsStr = plan.meals?.servings;
+          
+          let caloriesPerOriginalServing = 0;
+          if (originalTotalCaloriesStr && originalServingsStr) {
+            const originalTotalCaloriesNum = parseFirstNumber(originalTotalCaloriesStr);
+            const originalServingsNum = parseFirstNumber(originalServingsStr);
+            if (originalTotalCaloriesNum && originalServingsNum && originalServingsNum > 0) {
+              caloriesPerOriginalServing = originalTotalCaloriesNum / originalServingsNum;
+            }
+          }
+          dailySum += caloriesPerOriginalServing;
         });
       }
       if (dailySum > 0) {
-        totals.set(dateKey, dailySum);
+        totals.set(dateKey, Math.round(dailySum));
       }
     });
     return totals;
@@ -257,27 +269,42 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({
                   >
                     <div className="font-semibold text-foreground text-sm sm:text-base">{format(day, 'EEE')}</div>
                     <div className="text-xs sm:text-sm text-muted-foreground">{format(day, 'MMM dd')}</div>
-                    {/* Calorie display or placeholder for consistent height */}
                     {userProfile?.track_calories ? (
                       (dailyTotal && dailyTotal > 0) ? (
-                        <div className="text-xs text-primary mt-0.5 flex items-center h-[1rem]"> {/* Fixed height for the line */}
+                        <div className="text-xs text-primary mt-0.5 flex items-center h-[1rem]">
                           <Zap size={10} className="mr-0.5" />
                           {dailyTotal} kcal
                         </div>
                       ) : (
-                        <div className="mt-0.5 h-[1rem]">&nbsp;</div> // Placeholder with same height
+                        <div className="mt-0.5 h-[1rem]">&nbsp;</div> 
                       )
                     ) : (
-                      <div className="mt-0.5 h-[1rem]">&nbsp;</div> // Placeholder if not tracking calories
+                      <div className="mt-0.5 h-[1rem]">&nbsp;</div> 
                     )}
                   </div>
                   <div className="flex flex-col space-y-1">
                     {MEAL_TYPE_DISPLAY_ORDER.map(mealType => {
                       const plannedMeal = mealsForDayMap?.get(mealType);
-                      const caloriesPerServing = calculateCaloriesPerServing(plannedMeal?.meals?.estimated_calories, plannedMeal?.meals?.servings);
-                      const servingsText = plannedMeal?.meals?.servings;
-                      const servingsNumber = servingsText ? (parseFirstNumber(servingsText) ?? servingsText) : null;
+                      
+                      const originalTotalCaloriesStr = plannedMeal?.meals?.estimated_calories;
+                      const originalServingsStr = plannedMeal?.meals?.servings;
+                      const desiredServingsNum = plannedMeal?.desired_servings;
 
+                      let displayServingsStr = "N/A";
+                      if (desiredServingsNum && desiredServingsNum > 0) {
+                        displayServingsStr = `${desiredServingsNum} serving${desiredServingsNum !== 1 ? 's' : ''}`;
+                      } else if (plannedMeal?.meals?.servings) {
+                        displayServingsStr = plannedMeal.meals.servings;
+                      }
+                      
+                      let caloriesPerOriginalServing: number | null = null;
+                      if (userProfile?.track_calories && originalTotalCaloriesStr && originalServingsStr) {
+                        const originalTotalCaloriesNum = parseFirstNumber(originalTotalCaloriesStr);
+                        const originalServingsNum = parseFirstNumber(originalServingsStr);
+                        if (originalTotalCaloriesNum && originalServingsNum && originalServingsNum > 0) {
+                          caloriesPerOriginalServing = Math.round(originalTotalCaloriesNum / originalServingsNum);
+                        }
+                      }
 
                       return (
                         <div
@@ -306,24 +333,24 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({
                                 {plannedMeal.meals?.name || 'Unknown Meal'}
                               </div>
                               
-                              {(servingsNumber || (userProfile?.track_calories && caloriesPerServing !== null)) && (
+                              {(displayServingsStr !== "N/A" || (userProfile?.track_calories && caloriesPerOriginalServing !== null)) && (
                                 <div className={cn(
                                   "text-[9px] mt-auto flex items-center space-x-1 whitespace-nowrap overflow-hidden",
                                   isDayPast ? "text-gray-500 dark:text-gray-500" : "text-muted-foreground"
                                 )}>
-                                  {servingsNumber && (
+                                  {displayServingsStr !== "N/A" && (
                                     <span className="flex items-center">
                                       <Users size={9} className="mr-0.5 flex-shrink-0" />
-                                      {servingsNumber} 
+                                      {displayServingsStr} 
                                     </span>
                                   )}
-                                  {userProfile?.track_calories && caloriesPerServing !== null && servingsNumber && (
+                                  {userProfile?.track_calories && caloriesPerOriginalServing !== null && displayServingsStr !== "N/A" && (
                                     <span>|</span>
                                   )}
-                                  {userProfile?.track_calories && caloriesPerServing !== null && (
+                                  {userProfile?.track_calories && caloriesPerOriginalServing !== null && (
                                     <span className={cn("flex items-center", isDayPast ? "text-gray-500 dark:text-gray-500" : "text-primary")}>
                                       <Zap size={9} className="mr-0.5 flex-shrink-0" />
-                                      {caloriesPerServing} kcal/s
+                                      {caloriesPerOriginalServing} kcal/s
                                     </span>
                                   )}
                                 </div>
