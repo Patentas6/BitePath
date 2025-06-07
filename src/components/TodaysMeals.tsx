@@ -153,20 +153,17 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
       let caloriesForThisMeal = 0;
 
       if (desiredServingsNum && desiredServingsNum > 0) {
-        // Calculate based on desired servings
         const originalTotalCaloriesNum = parseFirstNumber(originalTotalCaloriesStr);
         const originalServingsNum = parseFirstNumber(originalServingsStr);
 
         if (originalTotalCaloriesNum && originalServingsNum && originalServingsNum > 0) {
           const caloriesPerOriginalServing = originalTotalCaloriesNum / originalServingsNum;
-          caloriesForThisMeal = caloriesPerOriginalServing; // We sum up per-serving calories
+          caloriesForThisMeal = caloriesPerOriginalServing; 
         } else {
-          // Fallback if original scaling info is incomplete, try direct calculation
           const perServing = calculateCaloriesPerServing(originalTotalCaloriesStr, desiredServingsNum.toString());
           if (perServing) caloriesForThisMeal = perServing;
         }
       } else {
-        // Fallback to original calculation if no desired servings
         const perServing = calculateCaloriesPerServing(originalTotalCaloriesStr, originalServingsStr);
         if (perServing) caloriesForThisMeal = perServing;
       }
@@ -257,7 +254,11 @@ const TodaysMeals: React.FC<TodaysMealsProps> = ({ userId }) => {
                 const MealContentWrapper = showExampleData ? 'div' : Link;
                 const mealContentWrapperProps = showExampleData 
                   ? { className: "flex-grow w-full sm:w-auto block p-1 -m-1" }
-                  : { to: mealDetailLink, className: "flex-grow w-full sm:w-auto block hover:bg-muted/30 rounded-md p-1 -m-1 transition-colors" };
+                  : { 
+                      to: mealDetailLink, 
+                      state: { desiredServings: plannedMeal.desired_servings }, // Pass desired_servings in state
+                      className: "flex-grow w-full sm:w-auto block hover:bg-muted/30 rounded-md p-1 -m-1 transition-colors" 
+                    };
 
                 return (
                   <li 

@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useLocation } from 'react-router-dom'; // Added useLocation
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { ArrowLeft, Image as ImageIcon, Users, Zap, Tag } from 'lucide-react';
@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import AppHeader from '@/components/AppHeader';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
-import { calculateCaloriesPerServing } from '@/utils/mealUtils';
+import { calculateCaloriesPerServing, parseFirstNumber } from '@/utils/mealUtils';
 
 interface Meal {
   id: string;
@@ -37,8 +37,11 @@ interface UserProfileData {
 const MealDetailPage = () => {
   const { mealId } = useParams<{ mealId: string }>();
   const navigate = useNavigate();
+  const location = useLocation(); // Get location object
   const isMobile = useIsMobile();
   const [userId, setUserId] = useState<string | null>(null);
+
+  const desiredServingsFromState = location.state?.desiredServings as number | undefined;
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -84,23 +87,59 @@ const MealDetailPage = () => {
     enabled: !!mealId,
   });
 
-  const parsedIngredients = useMemo(() => {
+  const scaledAndParsedIngredients = useMemo(() => {
     if (!meal?.ingredients) return [];
     try {
       const parsed = JSON.parse(meal.ingredients) as ParsedIngredient[];
-      return parsed.filter(ing => ing.name && ing.name.trim() !== '');
+      const ingredientsToDisplay = parsed.filter(ing => ing.name && ing.name.trim() !== '');
+
+      if (desiredServingsFromState && meal.servings) {
+        const originalServingsNum = parseFirstNumber(meal.servings);
+        if (originalServingsNum && originalServingsNum > 0 && desiredServingsFromState > 0 && desiredServingsFromState !== originalServingsNum) {
+          const scalingFactor = desiredServingsFromState / originalServingsNum;
+          return ingredientsToDisplay.map(ing => {
+            let scaledQuantity: number | string | null = ing.quantity;
+            if (typeof ing.quantity === 'number') {
+              scaledQuantity = parseFloat((ing.quantity * scalingFactor).toFixed(2));
+            } else if (typeof ing.quantity === 'string') {
+              const numQuantity = parseFloat(ing.quantity);
+              if (!isNaN(numQuantity)) {
+                scaledQuantity = parseFloat((numQuantity * scalingFactor).toFixed(2));
+              }
+            }
+            // Ensure "to taste" or null quantities are not scaled numerically
+            if (ing.description?.toLowerCase() === 'to taste' || ing.quantity === null) {
+                scaledQuantity = ing.quantity; 
+            }
+            return { ...ing, quantity: scaledQuantity };
+          });
+        }
+      }
+      return ingredientsToDisplay;
     } catch (e) {
-      console.error('Failed to parse ingredients:', e);
+      console.error('Failed to parse or scale ingredients:', e);
       return [];
     }
-  }, [meal?.ingredients]);
+  }, [meal?.ingredients, meal?.servings, desiredServingsFromState]);
 
-  const caloriesPerServing = useMemo(() => {
-    if (meal) {
-      return calculateCaloriesPerServing(meal.estimated_calories, meal.servings);
+  const displayServingsStr = useMemo(() => {
+    if (desiredServingsFromState && desiredServingsFromState > 0) {
+      return `${desiredServingsFromState} serving${desiredServingsFromState !== 1 ? 's' : ''}`;
+    }
+    return meal?.servings || "N/A";
+  }, [desiredServingsFromState, meal?.servings]);
+
+  const caloriesPerDisplayServing = useMemo(() => {
+    if (meal && userProfile?.track_calories) {
+      // Use desiredServingsFromState for calculation if available, otherwise meal's original servings
+      const servingsForCalc = desiredServingsFromState && desiredServingsFromState > 0 
+        ? desiredServingsFromState.toString() 
+        : meal.servings;
+      return calculateCaloriesPerServing(meal.estimated_calories, servingsForCalc);
     }
     return null;
-  }, [meal]);
+  }, [meal, userProfile, desiredServingsFromState]);
+
 
   if (isLoading || isLoadingProfile) {
     return (
@@ -178,36 +217,37 @@ const MealDetailPage = () => {
               </div>
             )}
 
-            {(meal.servings || (userProfile?.track_calories && caloriesPerServing !== null)) && (
+            {(displayServingsStr !== "N/A" || (userProfile?.track_calories && caloriesPerDisplayServing !== null)) && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3 border rounded-md bg-muted/50">
-                {meal.servings && (
+                {displayServingsStr !== "N/A" && (
                   <div className="flex items-center">
                     <Users className="mr-2 h-5 w-5 text-primary" />
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">Servings</p>
-                      <p className="text-base font-semibold">{meal.servings}</p>
+                      <p className="text-base font-semibold">{displayServingsStr}</p>
                     </div>
                   </div>
                 )}
-                {userProfile?.track_calories && caloriesPerServing !== null && (
+                {userProfile?.track_calories && caloriesPerDisplayServing !== null && (
                    <div className="flex items-center">
                     <Zap className="mr-2 h-5 w-5 text-primary" />
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">Est. Calories</p>
-                      <p className="text-base font-semibold">{caloriesPerServing} per serving</p>
+                      <p className="text-base font-semibold">{caloriesPerDisplayServing} per serving</p>
                     </div>
                   </div>
                 )}
               </div>
             )}
             
-            {parsedIngredients.length > 0 && (
+            {scaledAndParsedIngredients.length > 0 && (
               <div>
                 <h3 className="text-xl font-semibold mb-2">Ingredients</h3>
                 <ul className="list-disc list-inside space-y-1 pl-4 text-muted-foreground">
-                  {parsedIngredients.map((ing, index) => (
+                  {scaledAndParsedIngredients.map((ing, index) => (
                     <li key={index}>
-                      {ing.quantity && ing.unit && ing.description?.toLowerCase() !== 'to taste' ? `${ing.quantity} ${ing.unit} ` : ''}
+                      {typeof ing.quantity === 'number' && ing.unit && ing.description?.toLowerCase() !== 'to taste' ? `${ing.quantity} ${ing.unit} ` : ''}
+                      {typeof ing.quantity === 'string' && ing.quantity.trim() !== "" && ing.unit && ing.description?.toLowerCase() !== 'to taste' ? `${ing.quantity} ${ing.unit} ` : ''}
                       {ing.name}
                       {ing.description ? ` (${ing.description})` : ''}
                     </li>
