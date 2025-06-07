@@ -44,7 +44,7 @@ interface GenerateMealFlowProps {
   isLoadingProfile: boolean;
   userProfile: UserProfileDataForAI | null;
   onEditGeneratedMeal: (meal: GeneratedMeal) => void; 
-  onSaveSuccess: (savedMeal: {id: string, name: string}) => void;
+  onSaveSuccess: (savedMeal: {id: string, name: string, servings?: string | null}) => void; // Ensure servings is string | null
 }
 
 const mealTypes = ["Breakfast", "Lunch", "Dinner", "Snack"];
@@ -277,17 +277,26 @@ const GenerateMealFlow: React.FC<GenerateMealFlowProps> = ({
             estimated_calories: mealToSave.estimated_calories,
             servings: mealToSave.servings, 
           },])
-        .select();
+        .select('id, name, servings'); // Ensure servings is selected
       if (error) throw error;
-      return { data, mealToSave }; // Pass mealToSave for onSuccess
+      return { data, mealToSave }; 
     },
     onSuccess: ({ data, mealToSave }) => {
       showSuccess(`"${mealToSave.name}" saved to My Meals!`);
       const savedMealEntry = data?.[0];
       if (savedMealEntry && onSaveSuccess) {
-        onSaveSuccess({ id: savedMealEntry.id, name: mealToSave.name });
+        onSaveSuccess({ 
+          id: savedMealEntry.id, 
+          name: mealToSave.name, 
+          servings: savedMealEntry.servings // Use servings from the database response
+        });
       } else if (onSaveSuccess) {
-        onSaveSuccess({ id: 'unknown', name: mealToSave.name });
+        // Fallback if DB response is unexpected, use mealToSave.servings
+        onSaveSuccess({ 
+          id: 'unknown', 
+          name: mealToSave.name, 
+          servings: mealToSave.servings 
+        });
       }
       queryClient.invalidateQueries({ queryKey: ["meals"] });
       setGeneratedMeal(null); 
