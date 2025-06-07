@@ -12,6 +12,7 @@ import { convertToPreferredSystem } from "@/utils/conversionUtils";
 import { cn } from "@/lib/utils";
 import ManualAddItemForm from "./ManualAddItemForm";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const SHARED_LOCAL_STORAGE_KEY = 'bitepath-struckSharedGroceryItems';
 const MANUAL_ITEMS_LOCAL_STORAGE_KEY = 'bitepath-manualGroceryItems';
@@ -127,6 +128,7 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
   const [displaySystem, setDisplaySystem] = useState<'imperial' | 'metric'>('imperial');
   const [isManualAddDialogOpen, setIsManualAddDialogOpen] = useState(false);
   const [groceryViewMode, setGroceryViewMode] = useState<'byMeal' | 'byCategory'>('byMeal');
+  const isMobile = useIsMobile();
 
   const [manualItems, setManualItems] = useState<ManualGroceryItem[]>(() => {
     const saved = localStorage.getItem(MANUAL_ITEMS_LOCAL_STORAGE_KEY);
@@ -496,12 +498,12 @@ const TodaysGroceryList: React.FC<TodaysGroceryListProps> = ({ userId }) => {
         <CardTitle>Today's Ingredients ({format(today, 'MMM dd')})</CardTitle>
         <Button 
           variant="outline" 
-          size="sm" 
+          size={isMobile ? "icon" : "sm"}
           onClick={() => setGroceryViewMode(prev => prev === 'byMeal' ? 'byCategory' : 'byMeal')}
           className="h-8 text-sm"
         >
-          {groceryViewMode === 'byMeal' ? <LayoutGrid className="mr-2 h-4 w-4" /> : <List className="mr-2 h-4 w-4" />}
-          View by {groceryViewMode === 'byMeal' ? 'Category' : 'Meal'}
+          {groceryViewMode === 'byMeal' ? <LayoutGrid className={cn("h-4 w-4", !isMobile && "mr-2")} /> : <List className={cn("h-4 w-4", !isMobile && "mr-2")} />}
+          {!isMobile && `View by ${groceryViewMode === 'byMeal' ? 'Category' : 'Meal'}`}
         </Button>
       </CardHeader>
       <CardContent className="flex-grow">
