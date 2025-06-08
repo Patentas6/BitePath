@@ -11,6 +11,7 @@ public class MainActivity extends BridgeActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+
         // Get the WebView instance from Capacitor
         WebView webView = this.getBridge().getWebView();
 
